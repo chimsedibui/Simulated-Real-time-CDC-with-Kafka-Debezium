@@ -1,36 +1,44 @@
 # Real-time CDC Pipeline
 
-A production-style **Change Data Capture (CDC)** pipeline that streams every INSERT, UPDATE, and DELETE from PostgreSQL to Kafka in real time — no polling, no delay. Today it runs end-to-end locally; the roadmap extends it into a **streaming lakehouse** (Flink → Iceberg → MinIO/S3) with a clear migration path to AWS.
+A production-style **Change Data Capture (CDC)** pipeline that streams every INSERT, UPDATE, and DELETE from PostgreSQL through Kafka into a **ClickHouse data warehouse** in about a second, with a web **Control Center** to generate traffic, watch each change as it happens, and explore the warehouse. The roadmap adds a **streaming lakehouse** (Flink → Iceberg → MinIO/S3) and a migration path to AWS.
 
 ---
 
-## Architecture (today)
+## Architecture
 
 ```
-┌─────────────────────┐   WAL (logical replication)   ┌─────────────────┐
+┌──────────────────────┐
+│  CDC Control Center  │  React + FastAPI  (http://localhost:8000)
+│  generator · live ·  │──────────────────────────────────────────────┐
+│  warehouse analytics │  writes business events     reads gold marts │
+└──────────┬───────────┘                                              │
+           │ INSERT/UPDATE/DELETE                                     │
+┌──────────▼──────────┐   WAL (logical replication)   ┌───────────────┴─┐
 │   PostgreSQL 15     │ ─────────────────────────────► │    Debezium     │
 │  schema: ecommerce  │                                │  Kafka Connect  │
 └─────────────────────┘                                └────────┬────────┘
-                                                                │ JSON events
+                                                                │ JSON envelopes
                                                        ┌────────▼────────┐
                                                        │      Kafka      │
                                                        │   (KRaft mode)  │
                                                        └────────┬────────┘
-                                          ┌────────────────────┼────────────────────┐
-                                          │                    │                    │
-                               ┌──────────▼──────┐  ┌─────────▼──────┐  ┌─────────▼──────────┐
-                               │   Kafka UI      │  │   Dashboard    │  │  Flink → Iceberg   │
-                               │  (monitoring)   │  │  (Streamlit)   │  │  (lakehouse, next) │
-                               └─────────────────┘  └────────────────┘  └────────────────────┘
+                         ┌──────────────────────┬───────────────┼───────────────────┐
+                         │                      │               │                   │
+              ┌──────────▼──────┐  ┌────────────▼───┐  ┌────────▼──────────────────┐│
+              │   Kafka UI      │  │   Streamlit    │  │        ClickHouse         ││
+              │  (monitoring)   │  │   dashboard    │  │ Kafka engine → bronze     ││
+              └─────────────────┘  └────────────────┘  │ → silver (upserts) → gold │◄┘
+                                                       └───────────────────────────┘
 ```
 
 **How it works:**
 1. PostgreSQL writes all changes to its **WAL (Write-Ahead Log)** in `logical` mode.
 2. Debezium reads the WAL via a **replication slot** and **publication**, packaging each change as a JSON event.
 3. Events land on **Kafka topics** (`cdc.ecommerce.<table>`), partitioned and retained for downstream consumers.
-4. The Streamlit dashboard consumes topics directly and renders live metrics.
+4. **ClickHouse** consumes the topics with its Kafka table engine and materialized views. Every event lands in `bronze`, `silver` holds the current state of each table, and `gold` exposes the business marts. See [Data Warehouse](#data-warehouse-clickhouse).
+5. The **CDC Control Center** web app drives the data generator, tails Kafka for a live event feed, and charts the `gold` marts.
 
-> The fourth box — **Flink → Iceberg** — is the next milestone. See [Roadmap](#roadmap--from-cdc-demo-to-streaming-lakehouse) for the full target architecture.
+> Measured locally, a commit in PostgreSQL shows up in ClickHouse with a p50 of about 0.8 s and a p95 of about 1.8 s.
 
 ---
 
@@ -43,31 +51,64 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 | Debezium | `debezium/connect:2.7.3.Final` | `8083` | CDC engine — bridges Postgres WAL to Kafka |
 | Kafka UI | `provectuslabs/kafka-ui:latest` | `8080` | Web UI to inspect topics and messages |
 | Adminer | `adminer:latest` | `8081` | Lightweight PostgreSQL web UI |
-| Dashboard | `./dashboard` (Streamlit) | `8501` | Real-time CDC event dashboard from Kafka |
+| Dashboard | `./dashboard` (Streamlit) | `8501` | Lightweight CDC event dashboard from Kafka |
+| ClickHouse | `clickhouse/clickhouse-server:25.8` | `8123` / `9000` | Data warehouse — Kafka engine ingestion, bronze/silver/gold |
+| Control Center | `./webapp` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, warehouse analytics |
+| Source API | `./source_api` (FastAPI) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs` |
+| Simulator | `./simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
+| Validator | `./validation` (profile `tools`) | — | API tests and data-quality / reconciliation checks, run on demand |
 
 *Coming in the roadmap:* **Apache Flink** (stream processor), **Apache Iceberg** (table format), **MinIO** (S3-compatible object store).
+
+> ClickHouse must be 25.x or newer: `cp-kafka:latest` is now Kafka 4.x, which removed the old protocol versions that the librdkafka bundled in ClickHouse 24.x uses. The symptom is `Required feature not supported by broker`.
 
 ---
 
 ## Data Model
 
-Schema `ecommerce` in database `enterprise_db` — simulates a computer hardware e-commerce store.
+Schema `ecommerce` in database `enterprise_db` models a **multi-seller marketplace** in the style of Shopee or TikTok Shop. It covers many categories: phones, laptops, fashion, beauty, home, mother & baby, groceries. Money is `BIGINT` VND, and prices include VAT. No business rows are seeded by SQL: the simulator creates everything through the Source API.
 
 ```
 ecommerce
-├── customers        — buyers with loyalty tiers: BRONZE / SILVER / GOLD / PLATINUM
-├── products         — catalog (CPU, GPU, RAM, SSD, PSU, Case, Cooler, Monitor, Peripheral)
-├── orders           — orders with auto-generated number (ORD-YYYY-NNNNNN)
-├── order_items      — line items per order (FK → orders, products)
-├── inventory        — stock levels per product across warehouses A/B/C
-├── audit_logs       — manual change tracking log
-├── cdc_heartbeat    — Debezium heartbeat table (prevents WAL bloat)
-├── debezium_signals — send signals to Debezium (incremental snapshot, etc.)
-└── cdc_metrics      — trigger-based counter: INSERT/UPDATE/DELETE per table
+├── customers, customer_addresses          buyers (segment, loyalty tier, lifetime spend) and address book
+├── sellers, shops                          shop tier MALL / PREFERRED / NORMAL, ship-from province, commission, penalty points
+├── categories, brands                      two-level category tree, brands
+├── products, product_skus, price_history   listings per shop; price and weight per SKU; every price change
+├── inventory, inventory_movements          stock per SKU (on_hand / reserved / available) + append-only stock ledger
+├── carts, cart_items                       one ACTIVE cart per buyer; removing a line is a hard DELETE
+├── checkouts                               one payment of a buyer, split into one order per shop
+├── orders, order_items                     10-status lifecycle, money breakdown, milestone timestamps, price snapshot per line
+├── order_status_history                    append-only: every move with its actor (BUYER/SELLER/PAYMENT/LOGISTICS/SYSTEM)
+├── payments, refunds                       online attempts per checkout, COD collection per order; refunds
+├── vouchers, voucher_usages                platform (fixed / percent / free-shipping) and shop vouchers, with limits
+├── campaigns, flash_sale_items             flash sales and mega sales: sale price and quota per SKU
+├── shipments, shipment_events              forward and return parcels (GHN, GHTK, SPX, J&T, VTP) and carrier tracking
+├── returns, return_items                   return / refund requests, disputes, inspection
+├── seller_ledger_entries, seller_payouts   seller wallet ledger (sale, commission, payment fee, payout)
+├── product_reviews                         1–5 star reviews; shop rating aggregates on shops
+├── outbox_events                           domain events (Outbox Event Router → events.<aggregate>)
+└── idempotency_keys, sim_clock, cdc_heartbeat, debezium_signals   infrastructure, not streamed
 ```
 
-Debezium tracks 6 tables via `cdc_publication`:
-`customers`, `products`, `orders`, `order_items`, `inventory`, `debezium_signals`
+**Business clock.** `ecommerce.sim_clock` and `ecommerce.business_now()` run business time at `speed` × wall-clock time.
+
+- Every business timestamp, deadline and background rule uses business time: payment window 15 min, packing SLA 2 days, auto-complete 3 days after delivery, return answer 2 days, daily payouts.
+- At ×240, one business day passes in 6 real minutes, so a demo shows full lifecycles while the rules keep their real durations.
+- Debezium still records the wall-clock commit time, so pipeline lag stays in real seconds.
+
+Change the speed from the Control Center or with `PUT /admin/clock`.
+
+Order lifecycle: `UNPAID → TO_SHIP → READY_TO_SHIP → SHIPPED → DELIVERED → COMPLETED`, with these branches:
+
+- `CANCELLED`: by the buyer, the seller, a payment timeout or a breach of the packing SLA.
+- `DELIVERY_FAILED`: redelivery up to 3 times, then `RETURNED_TO_SELLER`.
+- `RETURN_REFUND`: the buyer asked to return items after delivery.
+  - The order stays here when everything is refunded.
+  - It goes on to `COMPLETED` when the return is rejected or only part of it is refunded.
+
+COD checkouts start at `TO_SHIP`.
+
+Debezium streams every table except the infrastructure ones. Its `table.include.list` is a regex, so new tables are picked up without config changes.
 
 ---
 
@@ -76,15 +117,27 @@ Debezium tracks 6 tables via `cdc_publication`:
 ```
 Real-time CDC/
 ├── docker-compose.yml
-├── requirements.txt              # host-side deps for generate_data.py
 ├── postgres/
-│   ├── init.sql                  # schema, seed data, triggers, functions
+│   ├── init.sql                  # marketplace schema, outbox, publication (no business seed data)
 │   ├── postgresql.conf           # logical replication settings
 │   └── pg_hba.conf
 ├── debezium/
 │   └── postgres-connector.json   # connector config
-├── scripts/
-│   └── generate_data.py          # continuous data generator
+├── source_api/                   # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency)
+├── simulator/                    # traffic simulator, config.yaml holds scale presets and odds
+├── validation/                   # pytest API tests + check_data.py (invariants, write path, reconciliation)
+├── clickhouse/
+│   ├── gen_silver.py             # generates init/02-silver.sql from a table spec
+│   ├── config.d/kafka.xml        # librdkafka settings (earliest offset, fast topic discovery)
+│   └── init/
+│       ├── 01-bronze.sql         # Kafka engine table + raw changelog
+│       ├── 02-silver.sql         # current-state tables (ReplacingMergeTree)
+│       ├── 03-gold.sql           # business marts (views)
+│       └── 04-domain-events.sql  # outbox events → bronze.domain_events
+├── webapp/
+│   ├── Dockerfile                # node build → python runtime (build context: repo root)
+│   ├── backend/                  # FastAPI: generator, Kafka tail, ClickHouse queries
+│   └── frontend/                 # React + Vite + Tailwind + Recharts
 └── dashboard/
     ├── app.py                    # Streamlit real-time dashboard
     ├── Dockerfile
@@ -127,27 +180,23 @@ curl -s http://localhost:8083/connectors/postgres-connector/status | python3 -m 
 
 ### 3. Generate data
 
+The easiest way is the **Control Center** at http://localhost:8000. Press **Start simulation** and adjust the tick interval and orders per tick with the sliders, or fire single business events (place order, advance orders, cancel, restock…) from **Manual actions**. If the Debezium connector is not registered yet, the pipeline bar at the top offers a one-click **register** link.
+
+Or drive the simulator's API directly:
+
 ```bash
-pip install -r requirements.txt
-
-# Default: 2 orders every 5 seconds
-python scripts/generate_data.py
-
-# Faster for demo
-python scripts/generate_data.py --interval 2 --orders-per-tick 5
+curl -X POST localhost:8200/start -H 'Content-Type: application/json' \
+  -d '{"interval": 1, "orders_per_tick": 6, "new_customers_per_tick": 2}'   # orders_per_tick = buyer sessions
+curl -X POST localhost:8200/stop
 ```
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--interval` | `5.0` | Seconds between ticks |
-| `--orders-per-tick` | `2` | Orders created per tick |
-| `--new-customers` | `1` | New customers per tick (40% chance) |
-| `--once` | off | Run one tick then exit |
 
 ### 4. Open the UIs
 
 | UI | URL | Credentials |
 |----|-----|-------------|
+| **CDC Control Center** | http://localhost:8000 | — |
+| Source API docs | http://localhost:8100/docs | — |
+| ClickHouse Play (SQL) | http://localhost:8123/play | User: `admin` · Password: `admin` |
 | Kafka UI | http://localhost:8080 | — |
 | Adminer (DB) | http://localhost:8081 | Server: `postgres` · User: `admin` · Password: `admin` · DB: `enterprise_db` |
 | CDC Dashboard | http://localhost:8501 | — |
@@ -157,16 +206,12 @@ python scripts/generate_data.py --interval 2 --orders-per-tick 5
 
 ## Kafka Topics
 
-| Topic | Source table |
-|-------|-------------|
-| `cdc.ecommerce.customers` | customers |
-| `cdc.ecommerce.products` | products |
-| `cdc.ecommerce.orders` | orders |
-| `cdc.ecommerce.order_items` | order_items |
-| `cdc.ecommerce.inventory` | inventory |
-| `debezium-config` | Debezium internal |
-| `debezium-offsets` | Debezium offset tracking |
-| `debezium-status` | Debezium connector state |
+| Topic | Content |
+|-------|---------|
+| `cdc.ecommerce.<table>` | Row changes of each business table (17 tables) |
+| `events.<aggregate>` | Domain events from the outbox: `events.order`, `events.payment`, `events.checkout`, `events.cart`, `events.customer`, `events.shop`, `events.product`, `events.inventory`, `events.catalog` |
+| `cdc.transaction` | Debezium transaction boundaries (one transaction = one business command) |
+| `debezium-config` / `-offsets` / `-status` | Kafka Connect internals |
 
 Each event payload:
 
@@ -181,6 +226,170 @@ Each event payload:
 ```
 
 `op` values: `c` = INSERT · `u` = UPDATE · `d` = DELETE · `r` = snapshot READ
+
+---
+
+## Source API, simulator and validation
+
+Data changes only through the **Source API** (OpenAPI docs at http://localhost:8100/docs). Each endpoint that writes is one business command:
+
+- It runs in one transaction.
+- It enforces the marketplace rules.
+- It writes a domain event to the outbox.
+- It accepts an `Idempotency-Key` header. Webhook senders pass their own event id, so a redelivered callback is replayed, never applied twice.
+
+| Area | Endpoints |
+|------|-----------|
+| Master data | `POST /admin/categories`, `POST /admin/brands` |
+| Seller center | `POST /sellers` (seller + shop), `POST /shops/{id}/products` (product + SKUs + stock), `POST /skus/{id}/restock`, `POST /orders/{id}/pack`, `POST /orders/{id}/seller-cancel` |
+| Buyer | `POST /customers`, `POST /customers/{id}/addresses`, `POST/PATCH/DELETE /carts/items`, `POST /checkouts`, `POST /checkouts/{id}/payments` (retry), `POST /orders/{id}/cancel`, `POST /orders/{id}/confirm-received` |
+| Promotions | `POST /admin/vouchers`, `POST /shops/{id}/vouchers`, `POST /admin/campaigns` (flash / mega sale with SKU quotas), `PATCH /skus/{id}/price` |
+| Returns & reviews | `POST /orders/{id}/returns`, `POST /returns/{id}/approve\|reject\|inspect\|dispute`, `POST /admin/returns/{id}/resolve`, `POST /orders/{id}/reviews` |
+| Partners | `POST /payments/webhook`, `POST /logistics/webhook` (tracking events by tracking number and carrier event id) |
+| Clock | `GET /clock`, `PUT /admin/clock` |
+| Queries | `GET /skus`, `/orders`, `/orders/{id}` (history, parcels, return), `/checkouts/{id}`, `/carts`, `/customers`, `/shops`, `/shipments`, `/returns`, `/vouchers`, `/campaigns`, `/stats` |
+
+Rules enforced by the API:
+
+- **Stock:** checkouts lock stock rows in a fixed order, so concurrent checkouts can't oversell.
+- **Checkout:** a checkout splits into one order per shop. Shipping is priced from a rate card by distance (same province, same region or another region) and weight.
+- **Payments:**
+  - Online orders wait in `UNPAID` for the payment webhook.
+  - A failed attempt can be retried.
+  - A late or superseded success is refunded automatically.
+  - COD is collected on delivery.
+- **Stock ledger:** every stock change goes through one function and writes one `inventory_movements` row: listing, restock, reserve, release, ship, return to sender, customer return.
+- **Promotions:** a flash price applies only while quota lasts. Vouchers are checked for their window, minimum spend, total limit and per-customer limit, and stacking is limited to one per type. Discounts are split down to order lines, so a partial return refunds exactly what was paid per unit. Vouchers and quota come back when an unpaid checkout ends.
+- **Carriers:** callbacks are deduplicated by carrier event id. A late event older than the parcel's latest one is stored but not applied, and scan events may be skipped.
+- **Returns and settlement:**
+  - Returns are refunded at the net price paid, and sellable items go back into stock.
+  - A completed order settles the seller's wallet with the sale minus the shop voucher, then commission and a 2 % payment fee. Wallets are paid out daily.
+- **Moves and actors:** every status change goes through one state machine, which checks both the move and who makes it, for example only the carrier can mark an order delivered.
+- **Cancellations:** cancelling releases the reservation and refunds a paid order. A parcel returned to the seller goes back on the shelf.
+- **Background jobs** (run as `SYSTEM`):
+  - unpaid checkouts expire;
+  - orders past the seller's packing SLA are cancelled and the shop gets a penalty point;
+  - delivered orders auto-complete;
+  - idle carts are marked abandoned.
+
+  - returns the seller doesn't answer in time are auto-approved;
+  - rejected returns the buyer doesn't dispute are closed;
+  - seller wallets are paid out once a business day.
+
+  Windows are in business time and set by env, for example `PAYMENT_WINDOW_S`, `SELLER_SLA_S`, `AUTO_COMPLETE_S`.
+
+The **simulator** has no database driver and runs on the business clock. Every behaviour is a rate per business hour. Buyer arrivals follow a Poisson process that changes with the hour of day (lunch and evening peaks), weekends and campaigns. SKU popularity is Zipf-distributed. It plays these actors, configured in `simulator/config.yaml`:
+
+- **Buyers:** they fill carts, edit them, check out or leave the cart, retry a failed payment, cancel, and confirm receipt.
+- **Mock payment gateway:** its webhooks can be delayed, fail, arrive twice, or arrive after the payment window.
+- **Sellers:** they pack at a speed set by shop tier, and about 10 % of NORMAL shops are lazy and miss the SLA. They also cancel on stock-outs and restock.
+- **Mock carriers:** tracking events with transit times by distance; failed attempts, redelivery and return to sender; duplicated callbacks and late, out-of-order scans.
+- **Buyer segments:** new, regular, bargain hunter, loyal, business. They differ in activity, checkout rate and voucher use, and they ask for returns, dispute rejections and post reviews.
+- **Platform operations:** daily platform vouchers, three flash-sale slots a day (0h, 12h, 20h), dispute resolution, and the **11.11 mega sale** (traffic ×3 and ×8 in the first hour) started from the Control Center.
+
+On start the simulator seeds the scale preset through the API (`SIM_SCALE=small|medium|large`, default medium):
+
+| Preset | Shops | SKUs | Customers |
+|--------|-------|------|-----------|
+| small | 10 | 200 | 500 |
+| medium | 50 | 1,000 | 5,000 |
+| large | 200 | 5,000 | 30,000 |
+
+Presets are free to edit in the YAML.
+
+Validation, with the simulator stopped:
+
+```bash
+docker compose --profile tools run --rm validator pytest -q          # marketplace rules, 15 scenarios
+docker compose --profile tools run --rm validator python check_data.py
+```
+
+`check_data.py` reads PostgreSQL in one consistent snapshot and exits non-zero on any failure. It runs four groups of checks:
+
+- **Money:** totals of lines, orders and checkouts; one kept payment per paid checkout; refunds; COD collections; spend and tier.
+- **State:** stock balance and reservations; checkout status against order status; milestone timestamps; time rules applied on schedule.
+- **Stock:** inventory equals the ledger, and each movement matches the order or return that caused it.
+- **Logistics:** parcel status matches the order or return, and ignored tracking events really were stale.
+- **Promo:** voucher counters, limits, windows and allocation; flash quota and prices; price at order time against `price_history`.
+- **Returns and settlement:** refund amounts and the order outcome of each return; seller ledger entries per completed order, wallet balances, payouts and shop ratings.
+- **Write path:** one creation event per row; status history replays through allowed moves and actors.
+- **Pipeline:** PostgreSQL against `silver` FINAL for all 30 tables, and the outbox against `bronze.domain_events`.
+
+---
+
+## Data Warehouse (ClickHouse)
+
+ClickHouse reads Kafka directly, so the warehouse needs no extra stream processor or sink connector. The SQL in `clickhouse/init/` runs automatically the first time the `clickhouse_data` volume is created.
+
+```
+Kafka cdc.ecommerce.*
+   │  Kafka engine (bronze.kafka_cdc_events, JSONAsString)
+   ▼  MV bronze.mv_cdc_events
+bronze.cdc_events            append-only changelog: op, lsn, before/after JSON, Kafka offsets
+   │  MV silver.mv_<table>   (one per source table)
+   ▼
+silver.<table>               current state, ReplacingMergeTree(_version = WAL LSN, _is_deleted)
+   │  views (read with FINAL)
+   ▼
+gold.*                       business marts
+```
+
+| Layer | Objects | Notes |
+|-------|---------|-------|
+| bronze | `cdc_events` | Every Debezium event, partitioned by day. Use it for audit, replay and lag metrics. |
+| bronze | `domain_events` | Outbox events from `events.*` (regex subscription), with their event ids. |
+| silver | One table per source table (17). Generated by `clickhouse/gen_silver.py` from a compact spec. | Typed columns (UUID, `Int64` VND, `DateTime64`) plus `_version`, `_is_deleted`, `_synced_at`. Append-only sources such as `order_status_history` are de-duplicated by key. |
+| gold | `daily_sales`, `traffic_by_hour`, `order_status_summary`, `funnel`, `product_sales`, `category_sales`, `shop_performance`, `payment_summary`, `voucher_performance`, `flash_sale_performance`, `delivery_performance`, `returns_summary`, `seller_settlement`, `platform_pnl`, `inventory_risk`, `customer_tiers`, `cdc_freshness` | Plain views, so they always reflect the latest silver state. |
+
+**How upserts and deletes work.** Each event is inserted into silver as a new row whose `_version` is the event's PostgreSQL WAL LSN. LSNs always increase, so replays and duplicates are harmless: the highest version per primary key wins. A delete event inserts the row taken from `before` (possible because of `REPLICA IDENTITY FULL`) with `_is_deleted = 1`. ClickHouse collapses versions during background merges, so **always query silver with `FINAL`** to get exact current state.
+
+Example queries (in http://localhost:8123/play or `docker exec -it cdc-clickhouse clickhouse-client -u admin --password admin`):
+
+```sql
+SELECT * FROM gold.daily_sales;
+SELECT * FROM gold.product_sales LIMIT 10;
+SELECT * FROM gold.cdc_freshness;                       -- per-table lag, last 15 min
+
+-- Full change history of one order
+SELECT op, source_ts, JSONExtractString(after, 'status') AS status
+FROM bronze.cdc_events
+WHERE source_table = 'orders' AND JSONExtractString(if(op = 'd', before, after), 'id') = '<order-uuid>'
+ORDER BY lsn;
+```
+
+Reconciliation check (counts and revenue must match PostgreSQL exactly):
+
+```sql
+SELECT count(), sum(total), countIf(status = 'COMPLETED') FROM silver.orders FINAL;
+```
+
+---
+
+## CDC Control Center (web app)
+
+`webapp/` is a single container serving a React UI and a FastAPI backend on port `8000`.
+
+| Area | What it does |
+|------|--------------|
+| Pipeline bar | Health of Simulator → Source API → PostgreSQL (orders, replication-slot lag) → Debezium (connector state, one-click register) → Kafka (events/s) → ClickHouse (events stored). |
+| Traffic simulator | Business clock and speed (×60 to ×1440); **Flash sale now** and **Start 11.11** scenarios; tune buyer sessions and new customers per business hour; fire actions ×1/×5/×20; seeding progress and the activity log. |
+| Live CDC stream | Events/s stacked by operation, busiest tables, and a live feed across all tables. Click an UPDATE for the field-level before → after diff. |
+| Warehouse analytics | GMV, orders, AOV, buyers; GMV per business hour; platform take rate, promotion cost, refunds, payouts; carriers; returns by reason; vouchers; flash sales; seller wallets; order pipeline (10 statuses); purchase funnel; payments by method (success rate, refunds); revenue by category; top products; shop scorecard (cancel rate, SLA breaches, time to pack); inventory risk; customer tiers; layer row counts and end-to-end lag. |
+
+API (used by the UI): `GET /api/health`, `GET /api/generator`, `POST /api/generator/start|stop|seed`, `PUT /api/generator/config`, `POST /api/actions/{order|cart|advance|customer|cancel|restock|flash_sale|mega_sale}`, `PUT /api/clock`, `GET /api/cdc?since=`, `GET /api/warehouse`, `POST /api/connector/register`.
+
+Local development with hot reload (with the rest of the stack running in Docker):
+
+```bash
+# backend
+cd webapp/backend
+pip install -r requirements.txt
+KAFKA_BROKER=localhost:29092 SIMULATOR_URL=http://localhost:8200 SOURCE_API_URL=http://localhost:8100 uvicorn main:app --reload --port 8000
+
+# frontend (proxies /api to :8000)
+cd webapp/frontend
+npm install && npm run dev       # http://localhost:5173
+```
 
 ---
 
@@ -203,10 +412,11 @@ wal_keep_size = 1GB        # retain WAL long enough for Debezium to catch up
 "replica.identity.autoset": "ecommerce.*:FULL",
 "heartbeat.interval.ms":    "10000",
 "provide.transaction.metadata": "true",
-"decimal.handling.mode":    "double"
+"decimal.handling.mode":    "string"
 ```
 
 `FULL` replica identity ensures `before` values are always present on UPDATE/DELETE.
+`decimal.handling.mode = string` sends `DECIMAL` columns as exact strings (`"109.99"`), so money is never rounded through floating point on its way to ClickHouse's `Decimal` columns.
 
 ### Kafka — KRaft mode (no Zookeeper)
 
@@ -221,11 +431,13 @@ Two listeners are configured:
 Full reset — wipes all data and volumes:
 
 ```bash
-docker compose down
-rm -rf postgres/data
+docker compose down -v           # -v also drops the kafka_data and clickhouse_data volumes
+sudo rm -rf postgres/data        # owned by the container's postgres user
 docker compose up -d
-# Re-register the connector (step 2 above)
+# Re-register the connector (step 2 above, or the "register" link in the Control Center)
 ```
+
+To rebuild only the warehouse, for example after editing `clickhouse/init/*.sql`, run `docker compose rm -sf clickhouse && docker volume rm <project>_clickhouse_data && docker compose up -d clickhouse`. The new tables re-ingest everything still retained in Kafka.
 
 ---
 
@@ -269,7 +481,12 @@ A Flink job consumes the `cdc.ecommerce.*` topics, parses Debezium payloads into
 - PostgreSQL logical replication via `postgres/postgresql.conf`.
 - The `ecommerce` schema with source tables, `cdc_publication`, replication-slot config, a heartbeat table, and a Debezium signal table.
 - `debezium/postgres-connector.json` — initial snapshot + CDC streaming into `cdc.ecommerce.*` topics.
-- `scripts/generate_data.py` — continuous INSERT/UPDATE/DELETE generator.
+- Source API (only writer, marketplace rules, outbox, idempotency) and an agent-based traffic simulator (buyers, sellers, mock payment gateway and carrier).
+- Validation suite: API scenario tests and data-quality / reconciliation checks.
+- ClickHouse warehouse with bronze/silver/gold layers fed directly from Kafka, with correct upsert/delete handling.
+- CDC Control Center web app: generator control, live CDC feed, warehouse analytics.
+
+ClickHouse already serves the real-time analytics use case. The lakehouse milestones below add an open-format, object-storage copy (Iceberg) for long-term retention and other engines.
 
 **Missing for a full lakehouse:**
 - A Flink job that consumes Kafka CDC events.
@@ -357,7 +574,7 @@ Updates and deletes are applied by the source table's primary key. For a current
 | Local Iceberg catalog | **AWS Glue Data Catalog** | Shared metastore for Iceberg tables |
 | Hard-coded local config | **AWS Secrets Manager / SSM Parameter Store** | Endpoints, credentials, bucket names |
 | Local metrics & logs | **CloudWatch + MSK/Flink metrics** | Connector health, lag, checkpoints |
-| `generate_data.py` (local) | **ECS Task** or **AWS Batch** | Scheduled or on-demand |
+| Source API + simulator (local) | **ECS Fargate** services | Simulator scaled down or off in production-like environments |
 
 **What stays the same:** the Debezium connector config, the schema design, and the Kafka topic naming convention all carry forward. The main differences are the broker endpoint and authentication method (IAM or SASL/SCRAM on MSK), and the Iceberg catalog/storage targets.
 

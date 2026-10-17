@@ -1,0 +1,9 @@
+<clickhouse>
+    <!-- librdkafka settings shared by every Kafka engine table -->
+    <kafka>
+        <!-- New consumer group starts from the beginning so the Debezium snapshot is ingested -->
+        <auto_offset_reset>earliest</auto_offset_reset>
+        <!-- Pick up cdc.* topics quickly when the connector is registered after ClickHouse starts -->
+        <topic_metadata_refresh_interval_ms>5000</topic_metadata_refresh_interval_ms>
+    </kafka>
+</clickhouse>

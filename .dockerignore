@@ -1,0 +1,6 @@
+.git
+postgres/data
+**/node_modules
+**/dist
+**/__pycache__
+docs

@@ -114,6 +114,37 @@ services:
     networks:
       - real-time-cdc-network
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    container_name: cdc-clickhouse
+    hostname: clickhouse
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - 8123:8123   # HTTP interface (Play UI at /play)
+      - 9000:9000   # native protocol (clickhouse-client)
+    environment:
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - ./clickhouse/init:/docker-entrypoint-initdb.d
+      - ./clickhouse/config.d/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user admin --password admin --query 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - real-time-cdc-network
+
   dashboard:
     build: ./dashboard
     container_name: cdc-dashboard
@@ -127,9 +158,97 @@ services:
     networks:
       - real-time-cdc-network
 
+  # The only writer to PostgreSQL: business commands, outbox events, idempotency
+  source-api:
+    build: ./source_api
+    container_name: cdc-source-api
+    hostname: source-api
+    ports:
+      - 8100:8100   # OpenAPI docs at /docs
+    environment:
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_USER: admin
+      PG_PASSWORD: admin
+      PG_DB: enterprise_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8100/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - real-time-cdc-network
+
+  # Simulated users and external systems; changes data only through the Source API
+  simulator:
+    build: ./simulator
+    container_name: cdc-simulator
+    hostname: simulator
+    ports:
+      - 8200:8200
+    environment:
+      SOURCE_API_URL: http://source-api:8100
+      SIM_SCALE: ${SIM_SCALE:-medium}
+      SIM_AUTO_SEED: ${SIM_AUTO_SEED:-true}
+      SIM_SPEED: ${SIM_SPEED:-240}           # business clock speed (×wall clock)
+    depends_on:
+      source-api:
+        condition: service_healthy
+    networks:
+      - real-time-cdc-network
+
+  # On-demand checks: `docker compose run --rm validator pytest -q` / `... python check_data.py`
+  validator:
+    build: ./validation
+    profiles: ["tools"]
+    environment:
+      SOURCE_API_URL: http://source-api:8100
+      PG_HOST: postgres
+      CLICKHOUSE_HOST: clickhouse
+    networks:
+      - real-time-cdc-network
+
+  webapp:
+    build:
+      context: .
+      dockerfile: webapp/Dockerfile
+    container_name: cdc-webapp
+    ports:
+      - 8000:8000
+    environment:
+      PG_HOST: postgres            # read-only queries for health
+      PG_PORT: 5432
+      PG_USER: admin
+      PG_PASSWORD: admin
+      PG_DB: enterprise_db
+      KAFKA_BROKER: kafka:9092
+      DEBEZIUM_URL: http://debezium:8083
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin
+      SIMULATOR_URL: http://simulator:8200
+      SOURCE_API_URL: http://source-api:8100
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      simulator:
+        condition: service_started
+    networks:
+      - real-time-cdc-network
+
 volumes:
   postgres_data:
   kafka_data:
+  clickhouse_data:
   
 networks:
   real-time-cdc-network:

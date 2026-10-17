@@ -11,7 +11,8 @@
     "plugin.name": "pgoutput",
     "publication.name": "cdc_publication",
     "slot.name": "debezium_slot",
-    "table.include.list": "ecommerce.customers,ecommerce.products,ecommerce.orders,ecommerce.order_items,ecommerce.inventory,ecommerce.debezium_signals",
+    "_comment_include": "Every ecommerce table except pipeline/infra tables; new business tables are picked up without editing this file",
+    "table.include.list": "ecommerce\\.(?!cdc_heartbeat$|cdc_metrics$|audit_logs$|idempotency_keys$|sim_clock$).+",
 
     "replica.identity.autoset.values": "ecommerce.*:FULL",
 
@@ -28,13 +29,24 @@
     "_transforms.unwrap.delete.handling.mode": "rewrite",
     "_transforms.unwrap.add.fields": "op,table,source.ts_ms",
 
+    "_comment_outbox": "Outbox rows become domain events on events.<aggregatetype>; other tables pass through untouched",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.predicate": "isOutbox",
+    "transforms.outbox.route.topic.replacement": "events.${routedByValue}",
+    "transforms.outbox.table.expand.json.payload": "true",
+    "transforms.outbox.table.fields.additional.placement": "id:envelope:eventId,type:envelope:eventType,aggregatetype:envelope:aggregateType,aggregateid:envelope:aggregateId,created_at:envelope:occurredAt",
+    "predicates": "isOutbox",
+    "predicates.isOutbox.type": "org.apache.kafka.connect.transforms.predicates.TopicNameMatches",
+    "predicates.isOutbox.pattern": "cdc\\.ecommerce\\.outbox_events",
+
     "snapshot.mode": "initial",
     "snapshot.locking.mode": "shared",
     "snapshot.fetch.size": "10000",
     "snapshot.max.threads": "1",
 
     "tombstones.on.delete": "true",
-    "decimal.handling.mode": "double",
+    "decimal.handling.mode": "string",
     "time.precision.mode": "connect",
 
     "signal.enabled.channels": "source",

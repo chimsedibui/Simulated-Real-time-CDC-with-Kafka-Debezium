@@ -74,11 +74,11 @@ for _ in range(300):
         )
         st.session_state.counters[table][op] += 1
 
-        # Track revenue from delivered orders
+        # Track revenue from completed orders (VND)
         if table == "orders" and op == "UPDATE":
             after = value.get("after") or {}
-            if after.get("status") == "DELIVERED":
-                st.session_state.revenue += float(after.get("total_amount", 0))
+            if after.get("status") == "COMPLETED":
+                st.session_state.revenue += float(after.get("total", 0))
 
     except Exception:
         continue
@@ -108,7 +108,7 @@ c2.metric("Orders",        orders)
 c3.metric("Customers",     custs)
 c4.metric("Order Items",   items)
 c5.metric("Inventory",     inv)
-c6.metric("Revenue (delivered)", f"${st.session_state.revenue:,.2f}")
+c6.metric("Revenue (completed)", f"{st.session_state.revenue:,.0f} ₫")
 
 st.divider()
 
