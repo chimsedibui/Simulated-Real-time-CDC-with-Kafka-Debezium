@@ -1,0 +1,56 @@
+{
+  "name": "postgres-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "admin",
+    "database.password": "admin",
+    "database.dbname": "enterprise_db",
+    "topic.prefix": "cdc",
+    "plugin.name": "pgoutput",
+    "publication.name": "cdc_publication",
+    "slot.name": "debezium_slot",
+    "table.include.list": "ecommerce.customers,ecommerce.products,ecommerce.orders,ecommerce.order_items,ecommerce.inventory,ecommerce.debezium_signals",
+
+    "replica.identity.autoset.values": "ecommerce.*:FULL",
+
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter.schemas.enable": "false",
+
+    "column.mask.with.length.chars": "ecommerce.customers.phone:12",
+
+    "_comment_unwrap": "DISABLED: ExtractNewRecordState strips before/after values",
+    "_transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "_transforms.unwrap.drop.tombstones": "false",
+    "_transforms.unwrap.delete.handling.mode": "rewrite",
+    "_transforms.unwrap.add.fields": "op,table,source.ts_ms",
+
+    "snapshot.mode": "initial",
+    "snapshot.locking.mode": "shared",
+    "snapshot.fetch.size": "10000",
+    "snapshot.max.threads": "1",
+
+    "tombstones.on.delete": "true",
+    "decimal.handling.mode": "double",
+    "time.precision.mode": "connect",
+
+    "signal.enabled.channels": "source",
+    "signal.data.collection": "ecommerce.debezium_signals",
+
+    "heartbeat.interval.ms": "10000",
+    "heartbeat.action.query": "INSERT INTO ecommerce.cdc_heartbeat (id,ts) VALUES (1,NOW()) ON CONFLICT (id) DO UPDATE SET ts = NOW()",
+    
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+
+    "provide.transaction.metadata": "true",
+
+    "producer.override.compression.type": "gzip",
+    "producer.override.linger.ms": "10",
+    "producer.override.batch.size": "32000"
+  }
+}

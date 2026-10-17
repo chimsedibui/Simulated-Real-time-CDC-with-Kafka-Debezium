@@ -1,0 +1,15 @@
+# PostgreSQL data
+postgres/data/
+
+# Environment files
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.iml
