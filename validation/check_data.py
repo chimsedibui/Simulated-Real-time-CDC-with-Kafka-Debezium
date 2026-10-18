@@ -9,14 +9,17 @@ Groups:
   returns     — return lines, refund amounts, order outcome of each return
   settlement  — seller ledger per completed order, wallet balance, payouts; shop rating aggregates
   write-path  — every row has its creation event; status history replays via allowed moves and actors
-  pipeline    — PostgreSQL vs ClickHouse silver (30 tables) and outbox vs bronze.domain_events
+  pipeline    — PostgreSQL vs ClickHouse silver (30 tables), consistent.* vs silver, outbox vs bronze.domain_events
+  metrics     — every gold metric equals the same definition computed in PostgreSQL; closed days stay as reported
 
 Run with the simulator stopped so the pipeline can settle:
     docker compose --profile tools run --rm validator python check_data.py
 Exit code 0 = every check passed.
 """
 
+import json
 import os
+import re
 import sys
 import time
 from collections import Counter, defaultdict
@@ -262,10 +265,20 @@ def logistics():
 # ---------------------------------------------------------------------------- promotions
 
 def promo():
-    sql_check("promo", "voucher used_count = applied usages ≤ limit; per-customer limit", """
-        SELECT v.code, v.used_count, count(u.id) FILTER (WHERE u.status = 'APPLIED') AS applied, v.usage_limit
-        FROM ecommerce.vouchers v LEFT JOIN ecommerce.voucher_usages u ON u.voucher_id = v.id GROUP BY v.id
-        HAVING v.used_count <> count(u.id) FILTER (WHERE u.status = 'APPLIED') OR v.used_count > v.usage_limit
+    sql_check("promo", "quota slots: Σ capacity = limit; each slot's used = applied usages on it; per-customer limit", """
+        WITH u AS (SELECT voucher_id, quota_slot, count(*) n FROM ecommerce.voucher_usages
+                   WHERE status = 'APPLIED' GROUP BY 1, 2)
+        SELECT v.code, q.slot, q.used, coalesce(u.n, 0) FROM ecommerce.voucher_quota_slots q
+        JOIN ecommerce.vouchers v ON v.id = q.voucher_id
+        LEFT JOIN u ON u.voucher_id = q.voucher_id AND u.quota_slot = q.slot
+        WHERE q.used <> coalesce(u.n, 0) OR q.used > q.capacity
+        UNION ALL
+        SELECT u.voucher_id::text, u.quota_slot, u.n, NULL FROM u
+        WHERE NOT EXISTS (SELECT 1 FROM ecommerce.voucher_quota_slots q WHERE q.voucher_id = u.voucher_id AND q.slot = u.quota_slot)
+        UNION ALL
+        SELECT v.code, NULL, v.usage_limit, sum(q.capacity) FROM ecommerce.vouchers v
+        LEFT JOIN ecommerce.voucher_quota_slots q ON q.voucher_id = v.id
+        GROUP BY v.id, v.code, v.usage_limit HAVING coalesce(sum(q.capacity), 0) <> v.usage_limit
         UNION ALL
         SELECT v.code, count(*), NULL, v.per_customer_limit FROM ecommerce.voucher_usages u
         JOIN ecommerce.vouchers v ON v.id = u.voucher_id WHERE u.status = 'APPLIED'
@@ -358,31 +371,67 @@ def settlement():
     record("settlement", "completed order settles: sale on kept goods − shop voucher, commission, fee; others none",
            [f"{k[:8]} expected {dict(expected[k])} got {dict(actual[k])}"
             for k in set(expected) | set(actual) if dict(expected[k]) != dict(actual[k])])
-    sql_check("settlement", "wallet = Σ ledger = last running balance; payout = its PAYOUT entry", """
-        WITH l AS (SELECT shop_id, sum(amount) total, (array_agg(balance_after ORDER BY id DESC))[1] last
-                   FROM ecommerce.seller_ledger_entries GROUP BY 1)
-        SELECT s.name, s.wallet_balance, l.total, l.last FROM ecommerce.shops s LEFT JOIN l ON l.shop_id = s.id
-        WHERE s.wallet_balance <> coalesce(l.total, 0) OR s.wallet_balance <> coalesce(l.last, 0)
+    sql_check("settlement", "wallet + pending = Σ ledger; pending rows match their entries; payout = its PAYOUT entry", """
+        WITH l AS (SELECT shop_id, sum(amount) total FROM ecommerce.seller_ledger_entries GROUP BY 1),
+             p AS (SELECT shop_id, sum(amount) pending FROM ecommerce.wallet_pending GROUP BY 1)
+        SELECT s.name, w.balance, p.pending, l.total FROM ecommerce.shops s
+        LEFT JOIN ecommerce.shop_wallets w ON w.shop_id = s.id
+        LEFT JOIN l ON l.shop_id = s.id LEFT JOIN p ON p.shop_id = s.id
+        WHERE w.shop_id IS NULL OR w.balance + coalesce(p.pending, 0) <> coalesce(l.total, 0)
+        UNION ALL
+        SELECT wp.entry_id::text, wp.amount, e.amount, NULL FROM ecommerce.wallet_pending wp
+        LEFT JOIN ecommerce.seller_ledger_entries e ON e.id = wp.entry_id
+        WHERE e.id IS NULL OR e.amount <> wp.amount OR e.shop_id <> wp.shop_id
         UNION ALL
         SELECT p.id::text, p.amount, -sum(e.amount), count(e.id) FROM ecommerce.seller_payouts p
         LEFT JOIN ecommerce.seller_ledger_entries e ON e.payout_id = p.id AND e.entry_type = 'PAYOUT'
         GROUP BY p.id, p.amount HAVING count(e.id) <> 1 OR -sum(e.amount) <> p.amount""")
-    sql_check("settlement", "shop rating aggregates = Σ reviews; reviews only on completed orders by the buyer", """
-        WITH r AS (SELECT shop_id, count(*) n, sum(rating) s FROM ecommerce.product_reviews GROUP BY 1)
-        SELECT s.name, s.rating_count, r.n, s.rating_sum, r.s FROM ecommerce.shops s LEFT JOIN r ON r.shop_id = s.id
-        WHERE s.rating_count <> coalesce(r.n, 0) OR s.rating_sum <> coalesce(r.s, 0)
-        UNION ALL
-        SELECT pr.id::text, NULL, NULL, NULL, NULL FROM ecommerce.product_reviews pr JOIN ecommerce.orders o ON o.id = pr.order_id
+    sql_check("settlement", "reviews only on completed orders, by the buyer, for that shop", """
+        SELECT pr.id::text FROM ecommerce.product_reviews pr JOIN ecommerce.orders o ON o.id = pr.order_id
         WHERE o.status <> 'COMPLETED' OR o.customer_id <> pr.customer_id OR o.shop_id <> pr.shop_id""")
 
 
 # ---------------------------------------------------------------------------- write path
 
+def domain_events() -> list:
+    """Domain events as delivered to ClickHouse, one per event id (the PostgreSQL outbox is always empty)."""
+    rows = ch.query("""SELECT event_type, aggregate_id, any(payload) FROM bronze.domain_events
+                       GROUP BY event_id, event_type, aggregate_id""").result_rows
+    return [{"type": t, "aggregateid": a, "payload": json.loads(p)} for t, a, p in rows]
+
+
 def write_path():
-    events = q("SELECT type, aggregateid, payload FROM ecommerce.outbox_events ORDER BY created_at, id")
+    """Every row against its domain events. Runs on live data after the pipeline settled; jobs keep writing,
+    so it retries until rows and events agree (or the time is up)."""
+    global q
+    snapshot_q, deadline = q, time.time() + 90
+    q = lambda sql, params=None: _live(sql, params)
+    try:
+        while True:
+            mark = len(results)
+            _write_path_once()
+            failing = [r for r in results[mark:] if r[2]]
+            if not failing or time.time() > deadline:
+                return
+            del results[mark:]
+            time.sleep(3)
+    finally:
+        q = snapshot_q
+
+
+def _live(sql, params=None) -> list:
+    with pg_live.cursor() as cur:
+        cur.execute(sql, params)
+        return cur.fetchall()
+
+
+def _write_path_once():
     by_type = defaultdict(list)
-    for e in events:
+    for e in domain_events():
         by_type[e["type"]].append(e)
+    left = q("SELECT count(*) AS n FROM ecommerce.outbox_events")[0]["n"]
+    record("write-path", "outbox table is empty (rows are deleted in the transaction that wrote them)",
+           [f"{left} rows"] * (left > 0))
 
     def ids(event_type, field=None):
         return Counter(str(e["payload"][field]) if field else e["aggregateid"] for e in by_type[event_type])
@@ -447,15 +496,21 @@ def write_path():
            [k for k in set(listed) | set(listed_ledger) if listed[k] != listed_ledger[k]])
 
 
+def no_deadlocks():
+    n = q("SELECT deadlocks FROM pg_stat_database WHERE datname = current_database()")[0]["deadlocks"]
+    record("write-path", "no deadlocks in PostgreSQL (the API retries them, so clients never see one)",
+           [f"{n} deadlocks since stats reset"] * (n > 0))
+
+
 # ---------------------------------------------------------------------------- pipeline
 
 TABLES = ["customers", "customer_addresses", "sellers", "shops", "categories", "brands", "products", "product_skus",
           "inventory", "inventory_movements", "carts", "cart_items", "checkouts", "orders", "order_items",
           "order_status_history", "payments", "refunds", "shipments", "shipment_events", "price_history", "vouchers",
           "voucher_usages", "campaigns", "flash_sale_items", "returns", "return_items", "seller_ledger_entries",
-          "seller_payouts", "product_reviews"]
+          "seller_payouts", "product_reviews", "shop_wallets"]
 AGGS = {
-    "customers": ["sum:total_spent", "where:is_active"], "shops": ["sum:penalty_points", "sum:wallet_balance", "sum:rating_sum"],
+    "customers": ["sum:total_spent", "where:is_active"], "shops": ["sum:penalty_points"], "shop_wallets": ["sum:balance"],
     "product_skus": ["sum:price"], "inventory": ["sum:on_hand", "sum:reserved", "sum:available"],
     "inventory_movements": ["sum:on_hand_delta", "sum:reserved_delta"], "carts": ["where:status = 'ACTIVE'"],
     "cart_items": ["sum:quantity"], "checkouts": ["sum:grand_total", "sum:discount_total", "where:status = 'PAID'"],
@@ -464,7 +519,7 @@ AGGS = {
     "order_items": ["sum:line_total", "sum:net_amount", "sum:quantity"],
     "payments": ["sum:amount", "where:status = 'SUCCEEDED'"], "refunds": ["sum:amount"],
     "shipments": ["sum:attempts", "where:status = 'DELIVERED'"], "shipment_events": ["where:applied"],
-    "price_history": ["sum:new_price"], "vouchers": ["sum:used_count"], "voucher_usages": ["sum:amount", "where:status = 'APPLIED'"],
+    "price_history": ["sum:new_price"], "vouchers": ["sum:usage_limit"], "voucher_usages": ["sum:amount", "sum:quota_slot", "where:status = 'APPLIED'"],
     "flash_sale_items": ["sum:sold"], "returns": ["sum:refund_amount", "where:status = 'REFUNDED'"],
     "return_items": ["sum:refund_amount"], "seller_ledger_entries": ["sum:amount"], "seller_payouts": ["sum:amount"],
     "product_reviews": ["sum:rating"],
@@ -490,12 +545,12 @@ def reconcile_once():
         b = tuple(int(v or 0) for v in ch.query(f"SELECT {', '.join(c for _, c in pairs)} FROM silver.{t} FINAL").result_rows[0])
         if a != b:
             diffs.append(f"{t} pg={a} ch={b}")
-    with pg_live.cursor(cursor_factory=psycopg2.extensions.cursor) as cur:
-        cur.execute("SELECT type, count(*) FROM ecommerce.outbox_events GROUP BY 1")
-        pg_events = dict(cur.fetchall())
-    ch_events = dict(ch.query("SELECT event_type, uniqExact(event_id) FROM bronze.domain_events GROUP BY 1").result_rows)
-    event_diffs = [f"{t} pg={pg_events.get(t, 0)} ch={ch_events.get(t, 0)}"
-                   for t in set(pg_events) | set(ch_events) if pg_events.get(t, 0) != ch_events.get(t, 0)]
+    # each domain event is an outbox insert + delete in a committed transaction (Debezium transaction metadata)
+    written, delivered = ch.query("""
+        SELECT (SELECT intDiv(sum(c), 2) FROM (SELECT tx_id, max(outbox_changes) AS c FROM bronze.cdc_transactions
+                                               GROUP BY tx_id)),
+               (SELECT uniqExact(event_id) FROM bronze.domain_events)""").result_rows[0]
+    event_diffs = [f"committed {written}, delivered {delivered}"] * (written != delivered)
     return diffs, event_diffs
 
 
@@ -506,23 +561,145 @@ def pipeline():
         time.sleep(3)
         diffs, event_diffs = reconcile_once()
     record("pipeline", f"silver FINAL = PostgreSQL ({len(TABLES)} tables, counts and sums)", diffs)
-    record("pipeline", "domain events: outbox = bronze.domain_events per type", event_diffs)
+    record("pipeline", "domain events: every committed outbox insert reached bronze.domain_events", event_diffs)
+    errors = ch.query("SELECT kafka_topic, kafka_offset, error FROM bronze.ingest_errors LIMIT 3").result_rows
+    record("pipeline", "no Kafka message failed to ingest (bronze.ingest_errors)", [f"{t}@{o}: {e[:80]}" for t, o, e in errors])
+    v, held_back = ch.query("SELECT v, held_back FROM consistent.watermark").result_rows[0]
+    view_diffs = []
+    for t in TABLES:
+        cols = ", ".join(c for _, c in _pairs(t))
+        a = ch.query(f"SELECT {cols} FROM silver.{t} FINAL").result_rows[0]
+        b = ch.query(f"SELECT {cols} FROM consistent.{t}(v = {v})").result_rows[0]
+        if a != b:
+            view_diffs.append(f"{t} silver={a} consistent={b}")
+    record("pipeline", "settled: watermark holds nothing back and consistent.*(v) = silver FINAL",
+           [f"{held_back} transactions held back"] * (held_back > 0) + view_diffs)
     dup_cdc = ch.query("SELECT count() - uniqExact(kafka_topic, kafka_partition, kafka_offset) FROM bronze.cdc_events").result_rows[0][0]
     dup_evt = ch.query("SELECT count() - uniqExact(event_id) FROM bronze.domain_events").result_rows[0][0]
     record("pipeline", "duplicate rows in bronze (at-least-once delivery)",
            [f"cdc_events: {dup_cdc}"] * (dup_cdc > 0) + [f"domain_events: {dup_evt}"] * (dup_evt > 0), warn_only=True)
 
 
+# ---------------------------------------------------------------------------- metrics
+
+ORDER_FACTS = """
+    WITH r AS (SELECT oi.order_id, sum(ri.quantity * oi.unit_price) AS gross
+               FROM ecommerce.return_items ri
+               JOIN ecommerce.returns rt ON rt.id = ri.return_id AND rt.status = 'REFUNDED'
+               JOIN ecommerce.order_items oi ON oi.id = ri.order_item_id GROUP BY 1)
+    SELECT o.*, (o.paid_at IS NOT NULL OR o.payment_method = 'COD') AS confirmed,
+           o.status NOT IN ('CANCELLED', 'RETURNED_TO_SELLER') AS kept, coalesce(r.gross, 0) AS returned_gross
+    FROM ecommerce.orders o LEFT JOIN r ON r.order_id = o.id"""
+
+METRICS = {
+    "daily sales: orders, placed GMV, GMV, NMV, unpaid cancellations per business day": (
+        f"""WITH f AS ({ORDER_FACTS})
+            SELECT (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS d, count(*),
+                   sum(subtotal), coalesce(sum(subtotal) FILTER (WHERE confirmed), 0),
+                   coalesce(sum(subtotal - returned_gross) FILTER (WHERE confirmed AND kept), 0),
+                   count(*) FILTER (WHERE status = 'CANCELLED' AND NOT confirmed)
+            FROM f GROUP BY 1""",
+        "SELECT order_date, orders, placed_gmv, gmv, nmv, unpaid_cancelled FROM gold.daily_sales"),
+    "P&L: GMV, NMV, take, promo cost, refunds split by cause, payouts": (
+        f"""WITH f AS ({ORDER_FACTS})
+            SELECT (SELECT coalesce(sum(subtotal) FILTER (WHERE confirmed), 0) FROM f),
+                   (SELECT coalesce(sum(subtotal - returned_gross) FILTER (WHERE confirmed AND kept), 0) FROM f),
+                   (SELECT coalesce(-sum(amount) FILTER (WHERE entry_type IN ('COMMISSION', 'PAYMENT_FEE')), 0)
+                      FROM ecommerce.seller_ledger_entries),
+                   (SELECT coalesce(sum(platform_discount + shipping_subsidy) FILTER (WHERE confirmed AND kept), 0) FROM f),
+                   (SELECT coalesce(sum(shop_discount) FILTER (WHERE confirmed AND kept), 0) FROM f),
+                   (SELECT coalesce(sum(amount) FILTER (WHERE return_id IS NOT NULL), 0) FROM ecommerce.refunds),
+                   (SELECT coalesce(sum(amount) FILTER (WHERE return_id IS NULL AND reason <> 'late_payment'), 0)
+                      FROM ecommerce.refunds),
+                   (SELECT coalesce(sum(amount) FILTER (WHERE reason = 'late_payment'), 0) FROM ecommerce.refunds),
+                   (SELECT coalesce(sum(amount), 0) FROM ecommerce.seller_payouts)""",
+        """SELECT gmv, nmv, take, platform_promo_cost, seller_promo_cost, return_refunds, cancellation_refunds,
+                  late_payment_refunds, paid_to_sellers FROM gold.platform_pnl"""),
+    "product sales: units, gross and net revenue after returns (confirmed, kept orders)": (
+        f"""WITH f AS ({ORDER_FACTS}),
+                 rt AS (SELECT ri.order_item_id, sum(ri.quantity) qty, sum(ri.refund_amount) amt
+                        FROM ecommerce.return_items ri
+                        JOIN ecommerce.returns r ON r.id = ri.return_id AND r.status = 'REFUNDED' GROUP BY 1)
+            SELECT coalesce(sum(oi.quantity - coalesce(rt.qty, 0)), 0), coalesce(sum(oi.line_total), 0),
+                   coalesce(sum(oi.net_amount - coalesce(rt.amt, 0)), 0)
+            FROM ecommerce.order_items oi JOIN f ON f.id = oi.order_id AND f.confirmed AND f.kept
+            LEFT JOIN rt ON rt.order_item_id = oi.id""",
+        "SELECT sum(units_sold), sum(gross_revenue), sum(net_revenue) FROM gold.product_sales"),
+    "pack time per shop: TO_SHIP → READY_TO_SHIP, COD included (hours)": (
+        """WITH h AS (SELECT order_id, min(created_at) FILTER (WHERE to_status = 'TO_SHIP') a,
+                             min(created_at) FILTER (WHERE to_status = 'READY_TO_SHIP') b
+                      FROM ecommerce.order_status_history GROUP BY 1)
+           SELECT s.name, avg(extract(epoch FROM date_trunc('second', h.b)) - extract(epoch FROM date_trunc('second', h.a))) / 3600
+           FROM h JOIN ecommerce.orders o ON o.id = h.order_id JOIN ecommerce.shops s ON s.id = o.shop_id
+           WHERE h.b IS NOT NULL GROUP BY 1""",
+        "SELECT shop, avg_hours_to_pack FROM gold.shop_performance WHERE avg_hours_to_pack IS NOT NULL"),
+    "return cohorts: delivered and returned orders per delivery date": (
+        """SELECT (delivered_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, count(*),
+                  count(*) FILTER (WHERE EXISTS (SELECT 1 FROM ecommerce.returns r WHERE r.order_id = o.id))
+           FROM ecommerce.orders o WHERE delivered_at IS NOT NULL GROUP BY 1""",
+        "SELECT delivery_date, delivered, returned FROM gold.return_rate_by_cohort"),
+}
+
+
+TOLERANCE = {"pack time per shop: TO_SHIP → READY_TO_SHIP, COD included (hours)": 0.011}   # gold rounds to 0.01 h
+
+
+def _keyed(rows) -> dict:
+    """Leading non-numeric columns are the key (date, shop); the rest are numbers to compare."""
+    out = {}
+    for r in rows:
+        nums = [v for v in r if isinstance(v, (int, float)) or type(v).__name__ == "Decimal"]
+        out[tuple(str(v) for v in r[:len(r) - len(nums)])] = [float(v) for v in nums]
+    return out
+
+
+def metrics_once() -> dict:
+    diffs = {}
+    for name, (pg_sql, ch_sql) in METRICS.items():
+        with pg_live.cursor(cursor_factory=psycopg2.extensions.cursor) as cur:
+            cur.execute(pg_sql)
+            a = _keyed(cur.fetchall())
+        v = ch.query("SELECT v FROM consistent.watermark").result_rows[0][0]
+        b = _keyed(ch.query(re.sub(r"FROM (gold\.\w+)", rf"FROM \1(v = {v})", ch_sql)).result_rows)
+        tol = TOLERANCE.get(name, 0)
+        diffs[name] = [f"{'/'.join(k) or 'total'} pg={a.get(k)} ch={b.get(k)}" for k in sorted(set(a) | set(b))
+                       if a.get(k) is None or b.get(k) is None
+                       or any(abs(x - y) > tol for x, y in zip(a[k], b[k]))]
+    return diffs
+
+
+def metrics():
+    """Gold against the same definitions in PostgreSQL. Jobs keep changing data, so retry until both agree."""
+    deadline = time.time() + 60
+    diffs = metrics_once()
+    while any(diffs.values()) and time.time() < deadline:
+        time.sleep(3)
+        diffs = metrics_once()
+    for name, bad in diffs.items():
+        record("metrics", name, bad)
+    v = ch.query("SELECT v FROM consistent.watermark").result_rows[0][0]
+    closed = ch.query(f"""
+        SELECT c.order_date, c.placed_gmv, d.placed_gmv, c.gmv, d.gmv
+        FROM gold.daily_sales_closed AS c
+        INNER JOIN gold.daily_sales(v = {v}) AS d ON d.order_date = c.order_date
+        WHERE c.placed_gmv != d.placed_gmv OR c.gmv != d.gmv""").result_rows
+    dup = ch.query("SELECT order_date FROM gold.daily_sales_closed GROUP BY 1 HAVING count() > 1").result_rows
+    n_closed = ch.query("SELECT count() FROM gold.daily_sales_closed").result_rows[0][0]
+    record("metrics", f"closed days ({n_closed}) frozen once; their placed GMV and GMV never change afterwards",
+           [f"{r[0]} placed {r[1]}→{r[2]} gmv {r[3]}→{r[4]}" for r in closed] + [f"{r[0]} closed twice" for r in dup])
+
+
 def main():
-    for group in (money, state, stock, logistics, promo, returns, settlement, write_path, pipeline):
+    for group in (money, state, stock, logistics, promo, returns, settlement, no_deadlocks, pipeline, write_path,
+                  metrics):
         group()
     summary = q("""SELECT (SELECT count(*) FROM ecommerce.customers) customers, (SELECT count(*) FROM ecommerce.shops) shops,
                           (SELECT count(*) FROM ecommerce.product_skus) skus, (SELECT count(*) FROM ecommerce.checkouts) checkouts,
                           (SELECT count(*) FROM ecommerce.orders) orders, (SELECT count(*) FROM ecommerce.returns) returns,
                           (SELECT count(*) FROM ecommerce.shipment_events) tracking_events,
-                          (SELECT count(*) FROM ecommerce.outbox_events) events,
                           (SELECT round(extract(epoch FROM ecommerce.business_now() - min(created_at)) / 86400, 1)
                              FROM ecommerce.orders) AS business_days""")[0]
+    summary["events"] = ch.query("SELECT uniqExact(event_id) FROM bronze.domain_events").result_rows[0][0]
     print(f"Data under test: {dict(summary)}\n")
     width = max(len(r[1]) for r in results)
     failed = 0

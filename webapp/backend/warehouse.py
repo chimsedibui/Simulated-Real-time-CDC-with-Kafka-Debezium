@@ -41,18 +41,23 @@ class Warehouse:
             return False
 
     def overview(self) -> dict:
-        kpis = self.rows("""
+        # One commit watermark for the whole page: every mart below sees the same transactions
+        wm = self.rows("SELECT v, held_back FROM consistent.watermark")[0]
+        v = wm["v"]
+        # Same definitions as gold (see clickhouse/init/03-gold.sql)
+        kpis = self.rows(f"""
             SELECT
-                count()                                                              AS orders,
-                sumIf(subtotal, status NOT IN ('CANCELLED', 'RETURNED_TO_SELLER'))   AS gmv,
-                sumIf(total, status = 'COMPLETED')                                   AS completed_revenue,
-                round(avgIf(total, status NOT IN ('CANCELLED', 'RETURNED_TO_SELLER'))) AS avg_order_value,
-                uniqExact(customer_id)                                               AS buyers,
-                countIf(status = 'CANCELLED')                                        AS cancelled
-            FROM silver.orders FINAL
+                count()                                                          AS orders,
+                sumIf(subtotal, confirmed)                                       AS gmv,
+                sumIf(subtotal - returned_gross, confirmed AND kept)             AS nmv,
+                sumIf(total, status = 'COMPLETED')                               AS completed_revenue,
+                round(sumIf(subtotal, confirmed) / nullIf(countIf(confirmed), 0)) AS avg_order_value,
+                uniqExactIf(customer_id, confirmed)                              AS buyers,
+                countIf(status = 'CANCELLED')                                    AS cancelled
+            FROM gold.order_facts(v = {v})
         """)[0]
-        kpis["active_customers"] = self.rows("SELECT countIf(is_active) AS n FROM silver.customers FINAL")[0]["n"]
-        kpis["shops"] = self.rows("SELECT count() AS n FROM silver.shops FINAL")[0]["n"]
+        kpis["active_customers"] = self.rows(f"SELECT countIf(is_active) AS n FROM consistent.customers(v = {v})")[0]["n"]
+        kpis["shops"] = self.rows(f"SELECT count() AS n FROM consistent.shops(v = {v})")[0]["n"]
 
 
         layers = self.rows(
@@ -63,23 +68,24 @@ class Warehouse:
 
         return {
             "kpis":              kpis,
-            "traffic_by_hour":   _fill_hours(self.rows("SELECT * FROM gold.traffic_by_hour")),
-            "order_status":      self.rows("SELECT * FROM gold.order_status_summary"),
-            "funnel":            self.rows("SELECT * FROM gold.funnel"),
-            "payments":          self.rows("SELECT * FROM gold.payment_summary"),
-            "category_sales":    self.rows("SELECT * FROM gold.category_sales"),
-            "top_products":      self.rows("SELECT * FROM gold.product_sales LIMIT 8"),
-            "shops":             self.rows("SELECT * FROM gold.shop_performance LIMIT 10"),
-            "inventory_risk":    self.rows("SELECT * FROM gold.inventory_risk LIMIT 8"),
-            "customer_tiers":    self.rows("SELECT * FROM gold.customer_tiers"),
+            "traffic_by_hour":   _fill_hours(self.rows(f"SELECT * FROM gold.traffic_by_hour(v = {v})")),
+            "order_status":      self.rows(f"SELECT * FROM gold.order_status_summary(v = {v})"),
+            "funnel":            self.rows(f"SELECT * FROM gold.funnel(v = {v})"),
+            "payments":          self.rows(f"SELECT * FROM gold.payment_summary(v = {v})"),
+            "category_sales":    self.rows(f"SELECT * FROM gold.category_sales(v = {v})"),
+            "top_products":      self.rows(f"SELECT * FROM gold.product_sales(v = {v}) LIMIT 8"),
+            "shops":             self.rows(f"SELECT * FROM gold.shop_performance(v = {v}) LIMIT 10"),
+            "inventory_risk":    self.rows(f"SELECT * FROM gold.inventory_risk(v = {v}) LIMIT 8"),
+            "customer_tiers":    self.rows(f"SELECT * FROM gold.customer_tiers(v = {v})"),
             "freshness":         self.rows("SELECT * FROM gold.cdc_freshness ORDER BY events_15m DESC LIMIT 8"),
-            "pnl":               self.rows("SELECT * FROM gold.platform_pnl")[0],
-            "delivery":          self.rows("SELECT * FROM gold.delivery_performance"),
-            "returns":           self.rows("SELECT * FROM gold.returns_summary"),
-            "vouchers":          self.rows("SELECT * FROM gold.voucher_performance LIMIT 8"),
-            "flash_sales":       self.rows("SELECT * FROM gold.flash_sale_performance LIMIT 6"),
-            "settlement":        self.rows("SELECT * FROM gold.seller_settlement LIMIT 8"),
+            "pnl":               self.rows(f"SELECT * FROM gold.platform_pnl(v = {v})")[0],
+            "delivery":          self.rows(f"SELECT * FROM gold.delivery_performance(v = {v})"),
+            "returns":           self.rows(f"SELECT * FROM gold.returns_summary(v = {v})"),
+            "vouchers":          self.rows(f"SELECT * FROM gold.voucher_performance(v = {v}) LIMIT 8"),
+            "flash_sales":       self.rows(f"SELECT * FROM gold.flash_sale_performance(v = {v}) LIMIT 6"),
+            "settlement":        self.rows(f"SELECT * FROM gold.seller_settlement(v = {v}) LIMIT 8"),
             "layers":            layers,
+            "watermark":         wm,
         }
 
 
@@ -104,7 +110,7 @@ def _fill_hours(rows: list) -> list:
     while start <= end:
         key = start.isoformat()[:13]
         r = by_hour.get(key, {})
-        out.append({"hour": key + ":00Z", "orders": r.get("orders", 0), "gmv": r.get("gmv", 0),
+        out.append({"hour": key + ":00Z", "orders": r.get("orders", 0), "placed_gmv": r.get("placed_gmv", 0),
                     "orders_with_voucher": r.get("orders_with_voucher", 0)})
         start += dt.timedelta(hours=1)
     return out

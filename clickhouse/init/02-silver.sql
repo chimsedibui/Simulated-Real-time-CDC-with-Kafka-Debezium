@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS silver.customers
     updated_at          DateTime64(6, 'UTC'),
     _version            UInt64,
     _is_deleted         UInt8,
-    _synced_at          DateTime64(3, 'UTC')
+    _synced_at          DateTime64(3, 'UTC'),
+    _before             String CODEC(ZSTD(3)),
+    _tx_id              UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -42,7 +44,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'customers';
 
@@ -62,7 +66,9 @@ CREATE TABLE IF NOT EXISTS silver.customer_addresses
     updated_at      DateTime64(6, 'UTC'),
     _version        UInt64,
     _is_deleted     UInt8,
-    _synced_at      DateTime64(3, 'UTC')
+    _synced_at      DateTime64(3, 'UTC'),
+    _before         String CODEC(ZSTD(3)),
+    _tx_id          UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -82,7 +88,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'customer_addresses';
 
@@ -97,7 +105,9 @@ CREATE TABLE IF NOT EXISTS silver.sellers
     updated_at  DateTime64(6, 'UTC'),
     _version    UInt64,
     _is_deleted UInt8,
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -112,7 +122,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'sellers';
 
@@ -127,15 +139,14 @@ CREATE TABLE IF NOT EXISTS silver.shops
     province             LowCardinality(String),
     commission_rate_bps  Int32,
     penalty_points       Int32,
-    wallet_balance       Int64,
-    rating_count         Int32,
-    rating_sum           Int32,
     is_active            Bool,
     created_at           DateTime64(6, 'UTC'),
     updated_at           DateTime64(6, 'UTC'),
     _version             UInt64,
     _is_deleted          UInt8,
-    _synced_at           DateTime64(3, 'UTC')
+    _synced_at           DateTime64(3, 'UTC'),
+    _before              String CODEC(ZSTD(3)),
+    _tx_id               UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -150,15 +161,14 @@ SELECT
     JSONExtractString(row, 'province')                                       AS province,
     toInt32(JSONExtractInt(row, 'commission_rate_bps'))                      AS commission_rate_bps,
     toInt32(JSONExtractInt(row, 'penalty_points'))                           AS penalty_points,
-    JSONExtractInt(row, 'wallet_balance')                                    AS wallet_balance,
-    toInt32(JSONExtractInt(row, 'rating_count'))                             AS rating_count,
-    toInt32(JSONExtractInt(row, 'rating_sum'))                               AS rating_sum,
     JSONExtractBool(row, 'is_active')                                        AS is_active,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'shops';
 
@@ -174,7 +184,9 @@ CREATE TABLE IF NOT EXISTS silver.categories
     updated_at  DateTime64(6, 'UTC'),
     _version    UInt64,
     _is_deleted UInt8,
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -190,7 +202,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'categories';
 
@@ -204,7 +218,9 @@ CREATE TABLE IF NOT EXISTS silver.brands
     updated_at  DateTime64(6, 'UTC'),
     _version    UInt64,
     _is_deleted UInt8,
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -218,7 +234,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'brands';
 
@@ -237,7 +255,9 @@ CREATE TABLE IF NOT EXISTS silver.products
     updated_at   DateTime64(6, 'UTC'),
     _version     UInt64,
     _is_deleted  UInt8,
-    _synced_at   DateTime64(3, 'UTC')
+    _synced_at   DateTime64(3, 'UTC'),
+    _before      String CODEC(ZSTD(3)),
+    _tx_id       UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -256,7 +276,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'products';
 
@@ -276,7 +298,9 @@ CREATE TABLE IF NOT EXISTS silver.product_skus
     updated_at    DateTime64(6, 'UTC'),
     _version      UInt64,
     _is_deleted   UInt8,
-    _synced_at    DateTime64(3, 'UTC')
+    _synced_at    DateTime64(3, 'UTC'),
+    _before       String CODEC(ZSTD(3)),
+    _tx_id        UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -296,7 +320,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'product_skus';
 
@@ -314,7 +340,9 @@ CREATE TABLE IF NOT EXISTS silver.inventory
     updated_at         DateTime64(6, 'UTC'),
     _version           UInt64,
     _is_deleted        UInt8,
-    _synced_at         DateTime64(3, 'UTC')
+    _synced_at         DateTime64(3, 'UTC'),
+    _before            String CODEC(ZSTD(3)),
+    _tx_id             UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY sku_id;
@@ -332,7 +360,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'inventory';
 
@@ -347,7 +377,9 @@ CREATE TABLE IF NOT EXISTS silver.carts
     updated_at   DateTime64(6, 'UTC'),
     _version     UInt64,
     _is_deleted  UInt8,
-    _synced_at   DateTime64(3, 'UTC')
+    _synced_at   DateTime64(3, 'UTC'),
+    _before      String CODEC(ZSTD(3)),
+    _tx_id       UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -362,7 +394,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'carts';
 
@@ -378,7 +412,9 @@ CREATE TABLE IF NOT EXISTS silver.cart_items
     updated_at  DateTime64(6, 'UTC'),
     _version    UInt64,
     _is_deleted UInt8,
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -394,7 +430,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'cart_items';
 
@@ -417,7 +455,9 @@ CREATE TABLE IF NOT EXISTS silver.checkouts
     updated_at      DateTime64(6, 'UTC'),
     _version        UInt64,
     _is_deleted     UInt8,
-    _synced_at      DateTime64(3, 'UTC')
+    _synced_at      DateTime64(3, 'UTC'),
+    _before         String CODEC(ZSTD(3)),
+    _tx_id          UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -440,7 +480,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'checkouts';
 
@@ -479,7 +521,9 @@ CREATE TABLE IF NOT EXISTS silver.orders
     updated_at         DateTime64(6, 'UTC'),
     _version           UInt64,
     _is_deleted        UInt8,
-    _synced_at         DateTime64(3, 'UTC')
+    _synced_at         DateTime64(3, 'UTC'),
+    _before            String CODEC(ZSTD(3)),
+    _tx_id             UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -518,7 +562,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'orders';
 
@@ -542,7 +588,9 @@ CREATE TABLE IF NOT EXISTS silver.order_items
     updated_at         DateTime64(6, 'UTC'),
     _version           UInt64,
     _is_deleted        UInt8,
-    _synced_at         DateTime64(3, 'UTC')
+    _synced_at         DateTime64(3, 'UTC'),
+    _before            String CODEC(ZSTD(3)),
+    _tx_id             UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -566,7 +614,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'order_items';
 
@@ -581,7 +631,8 @@ CREATE TABLE IF NOT EXISTS silver.order_status_history
     actor        LowCardinality(String),
     reason       LowCardinality(Nullable(String)),
     created_at   DateTime64(6, 'UTC'),
-    _synced_at   DateTime64(3, 'UTC')
+    _synced_at   DateTime64(3, 'UTC'),
+    _tx_id       UInt64
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (order_id, id);
@@ -596,7 +647,8 @@ SELECT
     JSONExtractString(row, 'actor')                                          AS actor,
     JSONExtract(row, 'reason', 'Nullable(String)')                           AS reason,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'order_status_history' AND op IN ('c', 'r');
 
@@ -618,7 +670,9 @@ CREATE TABLE IF NOT EXISTS silver.payments
     updated_at       DateTime64(6, 'UTC'),
     _version         UInt64,
     _is_deleted      UInt8,
-    _synced_at       DateTime64(3, 'UTC')
+    _synced_at       DateTime64(3, 'UTC'),
+    _before          String CODEC(ZSTD(3)),
+    _tx_id           UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -640,7 +694,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'payments';
 
@@ -659,7 +715,9 @@ CREATE TABLE IF NOT EXISTS silver.refunds
     updated_at  DateTime64(6, 'UTC'),
     _version    UInt64,
     _is_deleted UInt8,
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -678,7 +736,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'refunds';
 
@@ -696,7 +756,8 @@ CREATE TABLE IF NOT EXISTS silver.inventory_movements
     ref_type        LowCardinality(String),
     ref_id          UUID,
     created_at      DateTime64(6, 'UTC'),
-    _synced_at      DateTime64(3, 'UTC')
+    _synced_at      DateTime64(3, 'UTC'),
+    _tx_id          UInt64
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (sku_id, id);
@@ -714,7 +775,8 @@ SELECT
     JSONExtractString(row, 'ref_type')                                       AS ref_type,
     toUUID(JSONExtractString(row, 'ref_id'))                                 AS ref_id,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'inventory_movements' AND op IN ('c', 'r');
 
@@ -739,7 +801,9 @@ CREATE TABLE IF NOT EXISTS silver.shipments
     updated_at       DateTime64(6, 'UTC'),
     _version         UInt64,
     _is_deleted      UInt8,
-    _synced_at       DateTime64(3, 'UTC')
+    _synced_at       DateTime64(3, 'UTC'),
+    _before          String CODEC(ZSTD(3)),
+    _tx_id           UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -764,7 +828,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'shipments';
 
@@ -780,7 +846,8 @@ CREATE TABLE IF NOT EXISTS silver.shipment_events
     location          LowCardinality(Nullable(String)),
     applied           Bool,
     created_at        DateTime64(6, 'UTC'),
-    _synced_at        DateTime64(3, 'UTC')
+    _synced_at        DateTime64(3, 'UTC'),
+    _tx_id            UInt64
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (shipment_id, id);
@@ -796,7 +863,8 @@ SELECT
     JSONExtract(row, 'location', 'Nullable(String)')                         AS location,
     JSONExtractBool(row, 'applied')                                          AS applied,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'shipment_events' AND op IN ('c', 'r');
 
@@ -810,7 +878,8 @@ CREATE TABLE IF NOT EXISTS silver.price_history
     new_price   Int64,
     reason      LowCardinality(String),
     created_at  DateTime64(6, 'UTC'),
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (sku_id, id);
@@ -824,7 +893,8 @@ SELECT
     JSONExtractInt(row, 'new_price')                                         AS new_price,
     JSONExtractString(row, 'reason')                                         AS reason,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'price_history' AND op IN ('c', 'r');
 
@@ -842,14 +912,15 @@ CREATE TABLE IF NOT EXISTS silver.vouchers
     min_spend           Int64,
     usage_limit         Int32,
     per_customer_limit  Int32,
-    used_count          Int32,
     starts_at           DateTime64(6, 'UTC'),
     ends_at             DateTime64(6, 'UTC'),
     created_at          DateTime64(6, 'UTC'),
     updated_at          DateTime64(6, 'UTC'),
     _version            UInt64,
     _is_deleted         UInt8,
-    _synced_at          DateTime64(3, 'UTC')
+    _synced_at          DateTime64(3, 'UTC'),
+    _before             String CODEC(ZSTD(3)),
+    _tx_id              UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -867,14 +938,15 @@ SELECT
     JSONExtractInt(row, 'min_spend')                                         AS min_spend,
     toInt32(JSONExtractInt(row, 'usage_limit'))                              AS usage_limit,
     toInt32(JSONExtractInt(row, 'per_customer_limit'))                       AS per_customer_limit,
-    toInt32(JSONExtractInt(row, 'used_count'))                               AS used_count,
     parseDateTime64BestEffort(JSONExtractString(row, 'starts_at'), 6, 'UTC') AS starts_at,
     parseDateTime64BestEffort(JSONExtractString(row, 'ends_at'), 6, 'UTC')   AS ends_at,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'vouchers';
 
@@ -888,12 +960,15 @@ CREATE TABLE IF NOT EXISTS silver.voucher_usages
     checkout_id  UUID,
     order_id     Nullable(UUID),
     amount       Int64,
+    quota_slot   Int32,
     status       LowCardinality(String),
     created_at   DateTime64(6, 'UTC'),
     updated_at   DateTime64(6, 'UTC'),
     _version     UInt64,
     _is_deleted  UInt8,
-    _synced_at   DateTime64(3, 'UTC')
+    _synced_at   DateTime64(3, 'UTC'),
+    _before      String CODEC(ZSTD(3)),
+    _tx_id       UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -907,12 +982,15 @@ SELECT
     toUUID(JSONExtractString(row, 'checkout_id'))                            AS checkout_id,
     toUUIDOrNull(JSONExtractString(row, 'order_id'))                         AS order_id,
     JSONExtractInt(row, 'amount')                                            AS amount,
+    toInt32(JSONExtractInt(row, 'quota_slot'))                               AS quota_slot,
     JSONExtractString(row, 'status')                                         AS status,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'voucher_usages';
 
@@ -929,7 +1007,9 @@ CREATE TABLE IF NOT EXISTS silver.campaigns
     updated_at  DateTime64(6, 'UTC'),
     _version    UInt64,
     _is_deleted UInt8,
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -946,7 +1026,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'campaigns';
 
@@ -964,7 +1046,9 @@ CREATE TABLE IF NOT EXISTS silver.flash_sale_items
     updated_at   DateTime64(6, 'UTC'),
     _version     UInt64,
     _is_deleted  UInt8,
-    _synced_at   DateTime64(3, 'UTC')
+    _synced_at   DateTime64(3, 'UTC'),
+    _before      String CODEC(ZSTD(3)),
+    _tx_id       UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -982,7 +1066,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'flash_sale_items';
 
@@ -1003,7 +1089,9 @@ CREATE TABLE IF NOT EXISTS silver.returns
     updated_at     DateTime64(6, 'UTC'),
     _version       UInt64,
     _is_deleted    UInt8,
-    _synced_at     DateTime64(3, 'UTC')
+    _synced_at     DateTime64(3, 'UTC'),
+    _before        String CODEC(ZSTD(3)),
+    _tx_id         UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -1024,7 +1112,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'returns';
 
@@ -1042,7 +1132,9 @@ CREATE TABLE IF NOT EXISTS silver.return_items
     updated_at     DateTime64(6, 'UTC'),
     _version       UInt64,
     _is_deleted    UInt8,
-    _synced_at     DateTime64(3, 'UTC')
+    _synced_at     DateTime64(3, 'UTC'),
+    _before        String CODEC(ZSTD(3)),
+    _tx_id         UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -1060,7 +1152,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'return_items';
 
@@ -1068,15 +1162,15 @@ WHERE source_table = 'return_items';
 -- seller_ledger_entries (event)
 CREATE TABLE IF NOT EXISTS silver.seller_ledger_entries
 (
-    id             Int64,
-    shop_id        UUID,
-    order_id       Nullable(UUID),
-    payout_id      Nullable(UUID),
-    entry_type     LowCardinality(String),
-    amount         Int64,
-    balance_after  Int64,
-    created_at     DateTime64(6, 'UTC'),
-    _synced_at     DateTime64(3, 'UTC')
+    id          Int64,
+    shop_id     UUID,
+    order_id    Nullable(UUID),
+    payout_id   Nullable(UUID),
+    entry_type  LowCardinality(String),
+    amount      Int64,
+    created_at  DateTime64(6, 'UTC'),
+    _synced_at  DateTime64(3, 'UTC'),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree
 ORDER BY (shop_id, id);
@@ -1090,11 +1184,41 @@ SELECT
     toUUIDOrNull(JSONExtractString(row, 'payout_id'))                        AS payout_id,
     JSONExtractString(row, 'entry_type')                                     AS entry_type,
     JSONExtractInt(row, 'amount')                                            AS amount,
-    JSONExtractInt(row, 'balance_after')                                     AS balance_after,
     parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS created_at,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'seller_ledger_entries' AND op IN ('c', 'r');
+
+
+-- shop_wallets (state)
+CREATE TABLE IF NOT EXISTS silver.shop_wallets
+(
+    shop_id     UUID,
+    balance     Int64,
+    updated_at  DateTime64(6, 'UTC'),
+    _version    UInt64,
+    _is_deleted UInt8,
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
+)
+ENGINE = ReplacingMergeTree(_version, _is_deleted)
+ORDER BY shop_id;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS silver.mv_shop_wallets TO silver.shop_wallets AS
+WITH if(op = 'd', before, after) AS row
+SELECT
+    toUUID(JSONExtractString(row, 'shop_id'))                                AS shop_id,
+    JSONExtractInt(row, 'balance')                                           AS balance,
+    parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
+    lsn                                                                      AS _version,
+    op = 'd'                                                                 AS _is_deleted,
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
+FROM bronze.cdc_events
+WHERE source_table = 'shop_wallets';
 
 
 -- seller_payouts (state)
@@ -1108,7 +1232,9 @@ CREATE TABLE IF NOT EXISTS silver.seller_payouts
     updated_at  DateTime64(6, 'UTC'),
     _version    UInt64,
     _is_deleted UInt8,
-    _synced_at  DateTime64(3, 'UTC')
+    _synced_at  DateTime64(3, 'UTC'),
+    _before     String CODEC(ZSTD(3)),
+    _tx_id      UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -1124,7 +1250,9 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'seller_payouts';
 
@@ -1144,7 +1272,9 @@ CREATE TABLE IF NOT EXISTS silver.product_reviews
     updated_at     DateTime64(6, 'UTC'),
     _version       UInt64,
     _is_deleted    UInt8,
-    _synced_at     DateTime64(3, 'UTC')
+    _synced_at     DateTime64(3, 'UTC'),
+    _before        String CODEC(ZSTD(3)),
+    _tx_id         UInt64
 )
 ENGINE = ReplacingMergeTree(_version, _is_deleted)
 ORDER BY id;
@@ -1164,6 +1294,1296 @@ SELECT
     parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS updated_at,
     lsn                                                                      AS _version,
     op = 'd'                                                                 AS _is_deleted,
-    ingested_at                                                              AS _synced_at
+    ingested_at                                                              AS _synced_at,
+    before                                                                   AS _before,
+    tx_id                                                                    AS _tx_id
 FROM bronze.cdc_events
 WHERE source_table = 'product_reviews';
+
+
+-- Commit watermark for consistent.<table>(v): the commit position (offset on cdc.transaction, one partition,
+-- commit order) of the first transaction not fully landed yet; every transaction before it is complete.
+-- Taking v is cheap and depends only on landed data, so readers can call it before every query.
+CREATE OR REPLACE VIEW consistent.watermark AS
+WITH
+    ended AS (
+        SELECT tx_id, max(expected) AS expected, min(kafka_offset) AS seq, min(commit_ts) AS commit_ts,
+               max(ingested_at) AS seen
+        FROM bronze.cdc_transactions
+        WHERE ingested_at > now64(3) - INTERVAL 60 MINUTE
+        GROUP BY tx_id),
+    landed AS (
+        SELECT tx_id, uniqExact(source_table, lsn) AS n
+        FROM bronze.cdc_events
+        WHERE event_ts > now64(3) - INTERVAL 3 HOUR AND tx_id IN (SELECT tx_id FROM ended)
+        GROUP BY tx_id)
+SELECT
+    v,
+    arrayCount(s -> s >= v, recent_seqs)                                              AS held_back,
+    if(held_back = 0, NULL, arrayMin(arrayFilter((c, s) -> s >= v, recent_commits, recent_seqs))) AS oldest_held_back_commit
+FROM (
+    SELECT
+        if(countIf(l.n < e.expected) > 0, minIf(e.seq, l.n < e.expected), max(e.seq) + 1)  AS v,
+        groupArrayIf(e.seq, e.seen > now64(3) - INTERVAL 10 MINUTE)                       AS recent_seqs,
+        groupArrayIf(e.commit_ts, e.seen > now64(3) - INTERVAL 10 MINUTE)                 AS recent_commits
+    FROM ended AS e
+    LEFT JOIN landed AS l ON l.tx_id = e.tx_id);
+
+CREATE OR REPLACE VIEW consistent.customers AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'customers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, full_name, CAST(JSONExtractString(_before, 'full_name') AS String)) AS full_name,
+    if(vis, email, CAST(JSONExtractString(_before, 'email') AS String)) AS email,
+    if(vis, phone, CAST(JSONExtractString(_before, 'phone') AS String)) AS phone,
+    if(vis, segment, CAST(JSONExtractString(_before, 'segment') AS LowCardinality(String))) AS segment,
+    if(vis, registered_channel, CAST(JSONExtractString(_before, 'registered_channel') AS LowCardinality(String))) AS registered_channel,
+    if(vis, tier, CAST(JSONExtractString(_before, 'tier') AS LowCardinality(String))) AS tier,
+    if(vis, total_spent, CAST(JSONExtractInt(_before, 'total_spent') AS Int64)) AS total_spent,
+    if(vis, is_active, CAST(JSONExtractBool(_before, 'is_active') AS Bool)) AS is_active,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.customers FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(JSONExtractString(row, 'full_name') AS String) AS full_name,
+    CAST(JSONExtractString(row, 'email') AS String) AS email,
+    CAST(JSONExtractString(row, 'phone') AS String) AS phone,
+    CAST(JSONExtractString(row, 'segment') AS LowCardinality(String)) AS segment,
+    CAST(JSONExtractString(row, 'registered_channel') AS LowCardinality(String)) AS registered_channel,
+    CAST(JSONExtractString(row, 'tier') AS LowCardinality(String)) AS tier,
+    CAST(JSONExtractInt(row, 'total_spent') AS Int64) AS total_spent,
+    CAST(JSONExtractBool(row, 'is_active') AS Bool) AS is_active,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.customer_addresses AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'customer_addresses' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
+    if(vis, recipient_name, CAST(JSONExtractString(_before, 'recipient_name') AS String)) AS recipient_name,
+    if(vis, phone, CAST(JSONExtractString(_before, 'phone') AS String)) AS phone,
+    if(vis, street, CAST(JSONExtractString(_before, 'street') AS String)) AS street,
+    if(vis, district, CAST(JSONExtractString(_before, 'district') AS String)) AS district,
+    if(vis, province, CAST(JSONExtractString(_before, 'province') AS LowCardinality(String))) AS province,
+    if(vis, is_default, CAST(JSONExtractBool(_before, 'is_default') AS Bool)) AS is_default,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.customer_addresses FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
+    CAST(JSONExtractString(row, 'recipient_name') AS String) AS recipient_name,
+    CAST(JSONExtractString(row, 'phone') AS String) AS phone,
+    CAST(JSONExtractString(row, 'street') AS String) AS street,
+    CAST(JSONExtractString(row, 'district') AS String) AS district,
+    CAST(JSONExtractString(row, 'province') AS LowCardinality(String)) AS province,
+    CAST(JSONExtractBool(row, 'is_default') AS Bool) AS is_default,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.sellers AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'sellers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, legal_name, CAST(JSONExtractString(_before, 'legal_name') AS String)) AS legal_name,
+    if(vis, email, CAST(JSONExtractString(_before, 'email') AS String)) AS email,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.sellers FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(JSONExtractString(row, 'legal_name') AS String) AS legal_name,
+    CAST(JSONExtractString(row, 'email') AS String) AS email,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.shops AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'shops' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, seller_id, CAST(toUUID(JSONExtractString(_before, 'seller_id')) AS UUID)) AS seller_id,
+    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
+    if(vis, shop_tier, CAST(JSONExtractString(_before, 'shop_tier') AS LowCardinality(String))) AS shop_tier,
+    if(vis, province, CAST(JSONExtractString(_before, 'province') AS LowCardinality(String))) AS province,
+    if(vis, commission_rate_bps, CAST(toInt32(JSONExtractInt(_before, 'commission_rate_bps')) AS Int32)) AS commission_rate_bps,
+    if(vis, penalty_points, CAST(toInt32(JSONExtractInt(_before, 'penalty_points')) AS Int32)) AS penalty_points,
+    if(vis, is_active, CAST(JSONExtractBool(_before, 'is_active') AS Bool)) AS is_active,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.shops FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'seller_id')) AS UUID) AS seller_id,
+    CAST(JSONExtractString(row, 'name') AS String) AS name,
+    CAST(JSONExtractString(row, 'shop_tier') AS LowCardinality(String)) AS shop_tier,
+    CAST(JSONExtractString(row, 'province') AS LowCardinality(String)) AS province,
+    CAST(toInt32(JSONExtractInt(row, 'commission_rate_bps')) AS Int32) AS commission_rate_bps,
+    CAST(toInt32(JSONExtractInt(row, 'penalty_points')) AS Int32) AS penalty_points,
+    CAST(JSONExtractBool(row, 'is_active') AS Bool) AS is_active,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.categories AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'categories' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, parent_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'parent_id')) AS Nullable(UUID))) AS parent_id,
+    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
+    if(vis, slug, CAST(JSONExtractString(_before, 'slug') AS String)) AS slug,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.categories FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'parent_id')) AS Nullable(UUID)) AS parent_id,
+    CAST(JSONExtractString(row, 'name') AS String) AS name,
+    CAST(JSONExtractString(row, 'slug') AS String) AS slug,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.brands AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'brands' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.brands FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(JSONExtractString(row, 'name') AS String) AS name,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.products AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'products' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
+    if(vis, category_id, CAST(toUUID(JSONExtractString(_before, 'category_id')) AS UUID)) AS category_id,
+    if(vis, brand_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'brand_id')) AS Nullable(UUID))) AS brand_id,
+    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
+    if(vis, description, CAST(JSONExtractString(_before, 'description') AS String)) AS description,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.products FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
+    CAST(toUUID(JSONExtractString(row, 'category_id')) AS UUID) AS category_id,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'brand_id')) AS Nullable(UUID)) AS brand_id,
+    CAST(JSONExtractString(row, 'name') AS String) AS name,
+    CAST(JSONExtractString(row, 'description') AS String) AS description,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.product_skus AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'product_skus' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, product_id, CAST(toUUID(JSONExtractString(_before, 'product_id')) AS UUID)) AS product_id,
+    if(vis, sku_code, CAST(JSONExtractString(_before, 'sku_code') AS String)) AS sku_code,
+    if(vis, variant_name, CAST(JSONExtractString(_before, 'variant_name') AS String)) AS variant_name,
+    if(vis, list_price, CAST(JSONExtractInt(_before, 'list_price') AS Int64)) AS list_price,
+    if(vis, price, CAST(JSONExtractInt(_before, 'price') AS Int64)) AS price,
+    if(vis, weight_g, CAST(toInt32(JSONExtractInt(_before, 'weight_g')) AS Int32)) AS weight_g,
+    if(vis, is_active, CAST(JSONExtractBool(_before, 'is_active') AS Bool)) AS is_active,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.product_skus FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'product_id')) AS UUID) AS product_id,
+    CAST(JSONExtractString(row, 'sku_code') AS String) AS sku_code,
+    CAST(JSONExtractString(row, 'variant_name') AS String) AS variant_name,
+    CAST(JSONExtractInt(row, 'list_price') AS Int64) AS list_price,
+    CAST(JSONExtractInt(row, 'price') AS Int64) AS price,
+    CAST(toInt32(JSONExtractInt(row, 'weight_g')) AS Int32) AS weight_g,
+    CAST(JSONExtractBool(row, 'is_active') AS Bool) AS is_active,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.inventory AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'sku_id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'inventory' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
+    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
+    if(vis, on_hand, CAST(toInt32(JSONExtractInt(_before, 'on_hand')) AS Int32)) AS on_hand,
+    if(vis, reserved, CAST(toInt32(JSONExtractInt(_before, 'reserved')) AS Int32)) AS reserved,
+    if(vis, available, CAST(toInt32(JSONExtractInt(_before, 'available')) AS Int32)) AS available,
+    if(vis, reorder_point, CAST(toInt32(JSONExtractInt(_before, 'reorder_point')) AS Int32)) AS reorder_point,
+    if(vis, last_restocked_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'last_restocked_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS last_restocked_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.inventory FINAL WHERE sku_id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
+    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
+    CAST(toInt32(JSONExtractInt(row, 'on_hand')) AS Int32) AS on_hand,
+    CAST(toInt32(JSONExtractInt(row, 'reserved')) AS Int32) AS reserved,
+    CAST(toInt32(JSONExtractInt(row, 'available')) AS Int32) AS available,
+    CAST(toInt32(JSONExtractInt(row, 'reorder_point')) AS Int32) AS reorder_point,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'last_restocked_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS last_restocked_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.carts AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'carts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.carts FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.cart_items AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'cart_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, cart_id, CAST(toUUID(JSONExtractString(_before, 'cart_id')) AS UUID)) AS cart_id,
+    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
+    if(vis, quantity, CAST(toInt32(JSONExtractInt(_before, 'quantity')) AS Int32)) AS quantity,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.cart_items FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'cart_id')) AS UUID) AS cart_id,
+    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
+    CAST(toInt32(JSONExtractInt(row, 'quantity')) AS Int32) AS quantity,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.checkouts AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'checkouts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
+    if(vis, cart_id, CAST(toUUID(JSONExtractString(_before, 'cart_id')) AS UUID)) AS cart_id,
+    if(vis, address_id, CAST(toUUID(JSONExtractString(_before, 'address_id')) AS UUID)) AS address_id,
+    if(vis, payment_method, CAST(JSONExtractString(_before, 'payment_method') AS LowCardinality(String))) AS payment_method,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, items_total, CAST(JSONExtractInt(_before, 'items_total') AS Int64)) AS items_total,
+    if(vis, shipping_total, CAST(JSONExtractInt(_before, 'shipping_total') AS Int64)) AS shipping_total,
+    if(vis, discount_total, CAST(JSONExtractInt(_before, 'discount_total') AS Int64)) AS discount_total,
+    if(vis, grand_total, CAST(JSONExtractInt(_before, 'grand_total') AS Int64)) AS grand_total,
+    if(vis, pay_by, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'pay_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS pay_by,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.checkouts FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
+    CAST(toUUID(JSONExtractString(row, 'cart_id')) AS UUID) AS cart_id,
+    CAST(toUUID(JSONExtractString(row, 'address_id')) AS UUID) AS address_id,
+    CAST(JSONExtractString(row, 'payment_method') AS LowCardinality(String)) AS payment_method,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(JSONExtractInt(row, 'items_total') AS Int64) AS items_total,
+    CAST(JSONExtractInt(row, 'shipping_total') AS Int64) AS shipping_total,
+    CAST(JSONExtractInt(row, 'discount_total') AS Int64) AS discount_total,
+    CAST(JSONExtractInt(row, 'grand_total') AS Int64) AS grand_total,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'pay_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS pay_by,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.orders AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'orders' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, order_number, CAST(JSONExtractString(_before, 'order_number') AS String)) AS order_number,
+    if(vis, checkout_id, CAST(toUUID(JSONExtractString(_before, 'checkout_id')) AS UUID)) AS checkout_id,
+    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
+    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, payment_method, CAST(JSONExtractString(_before, 'payment_method') AS LowCardinality(String))) AS payment_method,
+    if(vis, subtotal, CAST(JSONExtractInt(_before, 'subtotal') AS Int64)) AS subtotal,
+    if(vis, shop_discount, CAST(JSONExtractInt(_before, 'shop_discount') AS Int64)) AS shop_discount,
+    if(vis, platform_discount, CAST(JSONExtractInt(_before, 'platform_discount') AS Int64)) AS platform_discount,
+    if(vis, shipping_fee, CAST(JSONExtractInt(_before, 'shipping_fee') AS Int64)) AS shipping_fee,
+    if(vis, shipping_subsidy, CAST(JSONExtractInt(_before, 'shipping_subsidy') AS Int64)) AS shipping_subsidy,
+    if(vis, total, CAST(JSONExtractInt(_before, 'total') AS Int64)) AS total,
+    if(vis, ship_to_name, CAST(JSONExtractString(_before, 'ship_to_name') AS String)) AS ship_to_name,
+    if(vis, ship_to_address, CAST(JSONExtractString(_before, 'ship_to_address') AS String)) AS ship_to_address,
+    if(vis, ship_to_province, CAST(JSONExtractString(_before, 'ship_to_province') AS LowCardinality(String))) AS ship_to_province,
+    if(vis, delivery_attempts, CAST(toInt32(JSONExtractInt(_before, 'delivery_attempts')) AS Int32)) AS delivery_attempts,
+    if(vis, confirm_by, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'confirm_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS confirm_by,
+    if(vis, cancel_reason, CAST(JSONExtract(_before, 'cancel_reason', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS cancel_reason,
+    if(vis, cancelled_by, CAST(JSONExtract(_before, 'cancelled_by', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS cancelled_by,
+    if(vis, paid_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS paid_at,
+    if(vis, ready_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'ready_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS ready_at,
+    if(vis, shipped_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'shipped_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS shipped_at,
+    if(vis, delivered_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS delivered_at,
+    if(vis, completed_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'completed_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS completed_at,
+    if(vis, cancelled_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'cancelled_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS cancelled_at,
+    if(vis, version, CAST(toInt32(JSONExtractInt(_before, 'version')) AS Int32)) AS version,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.orders FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(JSONExtractString(row, 'order_number') AS String) AS order_number,
+    CAST(toUUID(JSONExtractString(row, 'checkout_id')) AS UUID) AS checkout_id,
+    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
+    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(JSONExtractString(row, 'payment_method') AS LowCardinality(String)) AS payment_method,
+    CAST(JSONExtractInt(row, 'subtotal') AS Int64) AS subtotal,
+    CAST(JSONExtractInt(row, 'shop_discount') AS Int64) AS shop_discount,
+    CAST(JSONExtractInt(row, 'platform_discount') AS Int64) AS platform_discount,
+    CAST(JSONExtractInt(row, 'shipping_fee') AS Int64) AS shipping_fee,
+    CAST(JSONExtractInt(row, 'shipping_subsidy') AS Int64) AS shipping_subsidy,
+    CAST(JSONExtractInt(row, 'total') AS Int64) AS total,
+    CAST(JSONExtractString(row, 'ship_to_name') AS String) AS ship_to_name,
+    CAST(JSONExtractString(row, 'ship_to_address') AS String) AS ship_to_address,
+    CAST(JSONExtractString(row, 'ship_to_province') AS LowCardinality(String)) AS ship_to_province,
+    CAST(toInt32(JSONExtractInt(row, 'delivery_attempts')) AS Int32) AS delivery_attempts,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'confirm_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS confirm_by,
+    CAST(JSONExtract(row, 'cancel_reason', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS cancel_reason,
+    CAST(JSONExtract(row, 'cancelled_by', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS cancelled_by,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS paid_at,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'ready_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS ready_at,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'shipped_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS shipped_at,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS delivered_at,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'completed_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS completed_at,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'cancelled_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS cancelled_at,
+    CAST(toInt32(JSONExtractInt(row, 'version')) AS Int32) AS version,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.order_items AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'order_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
+    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
+    if(vis, product_id, CAST(toUUID(JSONExtractString(_before, 'product_id')) AS UUID)) AS product_id,
+    if(vis, quantity, CAST(toInt32(JSONExtractInt(_before, 'quantity')) AS Int32)) AS quantity,
+    if(vis, list_price, CAST(JSONExtractInt(_before, 'list_price') AS Int64)) AS list_price,
+    if(vis, unit_price, CAST(JSONExtractInt(_before, 'unit_price') AS Int64)) AS unit_price,
+    if(vis, line_total, CAST(JSONExtractInt(_before, 'line_total') AS Int64)) AS line_total,
+    if(vis, shop_discount, CAST(JSONExtractInt(_before, 'shop_discount') AS Int64)) AS shop_discount,
+    if(vis, platform_discount, CAST(JSONExtractInt(_before, 'platform_discount') AS Int64)) AS platform_discount,
+    if(vis, net_amount, CAST(JSONExtractInt(_before, 'net_amount') AS Int64)) AS net_amount,
+    if(vis, campaign_item_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'campaign_item_id')) AS Nullable(UUID))) AS campaign_item_id,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.order_items FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
+    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
+    CAST(toUUID(JSONExtractString(row, 'product_id')) AS UUID) AS product_id,
+    CAST(toInt32(JSONExtractInt(row, 'quantity')) AS Int32) AS quantity,
+    CAST(JSONExtractInt(row, 'list_price') AS Int64) AS list_price,
+    CAST(JSONExtractInt(row, 'unit_price') AS Int64) AS unit_price,
+    CAST(JSONExtractInt(row, 'line_total') AS Int64) AS line_total,
+    CAST(JSONExtractInt(row, 'shop_discount') AS Int64) AS shop_discount,
+    CAST(JSONExtractInt(row, 'platform_discount') AS Int64) AS platform_discount,
+    CAST(JSONExtractInt(row, 'net_amount') AS Int64) AS net_amount,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'campaign_item_id')) AS Nullable(UUID)) AS campaign_item_id,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.order_status_history AS
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
+SELECT * FROM silver.order_status_history FINAL
+WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
+
+CREATE OR REPLACE VIEW consistent.payments AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'payments' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, checkout_id, CAST(toUUID(JSONExtractString(_before, 'checkout_id')) AS UUID)) AS checkout_id,
+    if(vis, order_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'order_id')) AS Nullable(UUID))) AS order_id,
+    if(vis, method, CAST(JSONExtractString(_before, 'method') AS LowCardinality(String))) AS method,
+    if(vis, provider, CAST(JSONExtractString(_before, 'provider') AS LowCardinality(String))) AS provider,
+    if(vis, transaction_ref, CAST(JSONExtractString(_before, 'transaction_ref') AS String)) AS transaction_ref,
+    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, failure_reason, CAST(JSONExtract(_before, 'failure_reason', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS failure_reason,
+    if(vis, paid_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS paid_at,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.payments FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'checkout_id')) AS UUID) AS checkout_id,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'order_id')) AS Nullable(UUID)) AS order_id,
+    CAST(JSONExtractString(row, 'method') AS LowCardinality(String)) AS method,
+    CAST(JSONExtractString(row, 'provider') AS LowCardinality(String)) AS provider,
+    CAST(JSONExtractString(row, 'transaction_ref') AS String) AS transaction_ref,
+    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(JSONExtract(row, 'failure_reason', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS failure_reason,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS paid_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.refunds AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'refunds' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, payment_id, CAST(toUUID(JSONExtractString(_before, 'payment_id')) AS UUID)) AS payment_id,
+    if(vis, order_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'order_id')) AS Nullable(UUID))) AS order_id,
+    if(vis, return_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'return_id')) AS Nullable(UUID))) AS return_id,
+    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
+    if(vis, reason, CAST(JSONExtractString(_before, 'reason') AS LowCardinality(String))) AS reason,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.refunds FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'payment_id')) AS UUID) AS payment_id,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'order_id')) AS Nullable(UUID)) AS order_id,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'return_id')) AS Nullable(UUID)) AS return_id,
+    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
+    CAST(JSONExtractString(row, 'reason') AS LowCardinality(String)) AS reason,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.inventory_movements AS
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
+SELECT * FROM silver.inventory_movements FINAL
+WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
+
+CREATE OR REPLACE VIEW consistent.shipments AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'shipments' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
+    if(vis, return_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'return_id')) AS Nullable(UUID))) AS return_id,
+    if(vis, direction, CAST(JSONExtractString(_before, 'direction') AS LowCardinality(String))) AS direction,
+    if(vis, carrier, CAST(JSONExtractString(_before, 'carrier') AS LowCardinality(String))) AS carrier,
+    if(vis, tracking_number, CAST(JSONExtractString(_before, 'tracking_number') AS String)) AS tracking_number,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, from_province, CAST(JSONExtractString(_before, 'from_province') AS LowCardinality(String))) AS from_province,
+    if(vis, to_province, CAST(JSONExtractString(_before, 'to_province') AS LowCardinality(String))) AS to_province,
+    if(vis, attempts, CAST(toInt32(JSONExtractInt(_before, 'attempts')) AS Int32)) AS attempts,
+    if(vis, last_event_time, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'last_event_time'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS last_event_time,
+    if(vis, picked_up_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'picked_up_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS picked_up_at,
+    if(vis, delivered_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS delivered_at,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.shipments FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'return_id')) AS Nullable(UUID)) AS return_id,
+    CAST(JSONExtractString(row, 'direction') AS LowCardinality(String)) AS direction,
+    CAST(JSONExtractString(row, 'carrier') AS LowCardinality(String)) AS carrier,
+    CAST(JSONExtractString(row, 'tracking_number') AS String) AS tracking_number,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(JSONExtractString(row, 'from_province') AS LowCardinality(String)) AS from_province,
+    CAST(JSONExtractString(row, 'to_province') AS LowCardinality(String)) AS to_province,
+    CAST(toInt32(JSONExtractInt(row, 'attempts')) AS Int32) AS attempts,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'last_event_time'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS last_event_time,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'picked_up_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS picked_up_at,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS delivered_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.shipment_events AS
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
+SELECT * FROM silver.shipment_events FINAL
+WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
+
+CREATE OR REPLACE VIEW consistent.price_history AS
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
+SELECT * FROM silver.price_history FINAL
+WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
+
+CREATE OR REPLACE VIEW consistent.vouchers AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'vouchers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, code, CAST(JSONExtractString(_before, 'code') AS String)) AS code,
+    if(vis, scope, CAST(JSONExtractString(_before, 'scope') AS LowCardinality(String))) AS scope,
+    if(vis, shop_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'shop_id')) AS Nullable(UUID))) AS shop_id,
+    if(vis, kind, CAST(JSONExtractString(_before, 'kind') AS LowCardinality(String))) AS kind,
+    if(vis, value, CAST(JSONExtractInt(_before, 'value') AS Int64)) AS value,
+    if(vis, max_discount, CAST(JSONExtract(_before, 'max_discount', 'Nullable(Int64)') AS Nullable(Int64))) AS max_discount,
+    if(vis, min_spend, CAST(JSONExtractInt(_before, 'min_spend') AS Int64)) AS min_spend,
+    if(vis, usage_limit, CAST(toInt32(JSONExtractInt(_before, 'usage_limit')) AS Int32)) AS usage_limit,
+    if(vis, per_customer_limit, CAST(toInt32(JSONExtractInt(_before, 'per_customer_limit')) AS Int32)) AS per_customer_limit,
+    if(vis, starts_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS starts_at,
+    if(vis, ends_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS ends_at,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.vouchers FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(JSONExtractString(row, 'code') AS String) AS code,
+    CAST(JSONExtractString(row, 'scope') AS LowCardinality(String)) AS scope,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'shop_id')) AS Nullable(UUID)) AS shop_id,
+    CAST(JSONExtractString(row, 'kind') AS LowCardinality(String)) AS kind,
+    CAST(JSONExtractInt(row, 'value') AS Int64) AS value,
+    CAST(JSONExtract(row, 'max_discount', 'Nullable(Int64)') AS Nullable(Int64)) AS max_discount,
+    CAST(JSONExtractInt(row, 'min_spend') AS Int64) AS min_spend,
+    CAST(toInt32(JSONExtractInt(row, 'usage_limit')) AS Int32) AS usage_limit,
+    CAST(toInt32(JSONExtractInt(row, 'per_customer_limit')) AS Int32) AS per_customer_limit,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS starts_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS ends_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.voucher_usages AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'voucher_usages' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, voucher_id, CAST(toUUID(JSONExtractString(_before, 'voucher_id')) AS UUID)) AS voucher_id,
+    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
+    if(vis, checkout_id, CAST(toUUID(JSONExtractString(_before, 'checkout_id')) AS UUID)) AS checkout_id,
+    if(vis, order_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'order_id')) AS Nullable(UUID))) AS order_id,
+    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
+    if(vis, quota_slot, CAST(toInt32(JSONExtractInt(_before, 'quota_slot')) AS Int32)) AS quota_slot,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.voucher_usages FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'voucher_id')) AS UUID) AS voucher_id,
+    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
+    CAST(toUUID(JSONExtractString(row, 'checkout_id')) AS UUID) AS checkout_id,
+    CAST(toUUIDOrNull(JSONExtractString(row, 'order_id')) AS Nullable(UUID)) AS order_id,
+    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
+    CAST(toInt32(JSONExtractInt(row, 'quota_slot')) AS Int32) AS quota_slot,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.campaigns AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'campaigns' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
+    if(vis, kind, CAST(JSONExtractString(_before, 'kind') AS LowCardinality(String))) AS kind,
+    if(vis, starts_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS starts_at,
+    if(vis, ends_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS ends_at,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.campaigns FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(JSONExtractString(row, 'name') AS String) AS name,
+    CAST(JSONExtractString(row, 'kind') AS LowCardinality(String)) AS kind,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS starts_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS ends_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.flash_sale_items AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'flash_sale_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, campaign_id, CAST(toUUID(JSONExtractString(_before, 'campaign_id')) AS UUID)) AS campaign_id,
+    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
+    if(vis, sale_price, CAST(JSONExtractInt(_before, 'sale_price') AS Int64)) AS sale_price,
+    if(vis, quota, CAST(toInt32(JSONExtractInt(_before, 'quota')) AS Int32)) AS quota,
+    if(vis, sold, CAST(toInt32(JSONExtractInt(_before, 'sold')) AS Int32)) AS sold,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.flash_sale_items FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'campaign_id')) AS UUID) AS campaign_id,
+    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
+    CAST(JSONExtractInt(row, 'sale_price') AS Int64) AS sale_price,
+    CAST(toInt32(JSONExtractInt(row, 'quota')) AS Int32) AS quota,
+    CAST(toInt32(JSONExtractInt(row, 'sold')) AS Int32) AS sold,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.returns AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'returns' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
+    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
+    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
+    if(vis, reason, CAST(JSONExtractString(_before, 'reason') AS LowCardinality(String))) AS reason,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, refund_amount, CAST(JSONExtractInt(_before, 'refund_amount') AS Int64)) AS refund_amount,
+    if(vis, respond_by, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'respond_by'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS respond_by,
+    if(vis, resolved_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'resolved_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS resolved_at,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.returns FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
+    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
+    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
+    CAST(JSONExtractString(row, 'reason') AS LowCardinality(String)) AS reason,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(JSONExtractInt(row, 'refund_amount') AS Int64) AS refund_amount,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'respond_by'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS respond_by,
+    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'resolved_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS resolved_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.return_items AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'return_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, return_id, CAST(toUUID(JSONExtractString(_before, 'return_id')) AS UUID)) AS return_id,
+    if(vis, order_item_id, CAST(toUUID(JSONExtractString(_before, 'order_item_id')) AS UUID)) AS order_item_id,
+    if(vis, quantity, CAST(toInt32(JSONExtractInt(_before, 'quantity')) AS Int32)) AS quantity,
+    if(vis, refund_amount, CAST(JSONExtractInt(_before, 'refund_amount') AS Int64)) AS refund_amount,
+    if(vis, condition, CAST(JSONExtract(_before, 'condition', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS condition,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.return_items FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'return_id')) AS UUID) AS return_id,
+    CAST(toUUID(JSONExtractString(row, 'order_item_id')) AS UUID) AS order_item_id,
+    CAST(toInt32(JSONExtractInt(row, 'quantity')) AS Int32) AS quantity,
+    CAST(JSONExtractInt(row, 'refund_amount') AS Int64) AS refund_amount,
+    CAST(JSONExtract(row, 'condition', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS condition,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.seller_ledger_entries AS
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
+SELECT * FROM silver.seller_ledger_entries FINAL
+WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
+
+CREATE OR REPLACE VIEW consistent.shop_wallets AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'shop_id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'shop_wallets' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
+    if(vis, balance, CAST(JSONExtractInt(_before, 'balance') AS Int64)) AS balance,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.shop_wallets FINAL WHERE shop_id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
+    CAST(JSONExtractInt(row, 'balance') AS Int64) AS balance,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.seller_payouts AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'seller_payouts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
+    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
+    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.seller_payouts FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
+    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
+    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';
+
+CREATE OR REPLACE VIEW consistent.product_reviews AS
+WITH
+    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
+    restore AS (
+        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
+        FROM bronze.cdc_events
+        WHERE source_table = 'product_reviews' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+          AND tx_id NOT IN (SELECT tx_id FROM visible)
+        GROUP BY k)
+SELECT
+    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
+    if(vis, order_item_id, CAST(toUUID(JSONExtractString(_before, 'order_item_id')) AS UUID)) AS order_item_id,
+    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
+    if(vis, product_id, CAST(toUUID(JSONExtractString(_before, 'product_id')) AS UUID)) AS product_id,
+    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
+    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
+    if(vis, rating, CAST(toInt32(JSONExtractInt(_before, 'rating')) AS Int32)) AS rating,
+    if(vis, comment, CAST(JSONExtract(_before, 'comment', 'Nullable(String)') AS Nullable(String))) AS comment,
+    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    _version,
+    _is_deleted,
+    _synced_at,
+    _tx_id,
+    _before
+FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
+      FROM silver.product_reviews FINAL WHERE id NOT IN (SELECT k FROM restore))
+WHERE vis OR _before != 'null'
+UNION ALL
+SELECT
+    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
+    CAST(toUUID(JSONExtractString(row, 'order_item_id')) AS UUID) AS order_item_id,
+    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
+    CAST(toUUID(JSONExtractString(row, 'product_id')) AS UUID) AS product_id,
+    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
+    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
+    CAST(toInt32(JSONExtractInt(row, 'rating')) AS Int32) AS rating,
+    CAST(JSONExtract(row, 'comment', 'Nullable(String)') AS Nullable(String)) AS comment,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
+    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
+    toUInt64(0) AS _version,
+    toUInt8(0) AS _is_deleted,
+    now64(3) AS _synced_at,
+    toUInt64(0) AS _tx_id,
+    'null' AS _before
+FROM restore
+WHERE row != 'null';

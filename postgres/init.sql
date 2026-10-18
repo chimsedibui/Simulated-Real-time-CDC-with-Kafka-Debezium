@@ -91,9 +91,6 @@ CREATE TABLE ecommerce.shops (
     province            VARCHAR(40)  NOT NULL,          -- ship-from location
     commission_rate_bps INTEGER      NOT NULL CHECK (commission_rate_bps BETWEEN 0 AND 3000),
     penalty_points      INTEGER      NOT NULL DEFAULT 0 CHECK (penalty_points >= 0),
-    wallet_balance      BIGINT       NOT NULL DEFAULT 0,             -- = Σ seller_ledger_entries.amount
-    rating_count        INTEGER      NOT NULL DEFAULT 0,
-    rating_sum          INTEGER      NOT NULL DEFAULT 0,
     is_active           BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT ecommerce.business_now(),
     updated_at          TIMESTAMPTZ  NOT NULL DEFAULT ecommerce.business_now()
@@ -222,15 +219,25 @@ CREATE TABLE ecommerce.vouchers (
     min_spend          BIGINT      NOT NULL DEFAULT 0,
     usage_limit        INTEGER     NOT NULL CHECK (usage_limit > 0),
     per_customer_limit INTEGER     NOT NULL DEFAULT 1,
-    used_count         INTEGER     NOT NULL DEFAULT 0,
     starts_at          TIMESTAMPTZ NOT NULL,
     ends_at            TIMESTAMPTZ NOT NULL,
     created_at         TIMESTAMPTZ NOT NULL DEFAULT ecommerce.business_now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT ecommerce.business_now(),
     CHECK ((scope = 'SHOP') = (shop_id IS NOT NULL)),
     CHECK (kind <> 'FREESHIP' OR scope = 'PLATFORM'),
-    CHECK (used_count BETWEEN 0 AND usage_limit),
     CHECK (ends_at > starts_at)
+);
+
+-- Redemption quota of a voucher, split into slots so concurrent checkouts don't all queue on one row
+-- (a platform voucher in the first minute of 11.11). Σ capacity = usage_limit; Σ used = applied usages.
+-- Not streamed: voucher_usages carries the same information.
+CREATE TABLE ecommerce.voucher_quota_slots (
+    voucher_id UUID     NOT NULL REFERENCES ecommerce.vouchers(id),
+    slot       SMALLINT NOT NULL,
+    capacity   INTEGER  NOT NULL CHECK (capacity > 0),
+    used       INTEGER  NOT NULL DEFAULT 0,
+    PRIMARY KEY (voucher_id, slot),
+    CHECK (used BETWEEN 0 AND capacity)
 );
 
 CREATE TABLE ecommerce.campaigns (
@@ -343,6 +350,7 @@ CREATE TABLE ecommerce.voucher_usages (
     checkout_id UUID        NOT NULL REFERENCES ecommerce.checkouts(id),
     order_id    UUID        REFERENCES ecommerce.orders(id),      -- set for shop vouchers
     amount      BIGINT      NOT NULL CHECK (amount > 0),
+    quota_slot  SMALLINT    NOT NULL,                              -- voucher_quota_slots.slot it took
     status      VARCHAR(10) NOT NULL DEFAULT 'APPLIED' CHECK (status IN ('APPLIED', 'RELEASED')),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT ecommerce.business_now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT ecommerce.business_now(),
@@ -465,7 +473,8 @@ CREATE TABLE ecommerce.return_items (
 
 -- ---------------------------------------------------------------- seller settlement
 -- Append-only ledger of the seller wallet: SALE (+), COMMISSION / PAYMENT_FEE (−) when an order completes,
--- PAYOUT (−) when the balance is paid out. shops.wallet_balance = Σ amount.
+-- PAYOUT (−) when the balance is paid out. Entries are only inserted; shop_wallets.balance catches up in batches
+-- (wallet_pending), so completing orders never queues on the shop's row.
 CREATE TABLE ecommerce.seller_payouts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     shop_id     UUID        NOT NULL REFERENCES ecommerce.shops(id),
@@ -482,10 +491,23 @@ CREATE TABLE ecommerce.seller_ledger_entries (
     payout_id     UUID        REFERENCES ecommerce.seller_payouts(id),
     entry_type    VARCHAR(12) NOT NULL CHECK (entry_type IN ('SALE', 'COMMISSION', 'PAYMENT_FEE', 'PAYOUT')),
     amount        BIGINT      NOT NULL,
-    balance_after BIGINT      NOT NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT ecommerce.business_now()
 );
 CREATE INDEX idx_seller_ledger_shop ON ecommerce.seller_ledger_entries (shop_id, id);
+
+-- Wallet balance = Σ ledger entries already rolled up; Σ wallet_pending = entries not rolled up yet
+CREATE TABLE ecommerce.shop_wallets (
+    shop_id    UUID PRIMARY KEY REFERENCES ecommerce.shops(id),
+    balance    BIGINT      NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT ecommerce.business_now()
+);
+
+-- Ledger entries waiting to be added to shop_wallets (not streamed)
+CREATE TABLE ecommerce.wallet_pending (
+    entry_id BIGINT PRIMARY KEY REFERENCES ecommerce.seller_ledger_entries(id),
+    shop_id  UUID   NOT NULL,
+    amount   BIGINT NOT NULL
+);
 
 
 -- ---------------------------------------------------------------- reviews
@@ -512,7 +534,7 @@ BEGIN
                              'products', 'product_skus', 'inventory', 'carts', 'cart_items', 'checkouts',
                              'orders', 'order_items', 'payments', 'refunds', 'vouchers', 'campaigns',
                              'flash_sale_items', 'voucher_usages', 'returns', 'return_items', 'seller_payouts',
-                             'product_reviews', 'shipments']
+                             'product_reviews', 'shipments', 'shop_wallets']
     LOOP
         EXECUTE format('CREATE TRIGGER trg_%s_touch BEFORE UPDATE ON ecommerce.%I
                         FOR EACH ROW EXECUTE FUNCTION ecommerce.touch_updated_at()', t, t);
@@ -523,7 +545,8 @@ $$;
 
 -- ---------------------------------------------------------------- integration / pipeline tables
 -- OUTBOX: domain events written in the same transaction as the business change.
--- Debezium's Outbox Event Router reroutes each row to topic events.<aggregatetype>.
+-- Each row is deleted again before commit: Debezium reads the insert from the WAL and its Outbox Event Router
+-- reroutes it to topic events.<aggregatetype>, so the table stays empty and never needs cleaning.
 CREATE TABLE ecommerce.outbox_events (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     aggregatetype VARCHAR(50)  NOT NULL,
@@ -532,8 +555,6 @@ CREATE TABLE ecommerce.outbox_events (
     payload       JSONB        NOT NULL,
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT ecommerce.business_now()
 );
-CREATE INDEX idx_outbox_events_aggregate ON ecommerce.outbox_events (aggregatetype, aggregateid);
-CREATE INDEX idx_outbox_events_type ON ecommerce.outbox_events (type);
 
 -- IDEMPOTENCY: stored responses of commands sent with an Idempotency-Key header (not captured by CDC)
 CREATE TABLE ecommerce.idempotency_keys (
@@ -542,8 +563,9 @@ CREATE TABLE ecommerce.idempotency_keys (
     request_hash VARCHAR(64)  NOT NULL,
     status_code  INTEGER,
     response     JSONB,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP      -- wall clock: client retries are real-time
 );
+CREATE INDEX idx_idempotency_keys_created ON ecommerce.idempotency_keys (created_at);
 
 -- Debezium heartbeat (keeps the replication slot moving) and signal table
 CREATE TABLE ecommerce.cdc_heartbeat (

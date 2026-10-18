@@ -12,9 +12,10 @@
     "publication.name": "cdc_publication",
     "slot.name": "debezium_slot",
     "_comment_include": "Every ecommerce table except pipeline/infra tables; new business tables are picked up without editing this file",
-    "table.include.list": "ecommerce\\.(?!cdc_heartbeat$|cdc_metrics$|audit_logs$|idempotency_keys$|sim_clock$).+",
+    "table.include.list": "ecommerce\\.(?!cdc_heartbeat$|cdc_metrics$|audit_logs$|idempotency_keys$|sim_clock$|wallet_pending$|voucher_quota_slots$).+",
 
-    "replica.identity.autoset.values": "ecommerce.*:FULL",
+    "_comment_identity": "State tables keep FULL: silver deletes and consistent.* need the before image. Append-only tables (and the outbox, deleted right after insert) only need the key",
+    "replica.identity.autoset.values": "ecommerce\\.(?!order_status_history$|inventory_movements$|shipment_events$|price_history$|seller_ledger_entries$|outbox_events$).+:FULL,ecommerce\\.(order_status_history|inventory_movements|shipment_events|price_history|seller_ledger_entries|outbox_events):DEFAULT",
 
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
@@ -45,7 +46,8 @@
     "snapshot.fetch.size": "10000",
     "snapshot.max.threads": "1",
 
-    "tombstones.on.delete": "true",
+    "_comment_tombstones": "No tombstones: nothing is log-compacted, and a null message would stop ClickHouse ingestion",
+    "tombstones.on.delete": "false",
     "decimal.handling.mode": "string",
     "time.precision.mode": "connect",
 
@@ -55,7 +57,8 @@
     "heartbeat.interval.ms": "10000",
     "heartbeat.action.query": "INSERT INTO ecommerce.cdc_heartbeat (id,ts) VALUES (1,NOW()) ON CONFLICT (id) DO UPDATE SET ts = NOW()",
     
-    "errors.tolerance": "all",
+    "_comment_errors": "Fail fast: a change that cannot be converted stops the task (and is alerted on) instead of being dropped",
+    "errors.tolerance": "none",
     "errors.log.enable": "true",
     "errors.log.include.messages": "true",
 

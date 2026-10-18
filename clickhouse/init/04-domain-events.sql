@@ -11,7 +11,7 @@ SETTINGS
     kafka_group_name = 'clickhouse-events',
     kafka_format = 'JSONAsString',
     kafka_num_consumers = 1,
-    kafka_skip_broken_messages = 100,
+    kafka_handle_error_mode = 'stream',
     kafka_flush_interval_ms = 1000;
 
 CREATE TABLE IF NOT EXISTS bronze.domain_events
@@ -44,4 +44,10 @@ SELECT
     _offset                                                                  AS kafka_offset,
     now64(3)                                                                 AS ingested_at
 FROM bronze.kafka_domain_events
-WHERE JSONHas(raw, 'eventId');
+WHERE _error = '' AND JSONHas(raw, 'eventId');
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS bronze.mv_domain_events_errors TO bronze.ingest_errors AS
+SELECT _topic AS kafka_topic, _partition AS kafka_partition, _offset AS kafka_offset, _error AS error,
+       _raw_message AS raw_message, now64(3) AS ingested_at
+FROM bronze.kafka_domain_events
+WHERE _error != '';

@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, model_validator
 from .. import outbox
 from ..clock import business_now
 from ..db import transaction
-from ..domain import stock
+from ..domain import pricing, stock
 from ..domain.orders import lock_order, transition
 from ..errors import conflict, not_found
 from ..idempotency import run_command
@@ -108,6 +108,7 @@ def onboard_seller(body: OnboardSeller, idempotency_key: str | None = Header(Non
             cur.execute("ROLLBACK TO SAVEPOINT onboard")
             raise conflict("seller_exists", "Seller email or shop name already registered")
         shop = cur.fetchone()
+        cur.execute("INSERT INTO ecommerce.shop_wallets (shop_id) VALUES (%s)", (shop["id"],))
         outbox.emit(cur, "shop", shop["id"], "SellerOnboarded",
                     {"seller_id": seller_id, "shop_id": shop["id"], "shop_name": shop["name"],
                      "tier": shop["shop_tier"], "province": shop["province"]})
@@ -240,6 +241,7 @@ def create_voucher(cur, scope: str, shop_id, body) -> dict:
         cur.execute("ROLLBACK TO SAVEPOINT voucher")
         raise conflict("voucher_code_taken", f"Voucher code {body.code} already exists")
     v = cur.fetchone()
+    pricing.create_quota(cur, v)
     outbox.emit(cur, "promotion", v["id"], "VoucherCreated",
                 {"voucher_id": v["id"], "code": v["code"], "scope": scope, "shop_id": shop_id, "kind": v["kind"],
                  "value": v["value"], "usage_limit": v["usage_limit"], "ends_at": v["ends_at"]})
@@ -294,7 +296,19 @@ def seller_cancel(order_id: UUID, body: SellerCancel, idempotency_key: str | Non
 @router.get("/shops")
 def list_shops(limit: int = Query(1000, ge=1, le=10000)):
     with transaction() as cur:
-        cur.execute("SELECT * FROM ecommerce.shops ORDER BY created_at LIMIT %s", (limit,))
+        # wallet = rolled-up balance + entries still pending; rating comes from the reviews themselves
+        cur.execute(
+            """SELECT s.*, w.balance + coalesce(p.amount, 0) AS wallet_balance,
+                      coalesce(r.n, 0) AS rating_count, coalesce(r.total, 0) AS rating_sum
+               FROM ecommerce.shops s
+               JOIN ecommerce.shop_wallets w ON w.shop_id = s.id
+               LEFT JOIN (SELECT shop_id, sum(amount) AS amount FROM ecommerce.wallet_pending GROUP BY 1) p
+                   ON p.shop_id = s.id
+               LEFT JOIN (SELECT shop_id, count(*) AS n, sum(rating) AS total FROM ecommerce.product_reviews GROUP BY 1) r
+                   ON r.shop_id = s.id
+               ORDER BY s.created_at LIMIT %s""",
+            (limit,),
+        )
         return cur.fetchall()
 
 

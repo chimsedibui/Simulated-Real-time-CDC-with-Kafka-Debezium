@@ -75,6 +75,7 @@ export interface WarehouseOverview {
   kpis: {
     orders: number;
     gmv: number;
+    nmv: number;
     completed_revenue: number;
     avg_order_value: number;
     buyers: number;
@@ -82,7 +83,7 @@ export interface WarehouseOverview {
     active_customers: number;
     shops: number;
   };
-  traffic_by_hour: { hour: string; orders: number; gmv: number; orders_with_voucher: number }[];
+  traffic_by_hour: { hour: string; orders: number; placed_gmv: number; orders_with_voucher: number }[];
   order_status: Row[];
   funnel: Row[];
   payments: Row[];

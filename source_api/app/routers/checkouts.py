@@ -74,8 +74,11 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
         if not address:
             raise not_found("address", body.address_id or "default")
 
-        # Fixed lock order everywhere: vouchers → inventory → flash-sale items
-        vouchers = pricing.lock_vouchers(cur, body.voucher_codes)
+        # Fixed lock order everywhere: voucher quota slots → inventory → flash-sale items (releases go the same way)
+        if body.voucher_codes:
+            pricing.lock_customer_vouchers(cur, body.customer_id)
+        vouchers = pricing.load_vouchers(cur, body.voucher_codes)
+        claimed = {v["id"]: pricing.claim_quota(cur, v) for v in vouchers}
 
         cart = active_cart(cur, body.customer_id, create=False)
         if not cart:
@@ -122,6 +125,9 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
             drafts.append({"shop_id": shop_id, "lines": lines, "subtotal": sum(ln["line_total"] for ln in lines),
                            "fee": shipping_fee(rows[lines[0]["sku_id"]]["province"], address["province"], weight)})
         usages = pricing.apply_vouchers(cur, vouchers, body.customer_id, drafts, t)
+        used = {u["voucher"]["id"] for u in usages}
+        pricing.release_quota(cur, [{"voucher_id": vid, "quota_slot": slot} for vid, slot in claimed.items()
+                                    if vid not in used])                     # valid but worth 0 VND here
 
         online = body.payment_method != "COD"
         items_total = sum(d["subtotal"] for d in drafts)
@@ -189,15 +195,14 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
                                 if ln["campaign_item_id"]), key=lambda x: str(x[0])):
             cur.execute("UPDATE ecommerce.flash_sale_items SET sold = sold + %s WHERE id = %s", (qty, fid))
 
-        for u in usages:
+        for u in sorted(usages, key=lambda u: str(u["voucher"]["id"])):
             v = u["voucher"]
             cur.execute(
-                """INSERT INTO ecommerce.voucher_usages (voucher_id, customer_id, checkout_id, order_id, amount)
-                   VALUES (%s, %s, %s, %s, %s)""",
+                """INSERT INTO ecommerce.voucher_usages (voucher_id, customer_id, checkout_id, order_id, amount, quota_slot)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
                 (v["id"], body.customer_id, co["id"],
-                 order_by_shop[u["shop_id"]]["id"] if u["shop_id"] else None, u["amount"]),
+                 order_by_shop[u["shop_id"]]["id"] if u["shop_id"] else None, u["amount"], claimed[v["id"]]),
             )
-            cur.execute("UPDATE ecommerce.vouchers SET used_count = used_count + 1 WHERE id = %s", (v["id"],))
 
         payment = _new_payment(cur, co["id"], body.payment_method, co["grand_total"]) if online else None
         cur.execute("UPDATE ecommerce.carts SET status = 'CHECKED_OUT' WHERE id = %s", (cart["id"],))
@@ -305,9 +310,8 @@ def close_checkout(cur, co: dict, status: str, actor: str, reason: str):
     """Unpaid checkout ends (buyer cancel or payment timeout): give back vouchers, void attempts, cancel orders."""
     cur.execute("UPDATE ecommerce.checkouts SET status = %s WHERE id = %s", (status, co["id"]))
     cur.execute("UPDATE ecommerce.voucher_usages SET status = 'RELEASED' WHERE checkout_id = %s AND status = 'APPLIED' "
-                "RETURNING voucher_id", (co["id"],))
-    for v in sorted((r["voucher_id"] for r in cur.fetchall()), key=str):
-        cur.execute("UPDATE ecommerce.vouchers SET used_count = used_count - 1 WHERE id = %s", (v,))
+                "RETURNING voucher_id, quota_slot", (co["id"],))
+    pricing.release_quota(cur, cur.fetchall())
     cur.execute(
         "UPDATE ecommerce.payments SET status = %s, failure_reason = %s WHERE checkout_id = %s AND status = 'PENDING'",
         ("EXPIRED" if status == "EXPIRED" else "CANCELLED", reason, co["id"]),

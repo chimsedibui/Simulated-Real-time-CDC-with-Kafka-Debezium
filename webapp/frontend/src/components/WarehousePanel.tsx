@@ -55,10 +55,10 @@ export function WarehousePanel() {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="GMV" value={fmt.compactMoney(kpis.gmv)} hint={`${fmt.compactMoney(kpis.completed_revenue)} from completed orders`}
+        <Stat label="GMV" value={fmt.compactMoney(kpis.gmv)} hint={`NMV ${fmt.compactMoney(kpis.nmv)} after cancellations and returns`}
           icon={<TrendingUp size={14} />} accent="text-emerald-300" />
         <Stat label="Orders" value={fmt.num(kpis.orders)} hint={`${fmt.num(kpis.cancelled)} cancelled`} icon={<Receipt size={14} />} />
-        <Stat label="Avg order value" value={fmt.compactMoney(kpis.avg_order_value)} hint="excl. cancelled / returned"
+        <Stat label="Avg order value" value={fmt.compactMoney(kpis.avg_order_value)} hint="confirmed orders (paid or COD)"
           icon={<ShoppingBag size={14} />} accent="text-sky-300" />
         <Stat label="Buyers" value={fmt.num(kpis.buyers)} hint={`${fmt.num(kpis.active_customers)} active customers · ${fmt.num(kpis.shops)} shops`}
           icon={<Store size={14} />} accent="text-pink-300" />
@@ -80,7 +80,7 @@ export function WarehousePanel() {
                 <YAxis yAxisId="rev" tickFormatter={fmt.compactMoney} tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false} axisLine={false} width={64} />
                 <YAxis yAxisId="ord" orientation="right" allowDecimals={false} tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false} axisLine={false} width={28} />
                 <Tooltip {...tooltipStyle} formatter={(v: number, name: string) => (name === "GMV" ? fmt.money(v) : v)} />
-                <Bar yAxisId="rev" dataKey="gmv" name="GMV" fill="url(#rev)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                <Bar yAxisId="rev" dataKey="placed_gmv" name="Placed GMV" fill="url(#rev)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
                 <Line yAxisId="ord" type="monotone" dataKey="orders" name="Orders" stroke="#60a5fa" strokeWidth={2} dot={false} isAnimationActive={false} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -192,7 +192,7 @@ export function WarehousePanel() {
                   <XAxis type="number" tickFormatter={fmt.compactMoney} tick={{ fill: "#64748b", fontSize: 10 }} tickLine={false} axisLine={false} />
                   <YAxis type="category" dataKey="category" tick={{ fill: "#cbd5e1", fontSize: 11 }} tickLine={false} axisLine={false} width={150} />
                   <Tooltip {...tooltipStyle} formatter={(v: number) => fmt.money(v)} />
-                  <Bar dataKey="revenue" name="Revenue" radius={[0, 6, 6, 0]} isAnimationActive={false}>
+                  <Bar dataKey="net_revenue" name="Net revenue" radius={[0, 6, 6, 0]} isAnimationActive={false}>
                     {data.category_sales.map((_, i) => <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />)}
                   </Bar>
                 </BarChart>
@@ -208,12 +208,12 @@ export function WarehousePanel() {
                 <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
                   <th className="pb-2 font-medium">Product</th>
                   <th className="pb-2 text-right font-medium">Units</th>
-                  <th className="pb-2 text-right font-medium">Revenue</th>
+                  <th className="pb-2 text-right font-medium">Net revenue</th>
                 </tr>
               </thead>
               <tbody>
                 {data.top_products.map((p, i) => {
-                  const share = Number(p.revenue) / Number(data.top_products[0].revenue || 1);
+                  const share = Number(p.net_revenue) / Number(data.top_products[0].net_revenue || 1);
                   return (
                     <tr key={`${p.product_name}-${p.shop}`} className="border-t border-white/5">
                       <td className="py-2 pr-2">
@@ -229,7 +229,7 @@ export function WarehousePanel() {
                         </div>
                       </td>
                       <td className="py-2 text-right font-mono text-slate-400">{fmt.num(p.units_sold)}</td>
-                      <td className="py-2 text-right font-mono text-slate-200">{fmt.compactMoney(p.revenue)}</td>
+                      <td className="py-2 text-right font-mono text-slate-200">{fmt.compactMoney(p.net_revenue)}</td>
                     </tr>
                   );
                 })}
@@ -244,7 +244,8 @@ export function WarehousePanel() {
           icon={<Percent size={14} />} accent="text-emerald-300" />
         <Stat label="Promo cost (platform)" value={fmt.compactMoney(pnl.platform_promo_cost)}
           hint={`sellers funded ${fmt.compactMoney(pnl.seller_promo_cost)}`} icon={<Receipt size={14} />} accent="text-orange-300" />
-        <Stat label="Refunds" value={fmt.compactMoney(pnl.refunds)} hint="cancellations, late payments, returns"
+        <Stat label="Return refunds" value={fmt.compactMoney(pnl.return_refunds)}
+          hint={`+ ${fmt.compactMoney(pnl.cancellation_refunds)} cancellations · ${fmt.compactMoney(pnl.late_payment_refunds)} late payments`}
           icon={<Undo2 size={14} />} accent="text-amber-300" />
         <Stat label="Paid out to sellers" value={fmt.compactMoney(pnl.paid_to_sellers)} hint="daily payouts from seller wallets"
           icon={<Wallet size={14} />} accent="text-sky-300" />

@@ -5,10 +5,11 @@ are paid by the platform (orders.platform_discount, orders.shipping_subsidy). Ev
 split over its lines (largest remainder), so a partial return can refund exactly what was paid per unit.
 """
 
+import random
 from collections import defaultdict
 
 from ..errors import conflict
-from ..settings import MIN_ORDER_PAYABLE
+from ..settings import MIN_ORDER_PAYABLE, VOUCHER_QUOTA_SLOTS
 
 
 def allocate(total: int, weights: list) -> list:
@@ -23,16 +24,62 @@ def allocate(total: int, weights: list) -> list:
     return parts
 
 
-def lock_vouchers(cur, codes: list) -> list:
-    """Lock requested vouchers first (fixed lock order: vouchers → inventory → flash items)."""
+def load_vouchers(cur, codes: list) -> list:
+    """Requested vouchers, unlocked: their quota is claimed slot by slot (claim_quota), never on this row."""
     if not codes:
         return []
-    cur.execute("SELECT * FROM ecommerce.vouchers WHERE code = ANY(%s) ORDER BY code FOR UPDATE", (sorted(set(codes)),))
+    cur.execute("SELECT * FROM ecommerce.vouchers WHERE code = ANY(%s)", (sorted(set(codes)),))
     found = {v["code"]: v for v in cur.fetchall()}
     missing = [c for c in codes if c not in found]
     if missing:
         raise conflict("voucher_invalid", f"Unknown voucher {missing[0]}", voucher=missing[0], why="not_found")
-    return [found[c] for c in dict.fromkeys(codes)]
+    return sorted((found[c] for c in dict.fromkeys(codes)), key=lambda v: str(v["id"]))   # claim order
+
+
+def lock_customer_vouchers(cur, customer_id) -> None:
+    """Serialise one customer's checkouts so the per-customer limit holds (other customers are not blocked)."""
+    cur.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 7))", (f"voucher-customer:{customer_id}",))
+
+
+def _slots(usage_limit: int) -> int:
+    return min(VOUCHER_QUOTA_SLOTS, usage_limit)
+
+
+def create_quota(cur, v: dict) -> None:
+    """Split usage_limit over the voucher's slots (sizes differ by at most one)."""
+    n = _slots(v["usage_limit"])
+    for slot, capacity in enumerate(allocate(v["usage_limit"], [1] * n)):
+        cur.execute("INSERT INTO ecommerce.voucher_quota_slots (voucher_id, slot, capacity) VALUES (%s, %s, %s)",
+                    (v["id"], slot, capacity))
+
+
+def claim_quota(cur, v: dict) -> int:
+    """Take one redemption from a random slot that still has room. Returns the slot.
+
+    Concurrent checkouts spread over up to VOUCHER_QUOTA_SLOTS rows instead of queueing on one. Each attempt
+    waits on at most one row and keeps no lock when it fails (the slot filled up meanwhile), so a checkout never
+    holds one slot of a voucher while waiting for another: no lock cycles.
+    """
+    while True:
+        cur.execute("SELECT slot FROM ecommerce.voucher_quota_slots WHERE voucher_id = %s AND used < capacity",
+                    (v["id"],))
+        free = [r["slot"] for r in cur.fetchall()]
+        if not free:
+            raise conflict("voucher_invalid", f"Voucher {v['code']} has been fully redeemed", voucher=v["code"],
+                           why="exhausted")
+        cur.execute("""UPDATE ecommerce.voucher_quota_slots SET used = used + 1
+                       WHERE voucher_id = %s AND slot = %s AND used < capacity RETURNING slot""",
+                    (v["id"], random.choice(free)))
+        row = cur.fetchone()
+        if row:
+            return row["slot"]
+
+
+def release_quota(cur, usages) -> None:
+    """Give redemptions back; (voucher_id, slot) order, the same order claims are taken in."""
+    for voucher_id, slot in sorted(((u["voucher_id"], u["quota_slot"]) for u in usages), key=lambda x: (str(x[0]), x[1])):
+        cur.execute("UPDATE ecommerce.voucher_quota_slots SET used = used - 1 WHERE voucher_id = %s AND slot = %s",
+                    (voucher_id, slot))
 
 
 def flash_prices(cur, wanted: dict, t) -> dict:
@@ -56,8 +103,6 @@ def _check(cur, v: dict, customer_id, base: int, t):
 
     if not (v["starts_at"] <= t < v["ends_at"]):
         bad("not_active", f"Voucher {v['code']} is not active now")
-    if v["used_count"] >= v["usage_limit"]:
-        bad("exhausted", f"Voucher {v['code']} has been fully redeemed")
     if base < v["min_spend"]:
         bad("min_spend", f"Voucher {v['code']} needs a minimum spend of {v['min_spend']}")
     cur.execute("SELECT count(*) AS n FROM ecommerce.voucher_usages WHERE voucher_id = %s AND customer_id = %s "

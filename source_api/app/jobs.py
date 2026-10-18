@@ -17,7 +17,8 @@ from .domain.returns import close_rejected
 from .errors import DomainError
 from .routers.checkouts import close_checkout
 from .routers.returns import approve
-from .settings import AUTO_COMPLETE_S, CART_ABANDON_S, DISPUTE_WINDOW_S, JOB_INTERVAL_S, PAYOUT_INTERVAL_S
+from .settings import (AUTO_COMPLETE_S, CART_ABANDON_S, DISPUTE_WINDOW_S, IDEMPOTENCY_TTL_S, JOB_INTERVAL_S,
+                       PAYOUT_INTERVAL_S)
 
 log = logging.getLogger("jobs")
 NOW = "ecommerce.business_now()"
@@ -118,8 +119,9 @@ def pay_out_sellers():
     def pay(cur, shop_id):
         settlement.payout(cur, shop_id)
 
-    _each(_candidates(f"""SELECT s.id FROM ecommerce.shops s
-                          WHERE s.wallet_balance > 0
+    _each(_candidates(f"""SELECT s.id FROM ecommerce.shops s JOIN ecommerce.shop_wallets w ON w.shop_id = s.id
+                          WHERE w.balance + coalesce((SELECT sum(amount) FROM ecommerce.wallet_pending p
+                                                      WHERE p.shop_id = s.id), 0) > 0
                             AND NOT EXISTS (SELECT 1 FROM ecommerce.seller_payouts p WHERE p.shop_id = s.id
                                             AND p.created_at > {NOW} - make_interval(secs => %s))
                             AND EXISTS (SELECT 1 FROM ecommerce.seller_ledger_entries e WHERE e.shop_id = s.id
@@ -127,8 +129,25 @@ def pay_out_sellers():
                           LIMIT 500""", (PAYOUT_INTERVAL_S, PAYOUT_INTERVAL_S)), pay)
 
 
+def roll_up_wallets():
+    """Settled entries reach shop_wallets.balance within one scheduler run."""
+    while True:
+        with transaction() as cur:
+            if not settlement.roll_up(cur):
+                return
+
+
+def purge_idempotency_keys():
+    """Stored responses only matter while a client may still retry (wall clock)."""
+    with transaction() as cur:
+        cur.execute("""DELETE FROM ecommerce.idempotency_keys WHERE key IN (
+                           SELECT key FROM ecommerce.idempotency_keys
+                           WHERE created_at < now() - make_interval(secs => %s) LIMIT 5000)""", (IDEMPOTENCY_TTL_S,))
+
+
 JOBS = [expire_unpaid_checkouts, cancel_sla_breaches, auto_complete_delivered, abandon_idle_carts,
-        auto_approve_unanswered_returns, close_undisputed_rejections, pay_out_sellers]
+        auto_approve_unanswered_returns, close_undisputed_rejections, roll_up_wallets, pay_out_sellers,
+        purge_idempotency_keys]
 
 
 def start_scheduler(stop: threading.Event):

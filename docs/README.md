@@ -81,13 +81,15 @@ ecommerce
 ├── order_status_history                    append-only: every move with its actor (BUYER/SELLER/PAYMENT/LOGISTICS/SYSTEM)
 ├── payments, refunds                       online attempts per checkout, COD collection per order; refunds
 ├── vouchers, voucher_usages                platform (fixed / percent / free-shipping) and shop vouchers, with limits
+├── voucher_quota_slots                     each voucher's redemption quota split into up to 16 rows (not streamed)
 ├── campaigns, flash_sale_items             flash sales and mega sales: sale price and quota per SKU
 ├── shipments, shipment_events              forward and return parcels (GHN, GHTK, SPX, J&T, VTP) and carrier tracking
 ├── returns, return_items                   return / refund requests, disputes, inspection
-├── seller_ledger_entries, seller_payouts   seller wallet ledger (sale, commission, payment fee, payout)
-├── product_reviews                         1–5 star reviews; shop rating aggregates on shops
-├── outbox_events                           domain events (Outbox Event Router → events.<aggregate>)
-└── idempotency_keys, sim_clock, cdc_heartbeat, debezium_signals   infrastructure, not streamed
+├── seller_ledger_entries, seller_payouts   seller wallet ledger (sale, commission, payment fee, payout), insert-only
+├── shop_wallets, wallet_pending            wallet balance, rolled up from the ledger in batches (pending rows not streamed)
+├── product_reviews                         1–5 star reviews; shop rating is computed from them
+├── outbox_events                           domain events (Outbox Event Router → events.<aggregate>); always empty after commit
+└── idempotency_keys, sim_clock, cdc_heartbeat, debezium_signals   infrastructure, not streamed; idempotency keys expire after 72 h
 ```
 
 **Business clock.** `ecommerce.sim_clock` and `ecommerce.business_now()` run business time at `speed` × wall-clock time.
@@ -125,7 +127,8 @@ Real-time CDC/
 │   └── postgres-connector.json   # connector config
 ├── source_api/                   # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency)
 ├── simulator/                    # traffic simulator, config.yaml holds scale presets and odds
-├── validation/                   # pytest API tests + check_data.py (invariants, write path, reconciliation)
+├── validation/                   # pytest API tests, check_data.py (invariants, reconciliation, metrics), probe_consistency.py
+├── warehouse_jobs/               # scheduled warehouse jobs at a pinned watermark (closing business days)
 ├── clickhouse/
 │   ├── gen_silver.py             # generates init/02-silver.sql from a table spec
 │   ├── config.d/kafka.xml        # librdkafka settings (earliest offset, fast topic discovery)
@@ -251,7 +254,10 @@ Data changes only through the **Source API** (OpenAPI docs at http://localhost:8
 
 Rules enforced by the API:
 
-- **Stock:** checkouts lock stock rows in a fixed order, so concurrent checkouts can't oversell.
+- **Locks and hot rows:** every transaction takes row locks in one fixed order (voucher quota slots → inventory by SKU → flash-sale items), so concurrent checkouts can't oversell and never deadlock with cancellations or payment timeouts that give vouchers back. Rows that every transaction would otherwise update are split or batched:
+  - a voucher's quota is spread over up to 16 slot rows; a checkout takes a random slot and skips busy ones, so 11.11 traffic on one platform voucher doesn't queue on a single row (the per-customer limit is kept with a per-customer advisory lock);
+  - completing an order only inserts ledger entries; a job adds them to `shop_wallets` in batches, and payouts roll up their shop first;
+  - shop ratings are computed from `product_reviews` instead of counters on `shops`.
 - **Checkout:** a checkout splits into one order per shop. Shipping is priced from a rate card by distance (same province, same region or another region) and weight.
 - **Payments:**
   - Online orders wait in `UNPAID` for the payment webhook.
@@ -264,6 +270,7 @@ Rules enforced by the API:
 - **Returns and settlement:**
   - Returns are refunded at the net price paid, and sellable items go back into stock.
   - A completed order settles the seller's wallet with the sale minus the shop voucher, then commission and a 2 % payment fee. Wallets are paid out daily.
+- **Outbox:** each domain event row is inserted and deleted in the same transaction. Debezium reads the insert from the WAL and ignores the delete, so the table never grows.
 - **Moves and actors:** every status change goes through one state machine, which checks both the move and who makes it, for example only the carrier can mark an order delivered.
 - **Cancellations:** cancelling releases the reservation and refunds a paid order. A parcel returned to the seller goes back on the shelf.
 - **Background jobs** (run as `SYSTEM`):
@@ -313,7 +320,17 @@ docker compose --profile tools run --rm validator python check_data.py
 - **Promo:** voucher counters, limits, windows and allocation; flash quota and prices; price at order time against `price_history`.
 - **Returns and settlement:** refund amounts and the order outcome of each return; seller ledger entries per completed order, wallet balances, payouts and shop ratings.
 - **Write path:** one creation event per row; status history replays through allowed moves and actors.
-- **Pipeline:** PostgreSQL against `silver` FINAL for all 30 tables, and the outbox against `bronze.domain_events`.
+- **Write path:** no deadlocks recorded in PostgreSQL (the API retries them, so clients would never notice).
+- **Pipeline:** PostgreSQL against `silver` FINAL for all 30 tables; once settled, no open transactions and `consistent.*` equal to silver; the outbox against `bronze.domain_events`.
+- **Metrics:** every gold metric (daily GMV/NMV, P&L, product revenue, pack time per shop, return cohorts) recomputed in PostgreSQL with the same definition and compared; closed business days must keep their placed GMV and GMV.
+
+Torn reads can only be seen while data is flowing, so they have their own probe. Run it during a simulation:
+
+```bash
+docker compose --profile tools run --rm validator python probe_consistency.py --seconds 300
+```
+
+It polls cross-table invariants that hold inside one PostgreSQL transaction (completed order has its SALE entry, order line has its order, payout has its ledger entry, inventory = Σ stock ledger, …) through `silver FINAL` and through `consistent.*(v)` with one pinned watermark per poll, and fails if `consistent.*` ever breaks one.
 
 ---
 
@@ -329,7 +346,10 @@ bronze.cdc_events            append-only changelog: op, lsn, before/after JSON, 
    │  MV silver.mv_<table>   (one per source table)
    ▼
 silver.<table>               current state, ReplacingMergeTree(_version = WAL LSN, _is_deleted)
-   │  views (read with FINAL)
+   │  views: silver FINAL minus transactions that have not fully landed
+   ▼
+consistent.<table>(v)        silver as of commit watermark v (Kafka cdc.transaction → bronze.cdc_transactions)
+   │  parameterized views, same v for the whole query
    ▼
 gold.*                       business marts
 ```
@@ -339,15 +359,56 @@ gold.*                       business marts
 | bronze | `cdc_events` | Every Debezium event, partitioned by day. Use it for audit, replay and lag metrics. |
 | bronze | `domain_events` | Outbox events from `events.*` (regex subscription), with their event ids. |
 | silver | One table per source table (17). Generated by `clickhouse/gen_silver.py` from a compact spec. | Typed columns (UUID, `Int64` VND, `DateTime64`) plus `_version`, `_is_deleted`, `_synced_at`. Append-only sources such as `order_status_history` are de-duplicated by key. |
-| gold | `daily_sales`, `traffic_by_hour`, `order_status_summary`, `funnel`, `product_sales`, `category_sales`, `shop_performance`, `payment_summary`, `voucher_performance`, `flash_sale_performance`, `delivery_performance`, `returns_summary`, `seller_settlement`, `platform_pnl`, `inventory_risk`, `customer_tiers`, `cdc_freshness` | Plain views, so they always reflect the latest silver state. |
+| bronze | `cdc_transactions` | One row per committed transaction (Debezium transaction metadata): how many of its events should land in `cdc_events`, in commit order. |
+| consistent | `watermark`, plus one parameterized view per silver table | What gold reads. See [Consistent reads](#consistent-reads-no-torn-transactions). |
+| gold | Parameterized views `(v)`: `order_facts`, `daily_sales`, plus the table `daily_sales_closed`, and `traffic_by_hour`, `order_status_summary`, `funnel`, `product_sales`, `category_sales`, `shop_performance`, `payment_summary`, `voucher_performance`, `flash_sale_performance`, `delivery_performance`, `return_rate_by_cohort`, `returns_summary`, `seller_settlement`, `platform_pnl`, `inventory_risk`, `customer_tiers`, `cdc_freshness` (not parameterized) | Views over `consistent.*(v)`. `daily_sales_closed` is filled by the `warehouse-jobs` service once per finished business day. |
 
 **How upserts and deletes work.** Each event is inserted into silver as a new row whose `_version` is the event's PostgreSQL WAL LSN. LSNs always increase, so replays and duplicates are harmless: the highest version per primary key wins. A delete event inserts the row taken from `before` (possible because of `REPLICA IDENTITY FULL`) with `_is_deleted = 1`. ClickHouse collapses versions during background merges, so **always query silver with `FINAL`** to get exact current state.
+
+### Consistent reads (no torn transactions)
+
+Every source table has its own Kafka topic, and ClickHouse consumes the topics independently. For a few seconds, `silver.orders` can show an order as COMPLETED while `silver.seller_ledger_entries` does not have the SALE entry written in the same PostgreSQL transaction yet. A probe under load measured 20 such orders at one moment.
+
+`consistent.*` removes that window. It works like a database snapshot that the reader pins:
+
+1. Debezium publishes one END record per transaction on `cdc.transaction` (commit order, one partition), with the number of events per table. It lands in `bronze.cdc_transactions`; every CDC event carries its `tx_id`.
+2. `SELECT v FROM consistent.watermark` returns the commit position of the first transaction whose events have not all landed. Every transaction before `v` is complete. `v` depends only on landed data, so taking it is cheap.
+3. `consistent.<table>(v = …)` is silver FINAL as of `v`. Rows of transactions at or after `v` are hidden. A state row whose newest version is past `v` is shown as it was before, using the `before` image (`REPLICA IDENTITY FULL`) from bronze, or the version's own `_before` column when it reached silver after bronze was read. Old versions cannot be read from silver itself, because merges drop them at any time.
+4. Gold views take the same parameter and pass it down. A reader takes `v` once and uses it for every view in the query or page:
+
+```sql
+SELECT v, held_back, oldest_held_back_commit FROM consistent.watermark;   -- e.g. v = 431977
+SELECT * FROM gold.daily_sales(v = 431977);
+SELECT * FROM gold.platform_pnl(v = 431977);
+```
+
+Why a parameter: ClickHouse reads each table, and each subquery, at its own moment, and `now()` differs between subqueries. Views that each picked "the latest" state on their own disagreed inside one query, which the probe caught. A pinned `v` is the only choice every view makes identically. For the same reason the business-day close runs in the small `warehouse-jobs` service rather than a refreshable materialized view: it can pin `v` and pass it on.
+
+The result is a state that existed in PostgreSQL, usually under a second behind silver. Rows older than 30 minutes are shown without checking their transaction, so a transaction stuck for longer than that stops being held back.
+
+### Metric definitions
+
+They are defined once, at the top of `clickhouse/init/03-gold.sql`, and `check_data.py` recomputes each one in PostgreSQL.
+
+| Metric | Definition |
+|--------|------------|
+| Placed GMV | Order subtotal (before vouchers) of every order placed. Never changes. |
+| GMV | Placed GMV of confirmed orders: paid online, or cash on delivery. Final once the 15-minute payment window closes. |
+| NMV | GMV of confirmed orders that were kept (not cancelled, not returned to seller), minus the merchandise value of units refunded through returns. |
+| Net revenue | `order_items.net_amount` (after vouchers) of kept orders, minus return refunds. Used to rank products and categories. |
+| Pack time | From the order entering TO_SHIP (payment, or checkout for COD) to READY_TO_SHIP, from `order_status_history`. |
+| Refunds | Split by cause: return refunds (a cost of sales), cancellation refunds and late-payment refunds. |
+| Return rate | Returns over delivered orders of matured delivery cohorts (return window of 3 business days over). |
+| Take rate | Commission and payment fees over GMV of completed orders. |
+
+`gold.daily_sales(v)` is live and keeps moving as orders are cancelled or returned. `gold.daily_sales_closed` freezes each business day one business hour after it ends, as first reported (written by `warehouse-jobs` at a pinned watermark).
 
 Example queries (in http://localhost:8123/play or `docker exec -it cdc-clickhouse clickhouse-client -u admin --password admin`):
 
 ```sql
-SELECT * FROM gold.daily_sales;
-SELECT * FROM gold.product_sales LIMIT 10;
+SELECT v, held_back FROM consistent.watermark;           -- pin this v for the queries below
+SELECT * FROM gold.daily_sales(v = <v>);
+SELECT * FROM gold.product_sales(v = <v>) LIMIT 10;
 SELECT * FROM gold.cdc_freshness;                       -- per-table lag, last 15 min
 
 -- Full change history of one order
@@ -374,7 +435,7 @@ SELECT count(), sum(total), countIf(status = 'COMPLETED') FROM silver.orders FIN
 | Pipeline bar | Health of Simulator → Source API → PostgreSQL (orders, replication-slot lag) → Debezium (connector state, one-click register) → Kafka (events/s) → ClickHouse (events stored). |
 | Traffic simulator | Business clock and speed (×60 to ×1440); **Flash sale now** and **Start 11.11** scenarios; tune buyer sessions and new customers per business hour; fire actions ×1/×5/×20; seeding progress and the activity log. |
 | Live CDC stream | Events/s stacked by operation, busiest tables, and a live feed across all tables. Click an UPDATE for the field-level before → after diff. |
-| Warehouse analytics | GMV, orders, AOV, buyers; GMV per business hour; platform take rate, promotion cost, refunds, payouts; carriers; returns by reason; vouchers; flash sales; seller wallets; order pipeline (10 statuses); purchase funnel; payments by method (success rate, refunds); revenue by category; top products; shop scorecard (cancel rate, SLA breaches, time to pack); inventory risk; customer tiers; layer row counts and end-to-end lag. |
+| Warehouse analytics | GMV and NMV, orders, AOV, buyers; placed GMV per business hour; platform take rate, promotion cost, return refunds (cancellation and late-payment refunds shown apart), payouts; carriers; returns by reason; vouchers; flash sales; seller wallets; order pipeline (10 statuses); purchase funnel; payments by method (success rate, refunds); revenue by category; top products; shop scorecard (cancel rate, SLA breaches, time to pack); inventory risk; customer tiers; layer row counts and end-to-end lag. |
 
 API (used by the UI): `GET /api/health`, `GET /api/generator`, `POST /api/generator/start|stop|seed`, `PUT /api/generator/config`, `POST /api/actions/{order|cart|advance|customer|cancel|restock|flash_sale|mega_sale}`, `PUT /api/clock`, `GET /api/cdc?since=`, `GET /api/warehouse`, `POST /api/connector/register`.
 
@@ -409,13 +470,16 @@ wal_keep_size = 1GB        # retain WAL long enough for Debezium to catch up
 ```json
 "plugin.name":              "pgoutput",
 "snapshot.mode":            "initial",
-"replica.identity.autoset": "ecommerce.*:FULL",
+"replica.identity.autoset.values": "<state tables>:FULL,<append-only tables>:DEFAULT",
+"tombstones.on.delete":     "false",
+"errors.tolerance":         "none",
 "heartbeat.interval.ms":    "10000",
 "provide.transaction.metadata": "true",
 "decimal.handling.mode":    "string"
 ```
 
-`FULL` replica identity ensures `before` values are always present on UPDATE/DELETE.
+`FULL` replica identity puts the whole old row in `before` on UPDATE and DELETE. State tables need it: silver deletes and `consistent.*` read it. Append-only tables (status history, stock ledger, tracking events, price history, seller ledger) and the outbox use `DEFAULT`, which keeps only the key and writes less WAL.
+`errors.tolerance = none` stops the connector on a change it cannot convert instead of dropping it, and there are no tombstones. On the ClickHouse side, `kafka_handle_error_mode = 'stream'` sends any message it cannot read to `bronze.ingest_errors`, which `check_data.py` requires to be empty.
 `decimal.handling.mode = string` sends `DECIMAL` columns as exact strings (`"109.99"`), so money is never rounded through floating point on its way to ClickHouse's `Decimal` columns.
 
 ### Kafka — KRaft mode (no Zookeeper)

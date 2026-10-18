@@ -201,6 +201,19 @@ services:
     networks:
       - real-time-cdc-network
 
+  # Scheduled warehouse jobs (closing business days); each run pins one consistent watermark
+  warehouse-jobs:
+    build: ./warehouse_jobs
+    container_name: cdc-warehouse-jobs
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      JOB_INTERVAL_S: 10
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - real-time-cdc-network
+
   # On-demand checks: `docker compose run --rm validator pytest -q` / `... python check_data.py`
   validator:
     build: ./validation

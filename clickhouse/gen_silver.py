@@ -3,7 +3,14 @@
     python3 clickhouse/gen_silver.py
 
 State tables become ReplacingMergeTree(_version = WAL LSN, _is_deleted) keyed by the primary key;
-event tables (append-only in PostgreSQL) become plain MergeTree fed by inserts only.
+event tables (append-only in PostgreSQL) take inserts only.
+
+Each table also gets a parameterized view consistent.<table>(v): the table as of commit watermark v, i.e. with
+exactly the transactions whose END record precedes v on cdc.transaction (see consistent.watermark). Silver tables
+are fed by one Kafka topic each, so for a few seconds one table can show a transaction that another does not.
+A reader takes v once (SELECT v FROM consistent.watermark) and passes the same v to every view it reads, so
+the whole query sees one state that existed in PostgreSQL. ClickHouse has no cross-table snapshot inside a
+query, which is why v is a parameter rather than computed inside each view.
 Column types: U = UUID, S = String, L = LowCardinality(String), I = Int64, i = Int32, B = Bool, T = DateTime64(6);
 a trailing ? makes the column Nullable.
 """
@@ -18,7 +25,7 @@ TABLES = {
                            "province L, is_default B, created_at T, updated_at T"),
     "sellers": ("state", "id", "id U, legal_name S, email S, created_at T, updated_at T"),
     "shops": ("state", "id", "id U, seller_id U, name S, shop_tier L, province L, commission_rate_bps i, "
-              "penalty_points i, wallet_balance I, rating_count i, rating_sum i, is_active B, created_at T, updated_at T"),
+              "penalty_points i, is_active B, created_at T, updated_at T"),
     "categories": ("state", "id", "id U, parent_id U?, name S, slug S, created_at T, updated_at T"),
     "brands": ("state", "id", "id U, name S, created_at T, updated_at T"),
     "products": ("state", "id", "id U, shop_id U, category_id U, brand_id U?, name S, description S, status L, "
@@ -56,9 +63,9 @@ TABLES = {
     # P3 promotions & pricing
     "price_history": ("event", "sku_id, id", "id I, sku_id U, old_price I?, new_price I, reason L, created_at T"),
     "vouchers": ("state", "id", "id U, code S, scope L, shop_id U?, kind L, value I, max_discount I?, min_spend I, "
-                 "usage_limit i, per_customer_limit i, used_count i, starts_at T, ends_at T, created_at T, updated_at T"),
+                 "usage_limit i, per_customer_limit i, starts_at T, ends_at T, created_at T, updated_at T"),
     "voucher_usages": ("state", "id", "id U, voucher_id U, customer_id U, checkout_id U, order_id U?, amount I, "
-                       "status L, created_at T, updated_at T"),
+                       "quota_slot i, status L, created_at T, updated_at T"),
     "campaigns": ("state", "id", "id U, name S, kind L, starts_at T, ends_at T, created_at T, updated_at T"),
     "flash_sale_items": ("state", "id", "id U, campaign_id U, sku_id U, sale_price I, quota i, sold i, "
                          "created_at T, updated_at T"),
@@ -68,7 +75,8 @@ TABLES = {
     "return_items": ("state", "id", "id U, return_id U, order_item_id U, quantity i, refund_amount I, condition L?, "
                      "created_at T, updated_at T"),
     "seller_ledger_entries": ("event", "shop_id, id", "id I, shop_id U, order_id U?, payout_id U?, entry_type L, "
-                              "amount I, balance_after I, created_at T"),
+                              "amount I, created_at T"),
+    "shop_wallets": ("state", "shop_id", "shop_id U, balance I, updated_at T"),
     "seller_payouts": ("state", "id", "id U, shop_id U, amount I, status L, created_at T, updated_at T"),
     "product_reviews": ("state", "id", "id U, order_item_id U, order_id U, product_id U, shop_id U, customer_id U, "
                         "rating i, comment S?, created_at T, updated_at T"),
@@ -116,6 +124,10 @@ def table_sql(table: str, kind: str, key: str, spec: str) -> str:
         is_deleted = "op = 'd'"
         sels += [f"    {'lsn':<72} AS _version", f"    {is_deleted:<72} AS _is_deleted",
                  f"    {'ingested_at':<72} AS _synced_at"]
+        # the row before this version (REPLICA IDENTITY FULL; 'null' on insert): lets consistent.* show a key
+        # as it was when its newest version belongs to a transaction past the watermark
+        defs += [f"    {'_before':<{width}} String CODEC(ZSTD(3))"]
+        sels += [f"    {'before':<72} AS _before"]
         engine = f"ReplacingMergeTree(_version, _is_deleted)\nORDER BY {key}"
         where = f"source_table = '{table}'"
     else:
@@ -124,6 +136,8 @@ def table_sql(table: str, kind: str, key: str, spec: str) -> str:
         # no version column: a redelivered event (at-least-once) collapses onto its key
         engine = f"ReplacingMergeTree\nORDER BY ({key})"
         where = f"source_table = '{table}' AND op IN ('c', 'r')"
+    defs += [f"    {'_tx_id':<{width}} UInt64"]
+    sels += [f"    {'tx_id':<72} AS _tx_id"]
     return (
         f"-- {table} ({kind})\n"
         f"CREATE TABLE IF NOT EXISTS silver.{table}\n(\n" + ",\n".join(defs) + f"\n)\nENGINE = {engine};\n\n"
@@ -132,6 +146,80 @@ def table_sql(table: str, kind: str, key: str, spec: str) -> str:
         f"\nFROM bronze.cdc_events\nWHERE {where};\n"
     )
 
+
+RECENT = "30 MINUTE"       # rows older than this are visible without checking their transaction
+VISIBLE = ("SELECT tx_id FROM bronze.cdc_transactions "
+           "WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}")
+
+
+def consistent_sql(table: str, kind: str, key: str, spec: str) -> str:
+    """consistent.<table>(v): silver as of commit watermark v.
+
+    A row version is visible when its transaction ended before v (or it is a snapshot read, or older than RECENT).
+    Event rows past v are hidden. A state row whose newest version is past v is shown as it was before: the
+    `before` image of its earliest change past v, from bronze, or the version's own _before when that change
+    reached silver after bronze was read. Older versions cannot come from silver: merges drop them at any time.
+    """
+    visible_row = f"_tx_id = 0 OR _synced_at < now64(3) - INTERVAL {RECENT} OR _tx_id IN (SELECT tx_id FROM visible)"
+    if kind == "event":
+        return (f"CREATE OR REPLACE VIEW consistent.{table} AS\n"
+                f"WITH visible AS ({VISIBLE})\n"
+                f"SELECT * FROM silver.{table} FINAL\nWHERE {visible_row};\n")
+    cols = [c.strip().split() for c in spec.split(",")]
+    key_type = dict(cols)[key]
+    meta = ["_version", "_is_deleted", "_synced_at", "_tx_id", "_before"]
+    current = [f"    if(vis, {n}, CAST({extract(n, t).replace('(row,', '(_before,')} AS {column_type(t)})) AS {n}"
+               for n, t in cols] + [f"    {m}" for m in meta]
+    restored = [f"    CAST({extract(n, t)} AS {column_type(t)}) AS {n}" for n, t in cols]
+    restored += ["    toUInt64(0) AS _version", "    toUInt8(0) AS _is_deleted", "    now64(3) AS _synced_at",
+                 "    toUInt64(0) AS _tx_id", "    'null' AS _before"]
+    key_expr = extract(key, key_type).replace("(row,", "(if(op = 'd', before, after),")
+    return (
+        f"CREATE OR REPLACE VIEW consistent.{table} AS\n"
+        f"WITH\n"
+        f"    visible AS ({VISIBLE}),\n"
+        f"    restore AS (\n"
+        f"        SELECT {key_expr} AS k, argMin(before, lsn) AS row\n"
+        f"        FROM bronze.cdc_events\n"
+        f"        WHERE source_table = '{table}' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0\n"
+        f"          AND tx_id NOT IN (SELECT tx_id FROM visible)\n"
+        f"        GROUP BY k)\n"
+        f"SELECT\n" + ",\n".join(current) + "\n"
+        f"FROM (SELECT *, {visible_row} AS vis\n"
+        f"      FROM silver.{table} FINAL WHERE {key} NOT IN (SELECT k FROM restore))\n"
+        f"WHERE vis OR _before != 'null'\n"
+        f"UNION ALL\nSELECT\n" + ",\n".join(restored) + "\nFROM restore\nWHERE row != 'null';\n"
+    )
+
+
+WATERMARK = """-- Commit watermark for consistent.<table>(v): the commit position (offset on cdc.transaction, one partition,
+-- commit order) of the first transaction not fully landed yet; every transaction before it is complete.
+-- Taking v is cheap and depends only on landed data, so readers can call it before every query.
+CREATE OR REPLACE VIEW consistent.watermark AS
+WITH
+    ended AS (
+        SELECT tx_id, max(expected) AS expected, min(kafka_offset) AS seq, min(commit_ts) AS commit_ts,
+               max(ingested_at) AS seen
+        FROM bronze.cdc_transactions
+        WHERE ingested_at > now64(3) - INTERVAL 60 MINUTE
+        GROUP BY tx_id),
+    landed AS (
+        SELECT tx_id, uniqExact(source_table, lsn) AS n
+        FROM bronze.cdc_events
+        WHERE event_ts > now64(3) - INTERVAL 3 HOUR AND tx_id IN (SELECT tx_id FROM ended)
+        GROUP BY tx_id)
+SELECT
+    v,
+    arrayCount(s -> s >= v, recent_seqs)                                              AS held_back,
+    if(held_back = 0, NULL, arrayMin(arrayFilter((c, s) -> s >= v, recent_commits, recent_seqs))) AS oldest_held_back_commit
+FROM (
+    SELECT
+        if(countIf(l.n < e.expected) > 0, minIf(e.seq, l.n < e.expected), max(e.seq) + 1)  AS v,
+        groupArrayIf(e.seq, e.seen > now64(3) - INTERVAL 10 MINUTE)                       AS recent_seqs,
+        groupArrayIf(e.commit_ts, e.seen > now64(3) - INTERVAL 10 MINUTE)                 AS recent_commits
+    FROM ended AS e
+    LEFT JOIN landed AS l ON l.tx_id = e.tx_id);
+"""
 
 HEADER = """-- GENERATED by clickhouse/gen_silver.py — edit the spec there, not this file.
 --
@@ -143,5 +231,6 @@ HEADER = """-- GENERATED by clickhouse/gen_silver.py — edit the spec there, no
 
 if __name__ == "__main__":
     out = Path(__file__).parent / "init" / "02-silver.sql"
-    out.write_text(HEADER + "\n" + "\n\n".join(table_sql(t, *spec) for t, spec in TABLES.items()))
+    out.write_text(HEADER + "\n" + "\n\n".join(table_sql(t, *spec) for t, spec in TABLES.items()) + "\n\n"
+                   + WATERMARK + "\n" + "\n".join(consistent_sql(t, *spec) for t, spec in TABLES.items()))
     print(f"wrote {out} ({len(TABLES)} tables)")

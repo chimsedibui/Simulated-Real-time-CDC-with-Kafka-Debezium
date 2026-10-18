@@ -336,6 +336,24 @@ def test_voucher_usage_limit_holds_under_concurrency():
     assert {r.json()["detail"]["why"] for r in results if r.status_code == 409} == {"exhausted"}
 
 
+def test_voucher_quota_spread_over_slots_is_never_oversold():
+    """usage_limit 20 over 16 slots (sizes 1 and 2): 30 concurrent buyers, exactly 20 redemptions."""
+    s = shop()
+    sku = listing(s["id"], stock=100)[0]
+    v = f"PV{tag()}"
+    ok(api.post("/admin/vouchers", json={"code": v, "kind": "FIXED", "value": 5_000, "usage_limit": 20,
+                                         "duration_s": 86400}), 201)
+    buyers = [buyer()["id"] for _ in range(30)]
+    for c in buyers:
+        ok(add(c, sku), 201)
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        results = list(pool.map(lambda c: checkout(c, vouchers=[v]), buyers))
+    assert [r.status_code for r in results].count(201) == 20
+    assert {r.json()["detail"]["why"] for r in results if r.status_code == 409} == {"exhausted"}
+    listed = next(x for x in ok(api.get("/vouchers", params={"active": False})) if x["code"] == v)
+    assert listed["used_count"] == 20
+
+
 def test_price_change_applies_to_new_orders_only():
     s, sku, b, res = placed("COD", price=150_000)
     ok(api.patch(f"/skus/{sku}/price", json={"price": 120_000}))

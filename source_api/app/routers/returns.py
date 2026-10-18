@@ -222,8 +222,6 @@ def post_reviews(order_id: UUID, body: PostReviews, idempotency_key: str | None 
         except psycopg2.errors.UniqueViolation:
             cur.execute("ROLLBACK TO SAVEPOINT reviews")
             raise conflict("already_reviewed", "An item was already reviewed")
-        cur.execute("UPDATE ecommerce.shops SET rating_count = rating_count + %s, rating_sum = rating_sum + %s "
-                    "WHERE id = %s", (len(posted), sum(p["rating"] for p in posted), order["shop_id"]))
         outbox.emit(cur, "review", order_id, "ReviewsPosted",
                     {"order_id": order_id, "shop_id": order["shop_id"], "reviews": posted})
         return {"reviews": posted}

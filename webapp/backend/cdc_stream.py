@@ -152,13 +152,14 @@ LABELS = {
     "inventory_movements": lambda r: f"{r.get('movement_type', '')} on_hand {r.get('on_hand_delta'):+} reserved {r.get('reserved_delta'):+}"
                                      if isinstance(r.get("on_hand_delta"), int) else r.get("movement_type", ""),
     "price_history":      lambda r: f"{_vnd(r.get('old_price'))} → {_vnd(r.get('new_price'))} · {r.get('reason', '')}",
-    "vouchers":           lambda r: f"{r.get('code', '')} · used {r.get('used_count')}/{r.get('usage_limit')}",
-    "voucher_usages":     lambda r: f"{r.get('status', '')} · {_vnd(r.get('amount'))}",
+    "vouchers":           lambda r: f"{r.get('code', '')} · {r.get('kind', '')} · limit {r.get('usage_limit')}",
+    "voucher_usages":     lambda r: f"{r.get('status', '')} · {_vnd(r.get('amount'))} · quota slot {r.get('quota_slot')}",
     "campaigns":          lambda r: f"{r.get('kind', '')} · {r.get('name', '')}",
     "flash_sale_items":   lambda r: f"sold {r.get('sold')}/{r.get('quota')} at {_vnd(r.get('sale_price'))}",
     "returns":            lambda r: f"{r.get('reason', '')} · {r.get('status', '')} · {_vnd(r.get('refund_amount'))}",
     "return_items":       lambda r: f"qty {r.get('quantity')} · {r.get('condition') or 'not inspected'}",
-    "seller_ledger_entries": lambda r: f"{r.get('entry_type', '')} {_vnd(r.get('amount'))} → balance {_vnd(r.get('balance_after'))}",
+    "seller_ledger_entries": lambda r: f"{r.get('entry_type', '')} {_vnd(r.get('amount'))}",
+    "shop_wallets":       lambda r: f"wallet {_vnd(r.get('balance'))}",
     "seller_payouts":     lambda r: f"payout {_vnd(r.get('amount'))}",
     "product_reviews":    lambda r: "★" * int(r.get("rating") or 0) + (f" · {r.get('comment')}" if r.get("comment") else ""),
 }

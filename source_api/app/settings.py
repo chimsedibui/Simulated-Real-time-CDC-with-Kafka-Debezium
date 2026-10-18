@@ -19,6 +19,8 @@ RETURN_RESPONSE_S = _seconds("RETURN_RESPONSE_S", 2 * DAY)     # seller must ans
 DISPUTE_WINDOW_S = _seconds("DISPUTE_WINDOW_S", 1 * DAY)       # buyer may dispute a rejected return within this
 PAYOUT_INTERVAL_S = _seconds("PAYOUT_INTERVAL_S", 1 * DAY)     # sellers are paid out at most once per interval
 JOB_INTERVAL_S = float(os.getenv("JOB_INTERVAL_S", "2"))       # wall-clock seconds between scheduler runs
+VOUCHER_QUOTA_SLOTS = int(os.getenv("VOUCHER_QUOTA_SLOTS", "16"))  # rows a voucher's quota is split into
+IDEMPOTENCY_TTL_S = float(os.getenv("IDEMPOTENCY_TTL_S", str(72 * 3600)))  # wall clock: retries are real-time
 MAX_DELIVERY_ATTEMPTS = 3
 
 # Loyalty tier by lifetime spend on completed orders (VND), highest first

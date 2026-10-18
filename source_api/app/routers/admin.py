@@ -156,9 +156,12 @@ def create_campaign(body: Campaign, idempotency_key: str | None = Header(None)):
 def list_vouchers(active: bool = True):
     with transaction() as cur:
         cur.execute(
-            """SELECT id, code, scope, shop_id, kind, value, max_discount, min_spend, usage_limit, used_count,
-                      per_customer_limit, starts_at, ends_at
-               FROM ecommerce.vouchers
+            """SELECT * FROM (
+                   SELECT v.id, v.code, v.scope, v.shop_id, v.kind, v.value, v.max_discount, v.min_spend, v.usage_limit,
+                          (SELECT coalesce(sum(q.used), 0) FROM ecommerce.voucher_quota_slots q WHERE q.voucher_id = v.id)
+                              AS used_count,
+                          v.per_customer_limit, v.starts_at, v.ends_at, v.created_at
+                   FROM ecommerce.vouchers v) v
                WHERE NOT %(active)s OR (starts_at <= ecommerce.business_now() AND ends_at > ecommerce.business_now()
                                         AND used_count < usage_limit)
                ORDER BY created_at DESC LIMIT 2000""",

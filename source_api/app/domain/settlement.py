@@ -1,4 +1,7 @@
-"""Seller wallet: an append-only ledger; shops.wallet_balance is its running sum.
+"""Seller wallet: an append-only ledger, summed into shop_wallets.balance in batches.
+
+Completing an order only inserts ledger entries (plus a wallet_pending row each), so it never waits on the
+shop's wallet row; roll_up() moves pending entries into the balance. Lock order: wallet_pending → shop_wallets.
 
 When an order completes the seller earns what the buyer paid for the goods it kept, minus the seller-funded
 shop voucher (platform vouchers and free shipping are paid by the platform), and is charged commission and a
@@ -9,16 +12,32 @@ from .. import outbox
 from ..settings import PAYMENT_FEE_BPS
 
 
-def post(cur, shop_id, entry_type: str, amount: int, order_id=None, payout_id=None) -> int:
-    cur.execute("UPDATE ecommerce.shops SET wallet_balance = wallet_balance + %s WHERE id = %s RETURNING wallet_balance",
-                (amount, shop_id))
-    balance = cur.fetchone()["wallet_balance"]
+def post(cur, shop_id, entry_type: str, amount: int, order_id=None, payout_id=None, applied=False) -> None:
+    """Append a ledger entry. applied=True: the caller holds the wallet row and adds the amount itself."""
     cur.execute(
-        """INSERT INTO ecommerce.seller_ledger_entries (shop_id, order_id, payout_id, entry_type, amount, balance_after)
-           VALUES (%s, %s, %s, %s, %s, %s)""",
-        (shop_id, order_id, payout_id, entry_type, amount, balance),
+        """INSERT INTO ecommerce.seller_ledger_entries (shop_id, order_id, payout_id, entry_type, amount)
+           VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+        (shop_id, order_id, payout_id, entry_type, amount),
     )
-    return balance
+    if not applied:
+        cur.execute("INSERT INTO ecommerce.wallet_pending (entry_id, shop_id, amount) VALUES (%s, %s, %s)",
+                    (cur.fetchone()["id"], shop_id, amount))
+
+
+def roll_up(cur, shop_id=None, batch: int = 5000) -> int:
+    """Add pending entries to wallet balances: one shop's (before a payout), or a batch of any shops'."""
+    if shop_id:
+        cur.execute("DELETE FROM ecommerce.wallet_pending WHERE shop_id = %s RETURNING shop_id, amount", (shop_id,))
+    else:
+        cur.execute("""DELETE FROM ecommerce.wallet_pending WHERE entry_id IN (
+                           SELECT entry_id FROM ecommerce.wallet_pending ORDER BY entry_id LIMIT %s FOR UPDATE SKIP LOCKED)
+                       RETURNING shop_id, amount""", (batch,))
+    totals = {}
+    for r in cur.fetchall():
+        totals[r["shop_id"]] = totals.get(r["shop_id"], 0) + r["amount"]
+    for sid, amount in sorted(totals.items(), key=lambda x: str(x[0])):
+        cur.execute("UPDATE ecommerce.shop_wallets SET balance = balance + %s WHERE shop_id = %s", (amount, sid))
+    return len(totals)
 
 
 def seller_share(line_total: int, shop_discount: int, qty: int, of_qty: int) -> int:
@@ -54,12 +73,14 @@ def settle_order(cur, order: dict):
 
 
 def payout(cur, shop_id) -> dict | None:
-    cur.execute("SELECT wallet_balance FROM ecommerce.shops WHERE id = %s FOR UPDATE", (shop_id,))
-    balance = cur.fetchone()["wallet_balance"]
+    roll_up(cur, shop_id)
+    cur.execute("SELECT balance FROM ecommerce.shop_wallets WHERE shop_id = %s FOR UPDATE", (shop_id,))
+    balance = cur.fetchone()["balance"]
     if balance <= 0:
         return None
     cur.execute("INSERT INTO ecommerce.seller_payouts (shop_id, amount) VALUES (%s, %s) RETURNING *", (shop_id, balance))
     p = cur.fetchone()
-    post(cur, shop_id, "PAYOUT", -balance, payout_id=p["id"])
+    post(cur, shop_id, "PAYOUT", -balance, payout_id=p["id"], applied=True)
+    cur.execute("UPDATE ecommerce.shop_wallets SET balance = balance - %s WHERE shop_id = %s", (balance, shop_id))
     outbox.emit(cur, "shop", shop_id, "PayoutPaid", {"payout_id": p["id"], "shop_id": shop_id, "amount": balance})
     return p
