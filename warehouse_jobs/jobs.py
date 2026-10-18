@@ -28,10 +28,12 @@ MARTS = ["overview_kpis", "daily_sales", "traffic_by_hour", "order_status_summar
          "delivery_performance", "returns_summary", "return_rate_by_cohort", "voucher_performance",
          "flash_sale_performance", "seller_settlement"]
 
-# table -> column whose sum never changes after insert (None: count only). Tables without created_at are skipped.
+# table -> column whose sum never changes after insert (None: count only). Skipped: tables without created_at, and
+# cart_items, whose rows are hard-deleted all the time: PostgreSQL now and ClickHouse a few seconds behind never agree
+# on it while traffic flows (check_data compares it at rest).
 RECONCILED = {
     "customers": None, "customer_addresses": None, "sellers": None, "shops": None, "categories": None,
-    "brands": None, "products": None, "product_skus": None, "carts": None, "cart_items": None,
+    "brands": None, "products": None, "product_skus": None, "carts": None,
     "checkouts": "grand_total", "orders": "total", "order_items": "net_amount", "order_status_history": None,
     "payments": "amount", "refunds": "amount", "inventory_movements": "on_hand_delta", "shipments": None,
     "shipment_events": None, "price_history": "new_price", "vouchers": "usage_limit", "voucher_usages": "amount",

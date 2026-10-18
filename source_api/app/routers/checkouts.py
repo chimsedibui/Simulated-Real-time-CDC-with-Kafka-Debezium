@@ -110,7 +110,8 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
         if short:
             raise conflict("out_of_stock", "Not enough stock for some items", items=short)
 
-        t = business_now(cur)
+        t = business_now(cur)          # the checkout's moment: prices, flash window and vouchers are judged at t,
+                                       # and the checkout and its orders are stamped with it
         flash = pricing.flash_prices(cur, wanted, t)
 
         by_shop = defaultdict(list)
@@ -137,11 +138,12 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
         discount_total = sum(d["shop_discount"] + d["platform_discount"] + d["shipping_subsidy"] for d in drafts)
         cur.execute(
             """INSERT INTO ecommerce.checkouts (customer_id, cart_id, address_id, payment_method, status, items_total,
-                                                shipping_total, discount_total, grand_total, pay_by)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                                                shipping_total, discount_total, grand_total, pay_by, created_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
             (body.customer_id, cart["id"], address["id"], body.payment_method,
              "PENDING_PAYMENT" if online else "COD_CONFIRMED", items_total, shipping_total, discount_total,
-             items_total + shipping_total - discount_total, t + timedelta(seconds=PAYMENT_WINDOW_S) if online else None),
+             items_total + shipping_total - discount_total, t + timedelta(seconds=PAYMENT_WINDOW_S) if online else None,
+             t),
         )
         co = cur.fetchone()
 
@@ -155,12 +157,12 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
                 """INSERT INTO ecommerce.orders
                    (order_number, checkout_id, customer_id, shop_id, status, payment_method, subtotal, shop_discount,
                     platform_discount, shipping_fee, shipping_subsidy, total, ship_to_name, ship_to_address,
-                    ship_to_province, confirm_by)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
+                    ship_to_province, confirm_by, created_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *""",
                 (number, co["id"], body.customer_id, d["shop_id"], status, body.payment_method, d["subtotal"],
                  d["shop_discount"], d["platform_discount"], d["fee"], d["shipping_subsidy"], total,
                  address["recipient_name"], f"{address['street']}, {address['district']}, {address['province']}",
-                 address["province"], None if online else t + timedelta(seconds=SELLER_SLA_S)),
+                 address["province"], None if online else t + timedelta(seconds=SELLER_SLA_S), t),
             )
             order = cur.fetchone()
             order_by_shop[d["shop_id"]] = order
@@ -339,8 +341,19 @@ def close_checkout(cur, co: dict, status: str, actor: str, reason: str):
         ("EXPIRED" if status == "EXPIRED" else "CANCELLED", reason, co["id"]),
     )
     cur.execute("SELECT id FROM ecommerce.orders WHERE checkout_id = %s AND status = 'UNPAID' ORDER BY id", (co["id"],))
-    for o in cur.fetchall():
-        transition(cur, o["id"], "CANCELLED", actor, reason)
+    unpaid = [o["id"] for o in cur.fetchall()]
+    # The orders are cancelled one by one, each releasing its own SKUs; lock every SKU and flash item of the
+    # checkout first, in the global order checkouts use, so two checkouts never take them in opposite orders.
+    # NO KEY UPDATE is the mode the UPDATEs take anyway; it doesn't block the KEY SHARE locks that a concurrent
+    # checkout holds on flash items through its order_items foreign key (FOR UPDATE would, and deadlock).
+    cur.execute("""SELECT 1 FROM ecommerce.inventory WHERE sku_id IN (
+                       SELECT sku_id FROM ecommerce.order_items WHERE order_id = ANY(%s::uuid[]))
+                   ORDER BY sku_id FOR NO KEY UPDATE""", ([str(o) for o in unpaid],))
+    cur.execute("""SELECT 1 FROM ecommerce.flash_sale_items WHERE id IN (
+                       SELECT campaign_item_id FROM ecommerce.order_items WHERE order_id = ANY(%s::uuid[]))
+                   ORDER BY id FOR NO KEY UPDATE""", ([str(o) for o in unpaid],))
+    for order_id in unpaid:
+        transition(cur, order_id, "CANCELLED", actor, reason)
     outbox.emit(cur, "checkout", co["id"], "CheckoutClosed", {"checkout_id": co["id"], "status": status, "reason": reason})
 
 

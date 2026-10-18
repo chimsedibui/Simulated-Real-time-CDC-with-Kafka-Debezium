@@ -702,11 +702,13 @@ def _wait_for(sql, timeout_s=120):
 
 
 def ops():
+    # background jobs keep committing, so the watermark moves on: compare the first refresh at or after it
     v = ch.query("SELECT v FROM consistent.watermark").result_rows[0][0]
     bad = []
-    if not _wait_for(f"SELECT count() FROM ops.mart_refreshes WHERE refresh_id = {v}"):
-        bad.append(f"no mart refresh at watermark {v} within 120 s")
+    if not _wait_for(f"SELECT count() FROM ops.mart_refreshes WHERE refresh_id >= {v}"):
+        bad.append(f"no mart refresh at or after watermark {v} within 120 s")
     else:
+        v = ch.query(f"SELECT min(refresh_id) FROM ops.mart_refreshes WHERE refresh_id >= {v}").result_rows[0][0]
         for name in ("overview_kpis", "daily_sales", "platform_pnl", "product_sales", "shop_performance"):
             diff = ch.query(f"""SELECT count() FROM (
                 SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.{name} WHERE refresh_id = {v}

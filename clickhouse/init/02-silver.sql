@@ -1330,676 +1330,396 @@ FROM (
     LEFT JOIN landed AS l ON l.tx_id = e.tx_id);
 
 CREATE OR REPLACE VIEW consistent.customers AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'customers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, full_name, CAST(JSONExtractString(_before, 'full_name') AS String)) AS full_name,
-    if(vis, email, CAST(JSONExtractString(_before, 'email') AS String)) AS email,
-    if(vis, phone, CAST(JSONExtractString(_before, 'phone') AS String)) AS phone,
-    if(vis, segment, CAST(JSONExtractString(_before, 'segment') AS LowCardinality(String))) AS segment,
-    if(vis, registered_channel, CAST(JSONExtractString(_before, 'registered_channel') AS LowCardinality(String))) AS registered_channel,
-    if(vis, tier, CAST(JSONExtractString(_before, 'tier') AS LowCardinality(String))) AS tier,
-    if(vis, total_spent, CAST(JSONExtractInt(_before, 'total_spent') AS Int64)) AS total_spent,
-    if(vis, is_active, CAST(JSONExtractBool(_before, 'is_active') AS Bool)) AS is_active,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.customers FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(JSONExtractString(row, 'full_name') AS String) AS full_name,
-    CAST(JSONExtractString(row, 'email') AS String) AS email,
-    CAST(JSONExtractString(row, 'phone') AS String) AS phone,
-    CAST(JSONExtractString(row, 'segment') AS LowCardinality(String)) AS segment,
-    CAST(JSONExtractString(row, 'registered_channel') AS LowCardinality(String)) AS registered_channel,
-    CAST(JSONExtractString(row, 'tier') AS LowCardinality(String)) AS tier,
-    CAST(JSONExtractInt(row, 'total_spent') AS Int64) AS total_spent,
-    CAST(JSONExtractBool(row, 'is_active') AS Bool) AS is_active,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'full_name') AS String), s.vis, s.full_name, CAST(JSONExtractString(s._before, 'full_name') AS String)) AS full_name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'email') AS String), s.vis, s.email, CAST(JSONExtractString(s._before, 'email') AS String)) AS email,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'phone') AS String), s.vis, s.phone, CAST(JSONExtractString(s._before, 'phone') AS String)) AS phone,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'segment') AS LowCardinality(String)), s.vis, s.segment, CAST(JSONExtractString(s._before, 'segment') AS LowCardinality(String))) AS segment,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'registered_channel') AS LowCardinality(String)), s.vis, s.registered_channel, CAST(JSONExtractString(s._before, 'registered_channel') AS LowCardinality(String))) AS registered_channel,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'tier') AS LowCardinality(String)), s.vis, s.tier, CAST(JSONExtractString(s._before, 'tier') AS LowCardinality(String))) AS tier,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'total_spent') AS Int64), s.vis, s.total_spent, CAST(JSONExtractInt(s._before, 'total_spent') AS Int64)) AS total_spent,
+    multiIf(r.found, CAST(JSONExtractBool(r.row, 'is_active') AS Bool), s.vis, s.is_active, CAST(JSONExtractBool(s._before, 'is_active') AS Bool)) AS is_active,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.customers FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'customers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.customer_addresses AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'customer_addresses' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
-    if(vis, recipient_name, CAST(JSONExtractString(_before, 'recipient_name') AS String)) AS recipient_name,
-    if(vis, phone, CAST(JSONExtractString(_before, 'phone') AS String)) AS phone,
-    if(vis, street, CAST(JSONExtractString(_before, 'street') AS String)) AS street,
-    if(vis, district, CAST(JSONExtractString(_before, 'district') AS String)) AS district,
-    if(vis, province, CAST(JSONExtractString(_before, 'province') AS LowCardinality(String))) AS province,
-    if(vis, is_default, CAST(JSONExtractBool(_before, 'is_default') AS Bool)) AS is_default,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.customer_addresses FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
-    CAST(JSONExtractString(row, 'recipient_name') AS String) AS recipient_name,
-    CAST(JSONExtractString(row, 'phone') AS String) AS phone,
-    CAST(JSONExtractString(row, 'street') AS String) AS street,
-    CAST(JSONExtractString(row, 'district') AS String) AS district,
-    CAST(JSONExtractString(row, 'province') AS LowCardinality(String)) AS province,
-    CAST(JSONExtractBool(row, 'is_default') AS Bool) AS is_default,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'customer_id')) AS UUID), s.vis, s.customer_id, CAST(toUUID(JSONExtractString(s._before, 'customer_id')) AS UUID)) AS customer_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'recipient_name') AS String), s.vis, s.recipient_name, CAST(JSONExtractString(s._before, 'recipient_name') AS String)) AS recipient_name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'phone') AS String), s.vis, s.phone, CAST(JSONExtractString(s._before, 'phone') AS String)) AS phone,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'street') AS String), s.vis, s.street, CAST(JSONExtractString(s._before, 'street') AS String)) AS street,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'district') AS String), s.vis, s.district, CAST(JSONExtractString(s._before, 'district') AS String)) AS district,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'province') AS LowCardinality(String)), s.vis, s.province, CAST(JSONExtractString(s._before, 'province') AS LowCardinality(String))) AS province,
+    multiIf(r.found, CAST(JSONExtractBool(r.row, 'is_default') AS Bool), s.vis, s.is_default, CAST(JSONExtractBool(s._before, 'is_default') AS Bool)) AS is_default,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.customer_addresses FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'customer_addresses' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.sellers AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'sellers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, legal_name, CAST(JSONExtractString(_before, 'legal_name') AS String)) AS legal_name,
-    if(vis, email, CAST(JSONExtractString(_before, 'email') AS String)) AS email,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.sellers FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(JSONExtractString(row, 'legal_name') AS String) AS legal_name,
-    CAST(JSONExtractString(row, 'email') AS String) AS email,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'legal_name') AS String), s.vis, s.legal_name, CAST(JSONExtractString(s._before, 'legal_name') AS String)) AS legal_name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'email') AS String), s.vis, s.email, CAST(JSONExtractString(s._before, 'email') AS String)) AS email,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.sellers FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'sellers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.shops AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'shops' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, seller_id, CAST(toUUID(JSONExtractString(_before, 'seller_id')) AS UUID)) AS seller_id,
-    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
-    if(vis, shop_tier, CAST(JSONExtractString(_before, 'shop_tier') AS LowCardinality(String))) AS shop_tier,
-    if(vis, province, CAST(JSONExtractString(_before, 'province') AS LowCardinality(String))) AS province,
-    if(vis, commission_rate_bps, CAST(toInt32(JSONExtractInt(_before, 'commission_rate_bps')) AS Int32)) AS commission_rate_bps,
-    if(vis, penalty_points, CAST(toInt32(JSONExtractInt(_before, 'penalty_points')) AS Int32)) AS penalty_points,
-    if(vis, is_active, CAST(JSONExtractBool(_before, 'is_active') AS Bool)) AS is_active,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.shops FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'seller_id')) AS UUID) AS seller_id,
-    CAST(JSONExtractString(row, 'name') AS String) AS name,
-    CAST(JSONExtractString(row, 'shop_tier') AS LowCardinality(String)) AS shop_tier,
-    CAST(JSONExtractString(row, 'province') AS LowCardinality(String)) AS province,
-    CAST(toInt32(JSONExtractInt(row, 'commission_rate_bps')) AS Int32) AS commission_rate_bps,
-    CAST(toInt32(JSONExtractInt(row, 'penalty_points')) AS Int32) AS penalty_points,
-    CAST(JSONExtractBool(row, 'is_active') AS Bool) AS is_active,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'seller_id')) AS UUID), s.vis, s.seller_id, CAST(toUUID(JSONExtractString(s._before, 'seller_id')) AS UUID)) AS seller_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'name') AS String), s.vis, s.name, CAST(JSONExtractString(s._before, 'name') AS String)) AS name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'shop_tier') AS LowCardinality(String)), s.vis, s.shop_tier, CAST(JSONExtractString(s._before, 'shop_tier') AS LowCardinality(String))) AS shop_tier,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'province') AS LowCardinality(String)), s.vis, s.province, CAST(JSONExtractString(s._before, 'province') AS LowCardinality(String))) AS province,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'commission_rate_bps')) AS Int32), s.vis, s.commission_rate_bps, CAST(toInt32(JSONExtractInt(s._before, 'commission_rate_bps')) AS Int32)) AS commission_rate_bps,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'penalty_points')) AS Int32), s.vis, s.penalty_points, CAST(toInt32(JSONExtractInt(s._before, 'penalty_points')) AS Int32)) AS penalty_points,
+    multiIf(r.found, CAST(JSONExtractBool(r.row, 'is_active') AS Bool), s.vis, s.is_active, CAST(JSONExtractBool(s._before, 'is_active') AS Bool)) AS is_active,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.shops FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'shops' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.categories AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'categories' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, parent_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'parent_id')) AS Nullable(UUID))) AS parent_id,
-    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
-    if(vis, slug, CAST(JSONExtractString(_before, 'slug') AS String)) AS slug,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.categories FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'parent_id')) AS Nullable(UUID)) AS parent_id,
-    CAST(JSONExtractString(row, 'name') AS String) AS name,
-    CAST(JSONExtractString(row, 'slug') AS String) AS slug,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'parent_id')) AS Nullable(UUID)), s.vis, s.parent_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'parent_id')) AS Nullable(UUID))) AS parent_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'name') AS String), s.vis, s.name, CAST(JSONExtractString(s._before, 'name') AS String)) AS name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'slug') AS String), s.vis, s.slug, CAST(JSONExtractString(s._before, 'slug') AS String)) AS slug,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.categories FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'categories' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.brands AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'brands' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.brands FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(JSONExtractString(row, 'name') AS String) AS name,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'name') AS String), s.vis, s.name, CAST(JSONExtractString(s._before, 'name') AS String)) AS name,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.brands FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'brands' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.products AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'products' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
-    if(vis, category_id, CAST(toUUID(JSONExtractString(_before, 'category_id')) AS UUID)) AS category_id,
-    if(vis, brand_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'brand_id')) AS Nullable(UUID))) AS brand_id,
-    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
-    if(vis, description, CAST(JSONExtractString(_before, 'description') AS String)) AS description,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.products FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
-    CAST(toUUID(JSONExtractString(row, 'category_id')) AS UUID) AS category_id,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'brand_id')) AS Nullable(UUID)) AS brand_id,
-    CAST(JSONExtractString(row, 'name') AS String) AS name,
-    CAST(JSONExtractString(row, 'description') AS String) AS description,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'shop_id')) AS UUID), s.vis, s.shop_id, CAST(toUUID(JSONExtractString(s._before, 'shop_id')) AS UUID)) AS shop_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'category_id')) AS UUID), s.vis, s.category_id, CAST(toUUID(JSONExtractString(s._before, 'category_id')) AS UUID)) AS category_id,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'brand_id')) AS Nullable(UUID)), s.vis, s.brand_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'brand_id')) AS Nullable(UUID))) AS brand_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'name') AS String), s.vis, s.name, CAST(JSONExtractString(s._before, 'name') AS String)) AS name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'description') AS String), s.vis, s.description, CAST(JSONExtractString(s._before, 'description') AS String)) AS description,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.products FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'products' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.product_skus AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'product_skus' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, product_id, CAST(toUUID(JSONExtractString(_before, 'product_id')) AS UUID)) AS product_id,
-    if(vis, sku_code, CAST(JSONExtractString(_before, 'sku_code') AS String)) AS sku_code,
-    if(vis, variant_name, CAST(JSONExtractString(_before, 'variant_name') AS String)) AS variant_name,
-    if(vis, list_price, CAST(JSONExtractInt(_before, 'list_price') AS Int64)) AS list_price,
-    if(vis, price, CAST(JSONExtractInt(_before, 'price') AS Int64)) AS price,
-    if(vis, weight_g, CAST(toInt32(JSONExtractInt(_before, 'weight_g')) AS Int32)) AS weight_g,
-    if(vis, is_active, CAST(JSONExtractBool(_before, 'is_active') AS Bool)) AS is_active,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.product_skus FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'product_id')) AS UUID) AS product_id,
-    CAST(JSONExtractString(row, 'sku_code') AS String) AS sku_code,
-    CAST(JSONExtractString(row, 'variant_name') AS String) AS variant_name,
-    CAST(JSONExtractInt(row, 'list_price') AS Int64) AS list_price,
-    CAST(JSONExtractInt(row, 'price') AS Int64) AS price,
-    CAST(toInt32(JSONExtractInt(row, 'weight_g')) AS Int32) AS weight_g,
-    CAST(JSONExtractBool(row, 'is_active') AS Bool) AS is_active,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'product_id')) AS UUID), s.vis, s.product_id, CAST(toUUID(JSONExtractString(s._before, 'product_id')) AS UUID)) AS product_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'sku_code') AS String), s.vis, s.sku_code, CAST(JSONExtractString(s._before, 'sku_code') AS String)) AS sku_code,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'variant_name') AS String), s.vis, s.variant_name, CAST(JSONExtractString(s._before, 'variant_name') AS String)) AS variant_name,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'list_price') AS Int64), s.vis, s.list_price, CAST(JSONExtractInt(s._before, 'list_price') AS Int64)) AS list_price,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'price') AS Int64), s.vis, s.price, CAST(JSONExtractInt(s._before, 'price') AS Int64)) AS price,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'weight_g')) AS Int32), s.vis, s.weight_g, CAST(toInt32(JSONExtractInt(s._before, 'weight_g')) AS Int32)) AS weight_g,
+    multiIf(r.found, CAST(JSONExtractBool(r.row, 'is_active') AS Bool), s.vis, s.is_active, CAST(JSONExtractBool(s._before, 'is_active') AS Bool)) AS is_active,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.product_skus FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'product_skus' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.inventory AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'sku_id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'inventory' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
-    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
-    if(vis, on_hand, CAST(toInt32(JSONExtractInt(_before, 'on_hand')) AS Int32)) AS on_hand,
-    if(vis, reserved, CAST(toInt32(JSONExtractInt(_before, 'reserved')) AS Int32)) AS reserved,
-    if(vis, available, CAST(toInt32(JSONExtractInt(_before, 'available')) AS Int32)) AS available,
-    if(vis, reorder_point, CAST(toInt32(JSONExtractInt(_before, 'reorder_point')) AS Int32)) AS reorder_point,
-    if(vis, last_restocked_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'last_restocked_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS last_restocked_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.inventory FINAL WHERE sku_id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
-    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
-    CAST(toInt32(JSONExtractInt(row, 'on_hand')) AS Int32) AS on_hand,
-    CAST(toInt32(JSONExtractInt(row, 'reserved')) AS Int32) AS reserved,
-    CAST(toInt32(JSONExtractInt(row, 'available')) AS Int32) AS available,
-    CAST(toInt32(JSONExtractInt(row, 'reorder_point')) AS Int32) AS reorder_point,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'last_restocked_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS last_restocked_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'sku_id')) AS UUID), s.vis, s.sku_id, CAST(toUUID(JSONExtractString(s._before, 'sku_id')) AS UUID)) AS sku_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'shop_id')) AS UUID), s.vis, s.shop_id, CAST(toUUID(JSONExtractString(s._before, 'shop_id')) AS UUID)) AS shop_id,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'on_hand')) AS Int32), s.vis, s.on_hand, CAST(toInt32(JSONExtractInt(s._before, 'on_hand')) AS Int32)) AS on_hand,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'reserved')) AS Int32), s.vis, s.reserved, CAST(toInt32(JSONExtractInt(s._before, 'reserved')) AS Int32)) AS reserved,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'available')) AS Int32), s.vis, s.available, CAST(toInt32(JSONExtractInt(s._before, 'available')) AS Int32)) AS available,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'reorder_point')) AS Int32), s.vis, s.reorder_point, CAST(toInt32(JSONExtractInt(s._before, 'reorder_point')) AS Int32)) AS reorder_point,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'last_restocked_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.last_restocked_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'last_restocked_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS last_restocked_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.inventory FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'sku_id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'inventory' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.sku_id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.carts AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'carts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.carts FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'customer_id')) AS UUID), s.vis, s.customer_id, CAST(toUUID(JSONExtractString(s._before, 'customer_id')) AS UUID)) AS customer_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.carts FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'carts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.cart_items AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'cart_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, cart_id, CAST(toUUID(JSONExtractString(_before, 'cart_id')) AS UUID)) AS cart_id,
-    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
-    if(vis, quantity, CAST(toInt32(JSONExtractInt(_before, 'quantity')) AS Int32)) AS quantity,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.cart_items FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'cart_id')) AS UUID) AS cart_id,
-    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
-    CAST(toInt32(JSONExtractInt(row, 'quantity')) AS Int32) AS quantity,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'cart_id')) AS UUID), s.vis, s.cart_id, CAST(toUUID(JSONExtractString(s._before, 'cart_id')) AS UUID)) AS cart_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'sku_id')) AS UUID), s.vis, s.sku_id, CAST(toUUID(JSONExtractString(s._before, 'sku_id')) AS UUID)) AS sku_id,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'quantity')) AS Int32), s.vis, s.quantity, CAST(toInt32(JSONExtractInt(s._before, 'quantity')) AS Int32)) AS quantity,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.cart_items FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'cart_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.checkouts AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'checkouts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
-    if(vis, cart_id, CAST(toUUID(JSONExtractString(_before, 'cart_id')) AS UUID)) AS cart_id,
-    if(vis, address_id, CAST(toUUID(JSONExtractString(_before, 'address_id')) AS UUID)) AS address_id,
-    if(vis, payment_method, CAST(JSONExtractString(_before, 'payment_method') AS LowCardinality(String))) AS payment_method,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, items_total, CAST(JSONExtractInt(_before, 'items_total') AS Int64)) AS items_total,
-    if(vis, shipping_total, CAST(JSONExtractInt(_before, 'shipping_total') AS Int64)) AS shipping_total,
-    if(vis, discount_total, CAST(JSONExtractInt(_before, 'discount_total') AS Int64)) AS discount_total,
-    if(vis, grand_total, CAST(JSONExtractInt(_before, 'grand_total') AS Int64)) AS grand_total,
-    if(vis, pay_by, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'pay_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS pay_by,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.checkouts FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
-    CAST(toUUID(JSONExtractString(row, 'cart_id')) AS UUID) AS cart_id,
-    CAST(toUUID(JSONExtractString(row, 'address_id')) AS UUID) AS address_id,
-    CAST(JSONExtractString(row, 'payment_method') AS LowCardinality(String)) AS payment_method,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(JSONExtractInt(row, 'items_total') AS Int64) AS items_total,
-    CAST(JSONExtractInt(row, 'shipping_total') AS Int64) AS shipping_total,
-    CAST(JSONExtractInt(row, 'discount_total') AS Int64) AS discount_total,
-    CAST(JSONExtractInt(row, 'grand_total') AS Int64) AS grand_total,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'pay_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS pay_by,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'customer_id')) AS UUID), s.vis, s.customer_id, CAST(toUUID(JSONExtractString(s._before, 'customer_id')) AS UUID)) AS customer_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'cart_id')) AS UUID), s.vis, s.cart_id, CAST(toUUID(JSONExtractString(s._before, 'cart_id')) AS UUID)) AS cart_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'address_id')) AS UUID), s.vis, s.address_id, CAST(toUUID(JSONExtractString(s._before, 'address_id')) AS UUID)) AS address_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'payment_method') AS LowCardinality(String)), s.vis, s.payment_method, CAST(JSONExtractString(s._before, 'payment_method') AS LowCardinality(String))) AS payment_method,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'items_total') AS Int64), s.vis, s.items_total, CAST(JSONExtractInt(s._before, 'items_total') AS Int64)) AS items_total,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'shipping_total') AS Int64), s.vis, s.shipping_total, CAST(JSONExtractInt(s._before, 'shipping_total') AS Int64)) AS shipping_total,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'discount_total') AS Int64), s.vis, s.discount_total, CAST(JSONExtractInt(s._before, 'discount_total') AS Int64)) AS discount_total,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'grand_total') AS Int64), s.vis, s.grand_total, CAST(JSONExtractInt(s._before, 'grand_total') AS Int64)) AS grand_total,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'pay_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.pay_by, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'pay_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS pay_by,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.checkouts FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'checkouts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.orders AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'orders' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, order_number, CAST(JSONExtractString(_before, 'order_number') AS String)) AS order_number,
-    if(vis, checkout_id, CAST(toUUID(JSONExtractString(_before, 'checkout_id')) AS UUID)) AS checkout_id,
-    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
-    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, payment_method, CAST(JSONExtractString(_before, 'payment_method') AS LowCardinality(String))) AS payment_method,
-    if(vis, subtotal, CAST(JSONExtractInt(_before, 'subtotal') AS Int64)) AS subtotal,
-    if(vis, shop_discount, CAST(JSONExtractInt(_before, 'shop_discount') AS Int64)) AS shop_discount,
-    if(vis, platform_discount, CAST(JSONExtractInt(_before, 'platform_discount') AS Int64)) AS platform_discount,
-    if(vis, shipping_fee, CAST(JSONExtractInt(_before, 'shipping_fee') AS Int64)) AS shipping_fee,
-    if(vis, shipping_subsidy, CAST(JSONExtractInt(_before, 'shipping_subsidy') AS Int64)) AS shipping_subsidy,
-    if(vis, total, CAST(JSONExtractInt(_before, 'total') AS Int64)) AS total,
-    if(vis, ship_to_name, CAST(JSONExtractString(_before, 'ship_to_name') AS String)) AS ship_to_name,
-    if(vis, ship_to_address, CAST(JSONExtractString(_before, 'ship_to_address') AS String)) AS ship_to_address,
-    if(vis, ship_to_province, CAST(JSONExtractString(_before, 'ship_to_province') AS LowCardinality(String))) AS ship_to_province,
-    if(vis, delivery_attempts, CAST(toInt32(JSONExtractInt(_before, 'delivery_attempts')) AS Int32)) AS delivery_attempts,
-    if(vis, confirm_by, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'confirm_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS confirm_by,
-    if(vis, cancel_reason, CAST(JSONExtract(_before, 'cancel_reason', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS cancel_reason,
-    if(vis, cancelled_by, CAST(JSONExtract(_before, 'cancelled_by', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS cancelled_by,
-    if(vis, paid_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS paid_at,
-    if(vis, ready_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'ready_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS ready_at,
-    if(vis, shipped_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'shipped_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS shipped_at,
-    if(vis, delivered_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS delivered_at,
-    if(vis, completed_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'completed_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS completed_at,
-    if(vis, cancelled_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'cancelled_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS cancelled_at,
-    if(vis, version, CAST(toInt32(JSONExtractInt(_before, 'version')) AS Int32)) AS version,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.orders FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(JSONExtractString(row, 'order_number') AS String) AS order_number,
-    CAST(toUUID(JSONExtractString(row, 'checkout_id')) AS UUID) AS checkout_id,
-    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
-    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(JSONExtractString(row, 'payment_method') AS LowCardinality(String)) AS payment_method,
-    CAST(JSONExtractInt(row, 'subtotal') AS Int64) AS subtotal,
-    CAST(JSONExtractInt(row, 'shop_discount') AS Int64) AS shop_discount,
-    CAST(JSONExtractInt(row, 'platform_discount') AS Int64) AS platform_discount,
-    CAST(JSONExtractInt(row, 'shipping_fee') AS Int64) AS shipping_fee,
-    CAST(JSONExtractInt(row, 'shipping_subsidy') AS Int64) AS shipping_subsidy,
-    CAST(JSONExtractInt(row, 'total') AS Int64) AS total,
-    CAST(JSONExtractString(row, 'ship_to_name') AS String) AS ship_to_name,
-    CAST(JSONExtractString(row, 'ship_to_address') AS String) AS ship_to_address,
-    CAST(JSONExtractString(row, 'ship_to_province') AS LowCardinality(String)) AS ship_to_province,
-    CAST(toInt32(JSONExtractInt(row, 'delivery_attempts')) AS Int32) AS delivery_attempts,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'confirm_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS confirm_by,
-    CAST(JSONExtract(row, 'cancel_reason', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS cancel_reason,
-    CAST(JSONExtract(row, 'cancelled_by', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS cancelled_by,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS paid_at,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'ready_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS ready_at,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'shipped_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS shipped_at,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS delivered_at,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'completed_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS completed_at,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'cancelled_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS cancelled_at,
-    CAST(toInt32(JSONExtractInt(row, 'version')) AS Int32) AS version,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'order_number') AS String), s.vis, s.order_number, CAST(JSONExtractString(s._before, 'order_number') AS String)) AS order_number,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'checkout_id')) AS UUID), s.vis, s.checkout_id, CAST(toUUID(JSONExtractString(s._before, 'checkout_id')) AS UUID)) AS checkout_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'customer_id')) AS UUID), s.vis, s.customer_id, CAST(toUUID(JSONExtractString(s._before, 'customer_id')) AS UUID)) AS customer_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'shop_id')) AS UUID), s.vis, s.shop_id, CAST(toUUID(JSONExtractString(s._before, 'shop_id')) AS UUID)) AS shop_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'payment_method') AS LowCardinality(String)), s.vis, s.payment_method, CAST(JSONExtractString(s._before, 'payment_method') AS LowCardinality(String))) AS payment_method,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'subtotal') AS Int64), s.vis, s.subtotal, CAST(JSONExtractInt(s._before, 'subtotal') AS Int64)) AS subtotal,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'shop_discount') AS Int64), s.vis, s.shop_discount, CAST(JSONExtractInt(s._before, 'shop_discount') AS Int64)) AS shop_discount,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'platform_discount') AS Int64), s.vis, s.platform_discount, CAST(JSONExtractInt(s._before, 'platform_discount') AS Int64)) AS platform_discount,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'shipping_fee') AS Int64), s.vis, s.shipping_fee, CAST(JSONExtractInt(s._before, 'shipping_fee') AS Int64)) AS shipping_fee,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'shipping_subsidy') AS Int64), s.vis, s.shipping_subsidy, CAST(JSONExtractInt(s._before, 'shipping_subsidy') AS Int64)) AS shipping_subsidy,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'total') AS Int64), s.vis, s.total, CAST(JSONExtractInt(s._before, 'total') AS Int64)) AS total,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'ship_to_name') AS String), s.vis, s.ship_to_name, CAST(JSONExtractString(s._before, 'ship_to_name') AS String)) AS ship_to_name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'ship_to_address') AS String), s.vis, s.ship_to_address, CAST(JSONExtractString(s._before, 'ship_to_address') AS String)) AS ship_to_address,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'ship_to_province') AS LowCardinality(String)), s.vis, s.ship_to_province, CAST(JSONExtractString(s._before, 'ship_to_province') AS LowCardinality(String))) AS ship_to_province,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'delivery_attempts')) AS Int32), s.vis, s.delivery_attempts, CAST(toInt32(JSONExtractInt(s._before, 'delivery_attempts')) AS Int32)) AS delivery_attempts,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'confirm_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.confirm_by, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'confirm_by'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS confirm_by,
+    multiIf(r.found, CAST(JSONExtract(r.row, 'cancel_reason', 'Nullable(String)') AS LowCardinality(Nullable(String))), s.vis, s.cancel_reason, CAST(JSONExtract(s._before, 'cancel_reason', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS cancel_reason,
+    multiIf(r.found, CAST(JSONExtract(r.row, 'cancelled_by', 'Nullable(String)') AS LowCardinality(Nullable(String))), s.vis, s.cancelled_by, CAST(JSONExtract(s._before, 'cancelled_by', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS cancelled_by,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.paid_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS paid_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'ready_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.ready_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'ready_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS ready_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'shipped_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.shipped_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'shipped_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS shipped_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.delivered_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS delivered_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'completed_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.completed_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'completed_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS completed_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'cancelled_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.cancelled_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'cancelled_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS cancelled_at,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'version')) AS Int32), s.vis, s.version, CAST(toInt32(JSONExtractInt(s._before, 'version')) AS Int32)) AS version,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.orders FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'orders' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.order_items AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'order_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
-    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
-    if(vis, product_id, CAST(toUUID(JSONExtractString(_before, 'product_id')) AS UUID)) AS product_id,
-    if(vis, quantity, CAST(toInt32(JSONExtractInt(_before, 'quantity')) AS Int32)) AS quantity,
-    if(vis, list_price, CAST(JSONExtractInt(_before, 'list_price') AS Int64)) AS list_price,
-    if(vis, unit_price, CAST(JSONExtractInt(_before, 'unit_price') AS Int64)) AS unit_price,
-    if(vis, line_total, CAST(JSONExtractInt(_before, 'line_total') AS Int64)) AS line_total,
-    if(vis, shop_discount, CAST(JSONExtractInt(_before, 'shop_discount') AS Int64)) AS shop_discount,
-    if(vis, platform_discount, CAST(JSONExtractInt(_before, 'platform_discount') AS Int64)) AS platform_discount,
-    if(vis, net_amount, CAST(JSONExtractInt(_before, 'net_amount') AS Int64)) AS net_amount,
-    if(vis, campaign_item_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'campaign_item_id')) AS Nullable(UUID))) AS campaign_item_id,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.order_items FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
-    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
-    CAST(toUUID(JSONExtractString(row, 'product_id')) AS UUID) AS product_id,
-    CAST(toInt32(JSONExtractInt(row, 'quantity')) AS Int32) AS quantity,
-    CAST(JSONExtractInt(row, 'list_price') AS Int64) AS list_price,
-    CAST(JSONExtractInt(row, 'unit_price') AS Int64) AS unit_price,
-    CAST(JSONExtractInt(row, 'line_total') AS Int64) AS line_total,
-    CAST(JSONExtractInt(row, 'shop_discount') AS Int64) AS shop_discount,
-    CAST(JSONExtractInt(row, 'platform_discount') AS Int64) AS platform_discount,
-    CAST(JSONExtractInt(row, 'net_amount') AS Int64) AS net_amount,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'campaign_item_id')) AS Nullable(UUID)) AS campaign_item_id,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'order_id')) AS UUID), s.vis, s.order_id, CAST(toUUID(JSONExtractString(s._before, 'order_id')) AS UUID)) AS order_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'sku_id')) AS UUID), s.vis, s.sku_id, CAST(toUUID(JSONExtractString(s._before, 'sku_id')) AS UUID)) AS sku_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'product_id')) AS UUID), s.vis, s.product_id, CAST(toUUID(JSONExtractString(s._before, 'product_id')) AS UUID)) AS product_id,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'quantity')) AS Int32), s.vis, s.quantity, CAST(toInt32(JSONExtractInt(s._before, 'quantity')) AS Int32)) AS quantity,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'list_price') AS Int64), s.vis, s.list_price, CAST(JSONExtractInt(s._before, 'list_price') AS Int64)) AS list_price,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'unit_price') AS Int64), s.vis, s.unit_price, CAST(JSONExtractInt(s._before, 'unit_price') AS Int64)) AS unit_price,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'line_total') AS Int64), s.vis, s.line_total, CAST(JSONExtractInt(s._before, 'line_total') AS Int64)) AS line_total,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'shop_discount') AS Int64), s.vis, s.shop_discount, CAST(JSONExtractInt(s._before, 'shop_discount') AS Int64)) AS shop_discount,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'platform_discount') AS Int64), s.vis, s.platform_discount, CAST(JSONExtractInt(s._before, 'platform_discount') AS Int64)) AS platform_discount,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'net_amount') AS Int64), s.vis, s.net_amount, CAST(JSONExtractInt(s._before, 'net_amount') AS Int64)) AS net_amount,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'campaign_item_id')) AS Nullable(UUID)), s.vis, s.campaign_item_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'campaign_item_id')) AS Nullable(UUID))) AS campaign_item_id,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.order_items FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'order_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.order_status_history AS
 WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
@@ -2007,102 +1727,61 @@ SELECT * FROM silver.order_status_history FINAL
 WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
 
 CREATE OR REPLACE VIEW consistent.payments AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'payments' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, checkout_id, CAST(toUUID(JSONExtractString(_before, 'checkout_id')) AS UUID)) AS checkout_id,
-    if(vis, order_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'order_id')) AS Nullable(UUID))) AS order_id,
-    if(vis, method, CAST(JSONExtractString(_before, 'method') AS LowCardinality(String))) AS method,
-    if(vis, provider, CAST(JSONExtractString(_before, 'provider') AS LowCardinality(String))) AS provider,
-    if(vis, transaction_ref, CAST(JSONExtractString(_before, 'transaction_ref') AS String)) AS transaction_ref,
-    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, failure_reason, CAST(JSONExtract(_before, 'failure_reason', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS failure_reason,
-    if(vis, paid_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS paid_at,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.payments FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'checkout_id')) AS UUID) AS checkout_id,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'order_id')) AS Nullable(UUID)) AS order_id,
-    CAST(JSONExtractString(row, 'method') AS LowCardinality(String)) AS method,
-    CAST(JSONExtractString(row, 'provider') AS LowCardinality(String)) AS provider,
-    CAST(JSONExtractString(row, 'transaction_ref') AS String) AS transaction_ref,
-    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(JSONExtract(row, 'failure_reason', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS failure_reason,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS paid_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'checkout_id')) AS UUID), s.vis, s.checkout_id, CAST(toUUID(JSONExtractString(s._before, 'checkout_id')) AS UUID)) AS checkout_id,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'order_id')) AS Nullable(UUID)), s.vis, s.order_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'order_id')) AS Nullable(UUID))) AS order_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'method') AS LowCardinality(String)), s.vis, s.method, CAST(JSONExtractString(s._before, 'method') AS LowCardinality(String))) AS method,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'provider') AS LowCardinality(String)), s.vis, s.provider, CAST(JSONExtractString(s._before, 'provider') AS LowCardinality(String))) AS provider,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'transaction_ref') AS String), s.vis, s.transaction_ref, CAST(JSONExtractString(s._before, 'transaction_ref') AS String)) AS transaction_ref,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'amount') AS Int64), s.vis, s.amount, CAST(JSONExtractInt(s._before, 'amount') AS Int64)) AS amount,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(JSONExtract(r.row, 'failure_reason', 'Nullable(String)') AS LowCardinality(Nullable(String))), s.vis, s.failure_reason, CAST(JSONExtract(s._before, 'failure_reason', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS failure_reason,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.paid_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'paid_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS paid_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.payments FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'payments' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.refunds AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'refunds' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, payment_id, CAST(toUUID(JSONExtractString(_before, 'payment_id')) AS UUID)) AS payment_id,
-    if(vis, order_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'order_id')) AS Nullable(UUID))) AS order_id,
-    if(vis, return_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'return_id')) AS Nullable(UUID))) AS return_id,
-    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
-    if(vis, reason, CAST(JSONExtractString(_before, 'reason') AS LowCardinality(String))) AS reason,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.refunds FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'payment_id')) AS UUID) AS payment_id,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'order_id')) AS Nullable(UUID)) AS order_id,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'return_id')) AS Nullable(UUID)) AS return_id,
-    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
-    CAST(JSONExtractString(row, 'reason') AS LowCardinality(String)) AS reason,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'payment_id')) AS UUID), s.vis, s.payment_id, CAST(toUUID(JSONExtractString(s._before, 'payment_id')) AS UUID)) AS payment_id,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'order_id')) AS Nullable(UUID)), s.vis, s.order_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'order_id')) AS Nullable(UUID))) AS order_id,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'return_id')) AS Nullable(UUID)), s.vis, s.return_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'return_id')) AS Nullable(UUID))) AS return_id,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'amount') AS Int64), s.vis, s.amount, CAST(JSONExtractInt(s._before, 'amount') AS Int64)) AS amount,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'reason') AS LowCardinality(String)), s.vis, s.reason, CAST(JSONExtractString(s._before, 'reason') AS LowCardinality(String))) AS reason,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.refunds FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'refunds' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.inventory_movements AS
 WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
@@ -2110,62 +1789,37 @@ SELECT * FROM silver.inventory_movements FINAL
 WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
 
 CREATE OR REPLACE VIEW consistent.shipments AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'shipments' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
-    if(vis, return_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'return_id')) AS Nullable(UUID))) AS return_id,
-    if(vis, direction, CAST(JSONExtractString(_before, 'direction') AS LowCardinality(String))) AS direction,
-    if(vis, carrier, CAST(JSONExtractString(_before, 'carrier') AS LowCardinality(String))) AS carrier,
-    if(vis, tracking_number, CAST(JSONExtractString(_before, 'tracking_number') AS String)) AS tracking_number,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, from_province, CAST(JSONExtractString(_before, 'from_province') AS LowCardinality(String))) AS from_province,
-    if(vis, to_province, CAST(JSONExtractString(_before, 'to_province') AS LowCardinality(String))) AS to_province,
-    if(vis, attempts, CAST(toInt32(JSONExtractInt(_before, 'attempts')) AS Int32)) AS attempts,
-    if(vis, last_event_time, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'last_event_time'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS last_event_time,
-    if(vis, picked_up_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'picked_up_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS picked_up_at,
-    if(vis, delivered_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS delivered_at,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.shipments FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'return_id')) AS Nullable(UUID)) AS return_id,
-    CAST(JSONExtractString(row, 'direction') AS LowCardinality(String)) AS direction,
-    CAST(JSONExtractString(row, 'carrier') AS LowCardinality(String)) AS carrier,
-    CAST(JSONExtractString(row, 'tracking_number') AS String) AS tracking_number,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(JSONExtractString(row, 'from_province') AS LowCardinality(String)) AS from_province,
-    CAST(JSONExtractString(row, 'to_province') AS LowCardinality(String)) AS to_province,
-    CAST(toInt32(JSONExtractInt(row, 'attempts')) AS Int32) AS attempts,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'last_event_time'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS last_event_time,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'picked_up_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS picked_up_at,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS delivered_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'order_id')) AS UUID), s.vis, s.order_id, CAST(toUUID(JSONExtractString(s._before, 'order_id')) AS UUID)) AS order_id,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'return_id')) AS Nullable(UUID)), s.vis, s.return_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'return_id')) AS Nullable(UUID))) AS return_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'direction') AS LowCardinality(String)), s.vis, s.direction, CAST(JSONExtractString(s._before, 'direction') AS LowCardinality(String))) AS direction,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'carrier') AS LowCardinality(String)), s.vis, s.carrier, CAST(JSONExtractString(s._before, 'carrier') AS LowCardinality(String))) AS carrier,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'tracking_number') AS String), s.vis, s.tracking_number, CAST(JSONExtractString(s._before, 'tracking_number') AS String)) AS tracking_number,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'from_province') AS LowCardinality(String)), s.vis, s.from_province, CAST(JSONExtractString(s._before, 'from_province') AS LowCardinality(String))) AS from_province,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'to_province') AS LowCardinality(String)), s.vis, s.to_province, CAST(JSONExtractString(s._before, 'to_province') AS LowCardinality(String))) AS to_province,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'attempts')) AS Int32), s.vis, s.attempts, CAST(toInt32(JSONExtractInt(s._before, 'attempts')) AS Int32)) AS attempts,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'last_event_time'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.last_event_time, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'last_event_time'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS last_event_time,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'picked_up_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.picked_up_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'picked_up_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS picked_up_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.delivered_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'delivered_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS delivered_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.shipments FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'shipments' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.shipment_events AS
 WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
@@ -2178,288 +1832,170 @@ SELECT * FROM silver.price_history FINAL
 WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
 
 CREATE OR REPLACE VIEW consistent.vouchers AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'vouchers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, code, CAST(JSONExtractString(_before, 'code') AS String)) AS code,
-    if(vis, scope, CAST(JSONExtractString(_before, 'scope') AS LowCardinality(String))) AS scope,
-    if(vis, shop_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'shop_id')) AS Nullable(UUID))) AS shop_id,
-    if(vis, kind, CAST(JSONExtractString(_before, 'kind') AS LowCardinality(String))) AS kind,
-    if(vis, value, CAST(JSONExtractInt(_before, 'value') AS Int64)) AS value,
-    if(vis, max_discount, CAST(JSONExtract(_before, 'max_discount', 'Nullable(Int64)') AS Nullable(Int64))) AS max_discount,
-    if(vis, min_spend, CAST(JSONExtractInt(_before, 'min_spend') AS Int64)) AS min_spend,
-    if(vis, usage_limit, CAST(toInt32(JSONExtractInt(_before, 'usage_limit')) AS Int32)) AS usage_limit,
-    if(vis, per_customer_limit, CAST(toInt32(JSONExtractInt(_before, 'per_customer_limit')) AS Int32)) AS per_customer_limit,
-    if(vis, starts_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS starts_at,
-    if(vis, ends_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS ends_at,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.vouchers FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(JSONExtractString(row, 'code') AS String) AS code,
-    CAST(JSONExtractString(row, 'scope') AS LowCardinality(String)) AS scope,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'shop_id')) AS Nullable(UUID)) AS shop_id,
-    CAST(JSONExtractString(row, 'kind') AS LowCardinality(String)) AS kind,
-    CAST(JSONExtractInt(row, 'value') AS Int64) AS value,
-    CAST(JSONExtract(row, 'max_discount', 'Nullable(Int64)') AS Nullable(Int64)) AS max_discount,
-    CAST(JSONExtractInt(row, 'min_spend') AS Int64) AS min_spend,
-    CAST(toInt32(JSONExtractInt(row, 'usage_limit')) AS Int32) AS usage_limit,
-    CAST(toInt32(JSONExtractInt(row, 'per_customer_limit')) AS Int32) AS per_customer_limit,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS starts_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS ends_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'code') AS String), s.vis, s.code, CAST(JSONExtractString(s._before, 'code') AS String)) AS code,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'scope') AS LowCardinality(String)), s.vis, s.scope, CAST(JSONExtractString(s._before, 'scope') AS LowCardinality(String))) AS scope,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'shop_id')) AS Nullable(UUID)), s.vis, s.shop_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'shop_id')) AS Nullable(UUID))) AS shop_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'kind') AS LowCardinality(String)), s.vis, s.kind, CAST(JSONExtractString(s._before, 'kind') AS LowCardinality(String))) AS kind,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'value') AS Int64), s.vis, s.value, CAST(JSONExtractInt(s._before, 'value') AS Int64)) AS value,
+    multiIf(r.found, CAST(JSONExtract(r.row, 'max_discount', 'Nullable(Int64)') AS Nullable(Int64)), s.vis, s.max_discount, CAST(JSONExtract(s._before, 'max_discount', 'Nullable(Int64)') AS Nullable(Int64))) AS max_discount,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'min_spend') AS Int64), s.vis, s.min_spend, CAST(JSONExtractInt(s._before, 'min_spend') AS Int64)) AS min_spend,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'usage_limit')) AS Int32), s.vis, s.usage_limit, CAST(toInt32(JSONExtractInt(s._before, 'usage_limit')) AS Int32)) AS usage_limit,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'per_customer_limit')) AS Int32), s.vis, s.per_customer_limit, CAST(toInt32(JSONExtractInt(s._before, 'per_customer_limit')) AS Int32)) AS per_customer_limit,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.starts_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS starts_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.ends_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS ends_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.vouchers FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'vouchers' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.voucher_usages AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'voucher_usages' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, voucher_id, CAST(toUUID(JSONExtractString(_before, 'voucher_id')) AS UUID)) AS voucher_id,
-    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
-    if(vis, checkout_id, CAST(toUUID(JSONExtractString(_before, 'checkout_id')) AS UUID)) AS checkout_id,
-    if(vis, order_id, CAST(toUUIDOrNull(JSONExtractString(_before, 'order_id')) AS Nullable(UUID))) AS order_id,
-    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
-    if(vis, quota_slot, CAST(toInt32(JSONExtractInt(_before, 'quota_slot')) AS Int32)) AS quota_slot,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.voucher_usages FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'voucher_id')) AS UUID) AS voucher_id,
-    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
-    CAST(toUUID(JSONExtractString(row, 'checkout_id')) AS UUID) AS checkout_id,
-    CAST(toUUIDOrNull(JSONExtractString(row, 'order_id')) AS Nullable(UUID)) AS order_id,
-    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
-    CAST(toInt32(JSONExtractInt(row, 'quota_slot')) AS Int32) AS quota_slot,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'voucher_id')) AS UUID), s.vis, s.voucher_id, CAST(toUUID(JSONExtractString(s._before, 'voucher_id')) AS UUID)) AS voucher_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'customer_id')) AS UUID), s.vis, s.customer_id, CAST(toUUID(JSONExtractString(s._before, 'customer_id')) AS UUID)) AS customer_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'checkout_id')) AS UUID), s.vis, s.checkout_id, CAST(toUUID(JSONExtractString(s._before, 'checkout_id')) AS UUID)) AS checkout_id,
+    multiIf(r.found, CAST(toUUIDOrNull(JSONExtractString(r.row, 'order_id')) AS Nullable(UUID)), s.vis, s.order_id, CAST(toUUIDOrNull(JSONExtractString(s._before, 'order_id')) AS Nullable(UUID))) AS order_id,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'amount') AS Int64), s.vis, s.amount, CAST(JSONExtractInt(s._before, 'amount') AS Int64)) AS amount,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'quota_slot')) AS Int32), s.vis, s.quota_slot, CAST(toInt32(JSONExtractInt(s._before, 'quota_slot')) AS Int32)) AS quota_slot,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.voucher_usages FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'voucher_usages' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.campaigns AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'campaigns' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, name, CAST(JSONExtractString(_before, 'name') AS String)) AS name,
-    if(vis, kind, CAST(JSONExtractString(_before, 'kind') AS LowCardinality(String))) AS kind,
-    if(vis, starts_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS starts_at,
-    if(vis, ends_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS ends_at,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.campaigns FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(JSONExtractString(row, 'name') AS String) AS name,
-    CAST(JSONExtractString(row, 'kind') AS LowCardinality(String)) AS kind,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS starts_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS ends_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'name') AS String), s.vis, s.name, CAST(JSONExtractString(s._before, 'name') AS String)) AS name,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'kind') AS LowCardinality(String)), s.vis, s.kind, CAST(JSONExtractString(s._before, 'kind') AS LowCardinality(String))) AS kind,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.starts_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'starts_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS starts_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.ends_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'ends_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS ends_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.campaigns FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'campaigns' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.flash_sale_items AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'flash_sale_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, campaign_id, CAST(toUUID(JSONExtractString(_before, 'campaign_id')) AS UUID)) AS campaign_id,
-    if(vis, sku_id, CAST(toUUID(JSONExtractString(_before, 'sku_id')) AS UUID)) AS sku_id,
-    if(vis, sale_price, CAST(JSONExtractInt(_before, 'sale_price') AS Int64)) AS sale_price,
-    if(vis, quota, CAST(toInt32(JSONExtractInt(_before, 'quota')) AS Int32)) AS quota,
-    if(vis, sold, CAST(toInt32(JSONExtractInt(_before, 'sold')) AS Int32)) AS sold,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.flash_sale_items FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'campaign_id')) AS UUID) AS campaign_id,
-    CAST(toUUID(JSONExtractString(row, 'sku_id')) AS UUID) AS sku_id,
-    CAST(JSONExtractInt(row, 'sale_price') AS Int64) AS sale_price,
-    CAST(toInt32(JSONExtractInt(row, 'quota')) AS Int32) AS quota,
-    CAST(toInt32(JSONExtractInt(row, 'sold')) AS Int32) AS sold,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'campaign_id')) AS UUID), s.vis, s.campaign_id, CAST(toUUID(JSONExtractString(s._before, 'campaign_id')) AS UUID)) AS campaign_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'sku_id')) AS UUID), s.vis, s.sku_id, CAST(toUUID(JSONExtractString(s._before, 'sku_id')) AS UUID)) AS sku_id,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'sale_price') AS Int64), s.vis, s.sale_price, CAST(JSONExtractInt(s._before, 'sale_price') AS Int64)) AS sale_price,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'quota')) AS Int32), s.vis, s.quota, CAST(toInt32(JSONExtractInt(s._before, 'quota')) AS Int32)) AS quota,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'sold')) AS Int32), s.vis, s.sold, CAST(toInt32(JSONExtractInt(s._before, 'sold')) AS Int32)) AS sold,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.flash_sale_items FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'flash_sale_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.returns AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'returns' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
-    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
-    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
-    if(vis, reason, CAST(JSONExtractString(_before, 'reason') AS LowCardinality(String))) AS reason,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, refund_amount, CAST(JSONExtractInt(_before, 'refund_amount') AS Int64)) AS refund_amount,
-    if(vis, respond_by, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'respond_by'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS respond_by,
-    if(vis, resolved_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(_before, 'resolved_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS resolved_at,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.returns FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
-    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
-    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
-    CAST(JSONExtractString(row, 'reason') AS LowCardinality(String)) AS reason,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(JSONExtractInt(row, 'refund_amount') AS Int64) AS refund_amount,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'respond_by'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS respond_by,
-    CAST(parseDateTime64BestEffortOrNull(JSONExtractString(row, 'resolved_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))) AS resolved_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'order_id')) AS UUID), s.vis, s.order_id, CAST(toUUID(JSONExtractString(s._before, 'order_id')) AS UUID)) AS order_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'customer_id')) AS UUID), s.vis, s.customer_id, CAST(toUUID(JSONExtractString(s._before, 'customer_id')) AS UUID)) AS customer_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'shop_id')) AS UUID), s.vis, s.shop_id, CAST(toUUID(JSONExtractString(s._before, 'shop_id')) AS UUID)) AS shop_id,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'reason') AS LowCardinality(String)), s.vis, s.reason, CAST(JSONExtractString(s._before, 'reason') AS LowCardinality(String))) AS reason,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'refund_amount') AS Int64), s.vis, s.refund_amount, CAST(JSONExtractInt(s._before, 'refund_amount') AS Int64)) AS refund_amount,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'respond_by'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.respond_by, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'respond_by'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS respond_by,
+    multiIf(r.found, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(r.row, 'resolved_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC'))), s.vis, s.resolved_at, CAST(parseDateTime64BestEffortOrNull(JSONExtractString(s._before, 'resolved_at'), 6, 'UTC') AS Nullable(DateTime64(6, 'UTC')))) AS resolved_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.returns FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'returns' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.return_items AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'return_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, return_id, CAST(toUUID(JSONExtractString(_before, 'return_id')) AS UUID)) AS return_id,
-    if(vis, order_item_id, CAST(toUUID(JSONExtractString(_before, 'order_item_id')) AS UUID)) AS order_item_id,
-    if(vis, quantity, CAST(toInt32(JSONExtractInt(_before, 'quantity')) AS Int32)) AS quantity,
-    if(vis, refund_amount, CAST(JSONExtractInt(_before, 'refund_amount') AS Int64)) AS refund_amount,
-    if(vis, condition, CAST(JSONExtract(_before, 'condition', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS condition,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.return_items FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'return_id')) AS UUID) AS return_id,
-    CAST(toUUID(JSONExtractString(row, 'order_item_id')) AS UUID) AS order_item_id,
-    CAST(toInt32(JSONExtractInt(row, 'quantity')) AS Int32) AS quantity,
-    CAST(JSONExtractInt(row, 'refund_amount') AS Int64) AS refund_amount,
-    CAST(JSONExtract(row, 'condition', 'Nullable(String)') AS LowCardinality(Nullable(String))) AS condition,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'return_id')) AS UUID), s.vis, s.return_id, CAST(toUUID(JSONExtractString(s._before, 'return_id')) AS UUID)) AS return_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'order_item_id')) AS UUID), s.vis, s.order_item_id, CAST(toUUID(JSONExtractString(s._before, 'order_item_id')) AS UUID)) AS order_item_id,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'quantity')) AS Int32), s.vis, s.quantity, CAST(toInt32(JSONExtractInt(s._before, 'quantity')) AS Int32)) AS quantity,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'refund_amount') AS Int64), s.vis, s.refund_amount, CAST(JSONExtractInt(s._before, 'refund_amount') AS Int64)) AS refund_amount,
+    multiIf(r.found, CAST(JSONExtract(r.row, 'condition', 'Nullable(String)') AS LowCardinality(Nullable(String))), s.vis, s.condition, CAST(JSONExtract(s._before, 'condition', 'Nullable(String)') AS LowCardinality(Nullable(String)))) AS condition,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.return_items FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'return_items' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.seller_ledger_entries AS
 WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
@@ -2467,123 +2003,74 @@ SELECT * FROM silver.seller_ledger_entries FINAL
 WHERE _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible);
 
 CREATE OR REPLACE VIEW consistent.shop_wallets AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'shop_id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'shop_wallets' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
-    if(vis, balance, CAST(JSONExtractInt(_before, 'balance') AS Int64)) AS balance,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.shop_wallets FINAL WHERE shop_id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
-    CAST(JSONExtractInt(row, 'balance') AS Int64) AS balance,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'shop_id')) AS UUID), s.vis, s.shop_id, CAST(toUUID(JSONExtractString(s._before, 'shop_id')) AS UUID)) AS shop_id,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'balance') AS Int64), s.vis, s.balance, CAST(JSONExtractInt(s._before, 'balance') AS Int64)) AS balance,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.shop_wallets FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'shop_id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'shop_wallets' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.shop_id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.seller_payouts AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'seller_payouts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
-    if(vis, amount, CAST(JSONExtractInt(_before, 'amount') AS Int64)) AS amount,
-    if(vis, status, CAST(JSONExtractString(_before, 'status') AS LowCardinality(String))) AS status,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.seller_payouts FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
-    CAST(JSONExtractInt(row, 'amount') AS Int64) AS amount,
-    CAST(JSONExtractString(row, 'status') AS LowCardinality(String)) AS status,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'shop_id')) AS UUID), s.vis, s.shop_id, CAST(toUUID(JSONExtractString(s._before, 'shop_id')) AS UUID)) AS shop_id,
+    multiIf(r.found, CAST(JSONExtractInt(r.row, 'amount') AS Int64), s.vis, s.amount, CAST(JSONExtractInt(s._before, 'amount') AS Int64)) AS amount,
+    multiIf(r.found, CAST(JSONExtractString(r.row, 'status') AS LowCardinality(String)), s.vis, s.status, CAST(JSONExtractString(s._before, 'status') AS LowCardinality(String))) AS status,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.seller_payouts FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'seller_payouts' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;
 
 CREATE OR REPLACE VIEW consistent.product_reviews AS
-WITH
-    visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}),
-    restore AS (
-        SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row
-        FROM bronze.cdc_events
-        WHERE source_table = 'product_reviews' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
-          AND tx_id NOT IN (SELECT tx_id FROM visible)
-        GROUP BY k)
+WITH visible AS (SELECT tx_id FROM bronze.cdc_transactions WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64})
 SELECT
-    if(vis, id, CAST(toUUID(JSONExtractString(_before, 'id')) AS UUID)) AS id,
-    if(vis, order_item_id, CAST(toUUID(JSONExtractString(_before, 'order_item_id')) AS UUID)) AS order_item_id,
-    if(vis, order_id, CAST(toUUID(JSONExtractString(_before, 'order_id')) AS UUID)) AS order_id,
-    if(vis, product_id, CAST(toUUID(JSONExtractString(_before, 'product_id')) AS UUID)) AS product_id,
-    if(vis, shop_id, CAST(toUUID(JSONExtractString(_before, 'shop_id')) AS UUID)) AS shop_id,
-    if(vis, customer_id, CAST(toUUID(JSONExtractString(_before, 'customer_id')) AS UUID)) AS customer_id,
-    if(vis, rating, CAST(toInt32(JSONExtractInt(_before, 'rating')) AS Int32)) AS rating,
-    if(vis, comment, CAST(JSONExtract(_before, 'comment', 'Nullable(String)') AS Nullable(String))) AS comment,
-    if(vis, created_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
-    if(vis, updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(_before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
-    _version,
-    _is_deleted,
-    _synced_at,
-    _tx_id,
-    _before
-FROM (SELECT *, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis
-      FROM silver.product_reviews FINAL WHERE id NOT IN (SELECT k FROM restore))
-WHERE vis OR _before != 'null'
-UNION ALL
-SELECT
-    CAST(toUUID(JSONExtractString(row, 'id')) AS UUID) AS id,
-    CAST(toUUID(JSONExtractString(row, 'order_item_id')) AS UUID) AS order_item_id,
-    CAST(toUUID(JSONExtractString(row, 'order_id')) AS UUID) AS order_id,
-    CAST(toUUID(JSONExtractString(row, 'product_id')) AS UUID) AS product_id,
-    CAST(toUUID(JSONExtractString(row, 'shop_id')) AS UUID) AS shop_id,
-    CAST(toUUID(JSONExtractString(row, 'customer_id')) AS UUID) AS customer_id,
-    CAST(toInt32(JSONExtractInt(row, 'rating')) AS Int32) AS rating,
-    CAST(JSONExtract(row, 'comment', 'Nullable(String)') AS Nullable(String)) AS comment,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS created_at,
-    CAST(parseDateTime64BestEffort(JSONExtractString(row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')) AS updated_at,
-    toUInt64(0) AS _version,
-    toUInt8(0) AS _is_deleted,
-    now64(3) AS _synced_at,
-    toUInt64(0) AS _tx_id,
-    'null' AS _before
-FROM restore
-WHERE row != 'null';
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'id')) AS UUID), s.vis, s.id, CAST(toUUID(JSONExtractString(s._before, 'id')) AS UUID)) AS id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'order_item_id')) AS UUID), s.vis, s.order_item_id, CAST(toUUID(JSONExtractString(s._before, 'order_item_id')) AS UUID)) AS order_item_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'order_id')) AS UUID), s.vis, s.order_id, CAST(toUUID(JSONExtractString(s._before, 'order_id')) AS UUID)) AS order_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'product_id')) AS UUID), s.vis, s.product_id, CAST(toUUID(JSONExtractString(s._before, 'product_id')) AS UUID)) AS product_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'shop_id')) AS UUID), s.vis, s.shop_id, CAST(toUUID(JSONExtractString(s._before, 'shop_id')) AS UUID)) AS shop_id,
+    multiIf(r.found, CAST(toUUID(JSONExtractString(r.row, 'customer_id')) AS UUID), s.vis, s.customer_id, CAST(toUUID(JSONExtractString(s._before, 'customer_id')) AS UUID)) AS customer_id,
+    multiIf(r.found, CAST(toInt32(JSONExtractInt(r.row, 'rating')) AS Int32), s.vis, s.rating, CAST(toInt32(JSONExtractInt(s._before, 'rating')) AS Int32)) AS rating,
+    multiIf(r.found, CAST(JSONExtract(r.row, 'comment', 'Nullable(String)') AS Nullable(String)), s.vis, s.comment, CAST(JSONExtract(s._before, 'comment', 'Nullable(String)') AS Nullable(String))) AS comment,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.created_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'created_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS created_at,
+    multiIf(r.found, CAST(parseDateTime64BestEffort(JSONExtractString(r.row, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC')), s.vis, s.updated_at, CAST(parseDateTime64BestEffort(JSONExtractString(s._before, 'updated_at'), 6, 'UTC') AS DateTime64(6, 'UTC'))) AS updated_at,
+    if(r.found, toUInt64(0), s._version) AS _version,
+    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,
+    if(r.found, now64(3), s._synced_at) AS _synced_at,
+    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,
+    if(r.found, r.row, s._before) AS _before
+FROM (SELECT *, true AS present, _tx_id = 0 OR _synced_at < now64(3) - INTERVAL 30 MINUTE OR _tx_id IN (SELECT tx_id FROM visible) AS vis FROM silver.product_reviews FINAL) AS s
+FULL OUTER JOIN (
+    SELECT toUUID(JSONExtractString(if(op = 'd', before, after), 'id')) AS k, argMin(before, lsn) AS row, true AS found
+    FROM bronze.cdc_events
+    WHERE source_table = 'product_reviews' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0
+      AND tx_id NOT IN (SELECT tx_id FROM visible)
+    GROUP BY k) AS r ON s.id = r.k
+WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))
+SETTINGS join_use_nulls = 0;

@@ -157,8 +157,8 @@ def consistent_sql(table: str, kind: str, key: str, spec: str) -> str:
 
     A row version is visible when its transaction ended before v (or it is a snapshot read, or older than RECENT).
     Event rows past v are hidden. A state row whose newest version is past v is shown as it was before: the
-    `before` image of its earliest change past v, from bronze, or the version's own _before when that change
-    reached silver after bronze was read. Older versions cannot come from silver: merges drop them at any time.
+    `before` image of its earliest change past v, from bronze ("restore"), or the version's own _before when that
+    change reached silver after bronze was read. Older versions cannot come from silver: merges drop them.
     """
     visible_row = f"_tx_id = 0 OR _synced_at < now64(3) - INTERVAL {RECENT} OR _tx_id IN (SELECT tx_id FROM visible)"
     if kind == "event":
@@ -167,28 +167,35 @@ def consistent_sql(table: str, kind: str, key: str, spec: str) -> str:
                 f"SELECT * FROM silver.{table} FINAL\nWHERE {visible_row};\n")
     cols = [c.strip().split() for c in spec.split(",")]
     key_type = dict(cols)[key]
-    meta = ["_version", "_is_deleted", "_synced_at", "_tx_id", "_before"]
-    current = [f"    if(vis, {n}, CAST({extract(n, t).replace('(row,', '(_before,')} AS {column_type(t)})) AS {n}"
-               for n, t in cols] + [f"    {m}" for m in meta]
-    restored = [f"    CAST({extract(n, t)} AS {column_type(t)}) AS {n}" for n, t in cols]
-    restored += ["    toUInt64(0) AS _version", "    toUInt8(0) AS _is_deleted", "    now64(3) AS _synced_at",
-                 "    toUInt64(0) AS _tx_id", "    'null' AS _before"]
+
+    def pick(n, t):
+        typed = column_type(t)
+        from_restore = extract(n, t).replace("(row,", "(r.row,")
+        from_before = extract(n, t).replace("(row,", "(s._before,")
+        return (f"    multiIf(r.found, CAST({from_restore} AS {typed}), s.vis, s.{n}, "
+                f"CAST({from_before} AS {typed})) AS {n}")
+
     key_expr = extract(key, key_type).replace("(row,", "(if(op = 'd', before, after),")
+    # silver and restore are each read exactly once and joined by key: a CTE used twice would be evaluated twice,
+    # at two moments, and a key could then come out of both sides
     return (
         f"CREATE OR REPLACE VIEW consistent.{table} AS\n"
-        f"WITH\n"
-        f"    visible AS ({VISIBLE}),\n"
-        f"    restore AS (\n"
-        f"        SELECT {key_expr} AS k, argMin(before, lsn) AS row\n"
-        f"        FROM bronze.cdc_events\n"
-        f"        WHERE source_table = '{table}' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0\n"
-        f"          AND tx_id NOT IN (SELECT tx_id FROM visible)\n"
-        f"        GROUP BY k)\n"
-        f"SELECT\n" + ",\n".join(current) + "\n"
-        f"FROM (SELECT *, {visible_row} AS vis\n"
-        f"      FROM silver.{table} FINAL WHERE {key} NOT IN (SELECT k FROM restore))\n"
-        f"WHERE vis OR _before != 'null'\n"
-        f"UNION ALL\nSELECT\n" + ",\n".join(restored) + "\nFROM restore\nWHERE row != 'null';\n"
+        f"WITH visible AS ({VISIBLE})\n"
+        f"SELECT\n" + ",\n".join(pick(n, t) for n, t in cols) + ",\n"
+        f"    if(r.found, toUInt64(0), s._version) AS _version,\n"
+        f"    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,\n"
+        f"    if(r.found, now64(3), s._synced_at) AS _synced_at,\n"
+        f"    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,\n"
+        f"    if(r.found, r.row, s._before) AS _before\n"
+        f"FROM (SELECT *, true AS present, {visible_row} AS vis FROM silver.{table} FINAL) AS s\n"
+        f"FULL OUTER JOIN (\n"
+        f"    SELECT {key_expr} AS k, argMin(before, lsn) AS row, true AS found\n"
+        f"    FROM bronze.cdc_events\n"
+        f"    WHERE source_table = '{table}' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0\n"
+        f"      AND tx_id NOT IN (SELECT tx_id FROM visible)\n"
+        f"    GROUP BY k) AS r ON s.{key} = r.k\n"
+        f"WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))\n"
+        f"SETTINGS join_use_nulls = 0;\n"
     )
 
 

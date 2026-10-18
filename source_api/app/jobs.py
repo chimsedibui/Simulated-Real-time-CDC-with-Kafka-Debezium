@@ -70,7 +70,12 @@ def cancel_sla_breaches():
 
 def auto_complete_delivered():
     def complete(cur, order_id):
-        transition(cur, order_id, "COMPLETED", "SYSTEM", "auto_complete")
+        # re-check under the lock: the buyer may have opened a return since the candidate was picked, and
+        # RETURN_REFUND → COMPLETED is also a legal SYSTEM move (when a return ends)
+        order = lock_order(cur, order_id)
+        if order["status"] != "DELIVERED":
+            return
+        transition(cur, order_id, "COMPLETED", "SYSTEM", "auto_complete", order=order)
 
     _each(_candidates(f"SELECT id FROM ecommerce.orders WHERE status = 'DELIVERED' "
                       f"AND delivered_at < {NOW} - make_interval(secs => %s) ORDER BY delivered_at LIMIT 500",

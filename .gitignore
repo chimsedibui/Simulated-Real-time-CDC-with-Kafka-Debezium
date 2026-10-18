@@ -13,3 +13,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.iml
+
+# Local compose overrides (port clashes etc.), loaded automatically by docker compose
+docker-compose.override.yml

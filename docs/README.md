@@ -320,6 +320,16 @@ docker compose --profile tools run --rm validator python check_data.py
 - **Metrics:** every gold metric (daily GMV/NMV, P&L, product revenue, pack time per shop, return cohorts) recomputed in PostgreSQL with the same definition and compared; closed business days must keep their placed GMV and GMV.
 - **Ops:** marts at the current watermark equal gold computed live; a scheduled reconciliation run after settling matches every table; no email, phone or address in clear anywhere in ClickHouse.
 
+**Gates.** `scripts/gate.sh quick|smoke|full` runs the whole chain; pick the smallest one that covers the change. Every gate stops at the first PostgreSQL deadlock and prints it.
+
+| Gate | Stack | What runs | Time |
+|------|-------|-----------|------|
+| `quick` | running stack, data kept, code rebuilt | API tests, lock-contention stress test, 90 s of traffic with the torn-read probe, `check_data` | ~3 min |
+| `smoke` | clean | seed, tests, 4 min at ×1440 with an 11.11 sale, probe, `check_data` | ~10 min |
+| `full` | clean | 16 min at ×720 with an 11.11 sale and restarts of Debezium and ClickHouse, probe, lag, `check_data` | ~25 min |
+
+`validation/test_stress.py` sends checkouts, cancellations and payments from 24 buyers at the same few SKUs, flash items and vouchers for 20 s, then requires zero deadlocks and no drift in stock, flash quota or voucher quota. Lock-order bugs that ordinary traffic shows once in 100 000 requests show up there in seconds. Put local port overrides in `docker-compose.override.yml` (gitignored).
+
 Torn reads can only be seen while data is flowing, so they have their own probe. Run it during a simulation:
 
 ```bash
@@ -390,7 +400,7 @@ The `warehouse-jobs` service runs three jobs, each at one pinned watermark:
 |-----|-------|--------------|
 | Marts | 15 s | Computes every gold view at the current watermark into `mart.<view>` (tagged with `refresh_id` = that watermark) and records the refresh in `ops.mart_refreshes`. The Control Center reads one refresh, so a page costs milliseconds no matter how many people look at it. |
 | Business-day close | 5 s | Freezes finished business days into `gold.daily_sales_closed`. |
-| Reconciliation | 60 s | For each of 29 tables, compares PostgreSQL and `consistent.<table>(v)`: rows created up to one business hour before the watermark, plus the sum of a column that never changes after insert. Results go to `ops.reconciliation`; `ops.reconciliation_status` flags a table that disagreed two runs in a row (one miss can be a row deleted between the two reads), and the job logs it as an error. |
+| Reconciliation | 30 s | For 28 tables, compares PostgreSQL and `consistent.<table>(v)`: rows created up to one business hour before the watermark, plus the sum of a column that never changes after insert. Results go to `ops.reconciliation`; `ops.reconciliation_status` flags a table that disagreed two runs in a row (one miss can be a row deleted between the two reads; `cart_items`, hard-deleted all the time, is left to `check_data` at rest), and the job logs it as an error. |
 
 ```sql
 SELECT * FROM ops.reconciliation_status;                      -- latest result per table
@@ -535,4 +545,4 @@ The platform review (requirements R1–R27, SLOs and the phased plan) lives in t
 
 - **Operations:** alerts on connector state, replication-slot lag, held-back transactions and failing reconciliation (R26); `max_slot_wal_keep_size` so a stopped connector can't fill the PostgreSQL disk; Debezium connecting as the least-privileged `cdc_user`; secrets and the PII salt out of the repository; pinned image versions.
 - **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9); bronze on tiered storage; marts maintained incrementally instead of recomputed; a load test at T1 peak with several simulators.
-- **Repository:** the 16-minute gate (`reset → seed → API tests → load with 11.11 and restarts → torn-read probe → check_data`) as a script in the repository and in CI.
+- **Repository:** run `scripts/gate.sh smoke` in CI on every pull request.
