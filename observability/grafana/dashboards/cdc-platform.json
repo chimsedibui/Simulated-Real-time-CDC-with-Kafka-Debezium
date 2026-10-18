@@ -827,12 +827,42 @@
     },
     {
       "id": 28,
-      "title": "Dashboard query p95 \u00b7 SLO 500 ms",
+      "title": "ClickHouse storage \u00b7 hot (default) vs cold (S3)",
       "type": "timeseries",
       "description": "",
       "gridPos": {
         "x": 12,
         "y": 104,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(disk)(cdc_clickhouse_bytes_on_disk)",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 29,
+      "title": "Dashboard query p95 \u00b7 SLO 500 ms",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 112,
         "w": 12,
         "h": 8
       },
@@ -856,12 +886,12 @@
       "options": {}
     },
     {
-      "id": 29,
+      "id": 30,
       "title": "ClickHouse max parts per partition \u00b7 top 10",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 112,
         "w": 12,
         "h": 8
@@ -886,13 +916,13 @@
       "options": {}
     },
     {
-      "id": 30,
+      "id": 31,
       "title": "Mart refresh age",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 12,
-        "y": 112,
+        "x": 0,
+        "y": 120,
         "w": 12,
         "h": 8
       },
@@ -916,12 +946,12 @@
       "options": {}
     },
     {
-      "id": 31,
+      "id": 32,
       "title": "Mart refresh duration",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 120,
         "w": 12,
         "h": 8
@@ -946,13 +976,13 @@
       "options": {}
     },
     {
-      "id": 32,
+      "id": 33,
       "title": "Snapshot run duration \u00b7 full vs delta",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 12,
-        "y": 120,
+        "x": 0,
+        "y": 128,
         "w": 12,
         "h": 8
       },
@@ -976,12 +1006,12 @@
       "options": {}
     },
     {
-      "id": 33,
+      "id": 34,
       "title": "Keys re-read per delta snapshot",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 128,
         "w": 12,
         "h": 8
@@ -1006,13 +1036,13 @@
       "options": {}
     },
     {
-      "id": 34,
+      "id": 35,
       "title": "Reconciliation execution age",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 12,
-        "y": 128,
+        "x": 0,
+        "y": 136,
         "w": 12,
         "h": 8
       },
@@ -1036,12 +1066,12 @@
       "options": {}
     },
     {
-      "id": 35,
+      "id": 36,
       "title": "Reconciliation failing tables",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 136,
         "w": 12,
         "h": 8
@@ -1066,13 +1096,13 @@
       "options": {}
     },
     {
-      "id": 36,
+      "id": 37,
       "title": "Quarantined ingestion errors",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 12,
-        "y": 136,
+        "x": 0,
+        "y": 144,
         "w": 12,
         "h": 8
       },
@@ -1096,12 +1126,12 @@
       "options": {}
     },
     {
-      "id": 37,
+      "id": 38,
       "title": "Google Chat deliveries / 5m",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 144,
         "w": 12,
         "h": 8
@@ -1126,13 +1156,13 @@
       "options": {}
     },
     {
-      "id": 38,
+      "id": 39,
       "title": "Active alerts",
       "type": "timeseries",
       "description": "",
       "gridPos": {
-        "x": 12,
-        "y": 144,
+        "x": 0,
+        "y": 152,
         "w": 12,
         "h": 8
       },

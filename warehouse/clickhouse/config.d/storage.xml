@@ -1,0 +1,23 @@
+<clickhouse>
+    <!-- Bronze is kept forever (R13/R19): parts older than 30 days move to an S3 bucket on SeaweedFS ("cold"),
+         newer ones stay on local disk (volume "default"). Credentials come from the environment (.env). -->
+    <storage_configuration>
+        <disks>
+            <cold>
+                <type>s3</type>
+                <endpoint>http://seaweedfs:8333/bronze-cold/clickhouse/</endpoint>
+                <access_key_id from_env="COLD_STORAGE_ACCESS_KEY"/>
+                <secret_access_key from_env="COLD_STORAGE_SECRET_KEY"/>
+                <metadata_path>/var/lib/clickhouse/disks/cold/</metadata_path>
+            </cold>
+        </disks>
+        <policies>
+            <tiered>
+                <volumes>
+                    <default><disk>default</disk></default>   <!-- same name as the default policy's volume, so tables can switch to this policy -->
+                    <cold><disk>cold</disk></cold>
+                </volumes>
+            </tiered>
+        </policies>
+    </storage_configuration>
+</clickhouse>

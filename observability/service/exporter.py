@@ -30,6 +30,7 @@ PG_WAL = Gauge('cdc_postgres_slot_retained_wal_bytes', 'WAL retained by logical 
 PG_SAFE = Gauge('cdc_postgres_slot_safe_wal_bytes', 'WAL a slot may still fall behind before max_slot_wal_keep_size invalidates it', ['slot'])
 PG_SLOT_OK = Gauge('cdc_postgres_slot_wal_reserved', 'Slot WAL is reserved (wal_status reserved/extended, not unreserved/lost)', ['slot'])
 CH_PARTS = Gauge('cdc_clickhouse_max_parts_per_partition', 'Most active parts in one partition of a table', ['database', 'table'])
+CH_DISK = Gauge('cdc_clickhouse_bytes_on_disk', 'Active part bytes per database and disk (default = hot, cold = S3)', ['database', 'disk'])
 CH_QUERY_P95 = Gauge('cdc_clickhouse_select_p95_seconds', 'p95 duration of finished SELECTs over the last 5 minutes', ['user'])
 DBZ_BEHIND = Gauge('cdc_debezium_behind_source_seconds', 'Debezium streaming: time between commit and processing of the last event')
 DBZ_SINCE = Gauge('cdc_debezium_since_last_event_seconds', 'Debezium streaming: time since the last event')
@@ -65,6 +66,10 @@ def collect_clickhouse():
                                          "FROM system.parts WHERE active AND database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema') "
                                          "GROUP BY database, table, partition_id) GROUP BY database, table").result_rows:
             CH_PARTS.labels(db, table).set(parts)
+        CH_DISK.clear()
+        for db, disk, size in ch.query("SELECT database, disk_name, sum(bytes_on_disk) FROM system.parts WHERE active "
+                                       "AND database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema') GROUP BY database, disk_name").result_rows:
+            CH_DISK.labels(db, disk).set(size)
         CH_QUERY_P95.clear()
         for user, p95 in ch.query("SELECT user, quantile(0.95)(query_duration_ms) / 1000 FROM system.query_log "
                                   "WHERE event_time > now() - INTERVAL 5 MINUTE AND type = 'QueryFinish' AND query_kind = 'Select' "

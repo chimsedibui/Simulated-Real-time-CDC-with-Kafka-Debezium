@@ -8,6 +8,8 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
+      seaweedfs:
+        condition: service_healthy
     ports:
       - 8123:8123   # HTTP interface (Play UI at /play)
       - 9000:9000   # native protocol (clickhouse-client)
@@ -17,9 +19,12 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
       GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:?set it in .env, see .env.example}
       MONITOR_PASSWORD: ${MONITOR_PASSWORD:?set it in .env, see .env.example}
+      COLD_STORAGE_ACCESS_KEY: ${COLD_STORAGE_ACCESS_KEY:?set it in .env, see .env.example}
+      COLD_STORAGE_SECRET_KEY: ${COLD_STORAGE_SECRET_KEY:?set it in .env, see .env.example}
     volumes:
       - ./clickhouse/init:/docker-entrypoint-initdb.d
       - ./clickhouse/config.d/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
+      - ./clickhouse/config.d/storage.xml:/etc/clickhouse-server/config.d/storage.xml
       - clickhouse_data:/var/lib/clickhouse
     ulimits:
       nofile:
@@ -51,5 +56,26 @@ services:
       postgres:
         condition: service_healthy
 
+  # S3-compatible object store for bronze's cold volume (stands in for S3 / GCS); internal only
+  seaweedfs:
+    restart: unless-stopped
+    image: chrislusf/seaweedfs:4.47
+    container_name: cdc-seaweedfs
+    hostname: seaweedfs
+    environment:
+      COLD_STORAGE_ACCESS_KEY: ${COLD_STORAGE_ACCESS_KEY:?set it in .env, see .env.example}
+      COLD_STORAGE_SECRET_KEY: ${COLD_STORAGE_SECRET_KEY:?set it in .env, see .env.example}
+    entrypoint: ["/bin/sh", "/seaweedfs-start.sh"]
+    volumes:
+      - ./seaweedfs-start.sh:/seaweedfs-start.sh:ro
+      - seaweedfs_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /data/.bucket-ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
 volumes:
   clickhouse_data:
+  seaweedfs_data:

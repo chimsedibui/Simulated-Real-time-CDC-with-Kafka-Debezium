@@ -87,6 +87,7 @@ queries=[
  ('ClickHouse memory','cdc_clickhouse_metric{metric="MemoryTracking"}','bytes'),
  ('ClickHouse active queries','cdc_clickhouse_metric{metric="Query"}','short'),
  ('ClickHouse failed queries/s','rate(cdc_clickhouse_events_total{event="FailedQuery"}[5m])','ops'),
+ ('ClickHouse storage · hot (default) vs cold (S3)','sum by(disk)(cdc_clickhouse_bytes_on_disk)','bytes'),
  ('Dashboard query p95 · SLO 500 ms','cdc_clickhouse_select_p95_seconds','s'),
  ('ClickHouse max parts per partition · top 10','topk(10, cdc_clickhouse_max_parts_per_partition)','short'),
  ('Mart refresh age','time()-cdc_mart_last_success_timestamp_seconds','s'),

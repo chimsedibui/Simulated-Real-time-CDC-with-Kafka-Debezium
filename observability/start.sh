@@ -16,6 +16,10 @@ docker compose up -d --wait postgres kafka clickhouse debezium
 docker compose exec -T postgres psql -U admin -d enterprise_db -v ON_ERROR_STOP=1 -q < observability/setup-postgres.sql
 docker compose exec -T postgres sh /docker-entrypoint-initdb.d/03-passwords.sh
 docker compose exec -T clickhouse bash /docker-entrypoint-initdb.d/06-monitoring.sh
+for sql in 07-snapshots.sql 08-cold-storage.sql; do
+  docker compose exec -T clickhouse bash -c 'clickhouse-client --user admin --password "$CLICKHOUSE_PASSWORD" --multiquery' \
+    < "warehouse/clickhouse/init/$sql"
+done
 debezium/register.sh
 docker compose up -d --build source-api simulator warehouse-jobs control-center prometheus alertmanager grafana platform-exporter kafka-exporter node-exporter chat-webhook
 docker compose exec -T grafana sh -c 'grafana cli admin reset-admin-password "$GF_SECURITY_ADMIN_PASSWORD"' >/dev/null
