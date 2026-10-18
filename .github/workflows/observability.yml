@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Compose and notification placeholder
         run: |
+          cp .env.example .env
           touch observability/secrets/google-chat-webhook
           docker compose config --quiet
       - name: Prometheus config and alert behavior

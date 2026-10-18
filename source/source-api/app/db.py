@@ -27,7 +27,7 @@ def init_pool():
         host=os.getenv("PG_HOST", "localhost"),
         port=int(os.getenv("PG_PORT", "5432")),
         user=os.getenv("PG_USER", "admin"),
-        password=os.getenv("PG_PASSWORD", "admin"),
+        password=os.environ["PG_PASSWORD"],
         dbname=os.getenv("PG_DB", "enterprise_db"),
         application_name="source-api",
     )

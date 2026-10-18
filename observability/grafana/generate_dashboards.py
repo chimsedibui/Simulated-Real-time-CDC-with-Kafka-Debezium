@@ -67,21 +67,28 @@ queries=[
  ('Disk free','node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}','bytes'),
  ('Source API requests/s','sum by(handler)(rate(http_requests_total{job="source-api"}[5m]))','reqps'),
  ('Source API p95 latency','histogram_quantile(0.95,sum by(le)(rate(http_request_duration_highr_seconds_bucket{job="source-api"}[5m])))','s'),
+ ('Checkout p99 latency · SLO 300 ms','histogram_quantile(0.99,sum by(le)(rate(http_request_duration_seconds_bucket{job="source-api",handler="/checkouts",method="POST"}[5m])))','s'),
  ('Source API 5xx/s','sum(rate(http_requests_total{job="source-api",status=~"5.."}[5m]))','reqps'),
  ('Kafka topic ingress/s','sum by(topic)(rate(kafka_topic_partition_current_offset[5m]))','ops'),
  ('Kafka consumer backlog','sum by(consumergroup)(kafka_consumergroup_lag)','short'),
+ ('Kafka under-replicated partitions','sum(kafka_topic_partition_under_replicated_partition)','short'),
+ ('Debezium behind source','cdc_debezium_behind_source_seconds','s'),
+ ('Debezium change queue free','cdc_debezium_queue_remaining_ratio','percentunit'),
  ('CDC ingest p95 lag','cdc_ingest_lag_p95_seconds','s'),
  ('CDC events/s · approximate','rate(cdc_events_total[5m])','ops'),
  ('Held transactions','cdc_transactions_held_back','short'),
  ('Oldest held transaction age','cdc_oldest_held_transaction_age_seconds','s'),
  ('Debezium connector/task running','cdc_connect_running','short'),
  ('Postgres retained WAL','cdc_postgres_slot_retained_wal_bytes','bytes'),
+ ('Slot WAL left before invalidation','cdc_postgres_slot_safe_wal_bytes','bytes'),
  ('Postgres connections','cdc_postgres_connections','short'),
  ('Postgres lock waiters','cdc_postgres_lock_waiters','short'),
  ('Postgres deadlocks / 5m','increase(cdc_postgres_deadlocks_total[5m])','short'),
  ('ClickHouse memory','cdc_clickhouse_metric{metric="MemoryTracking"}','bytes'),
  ('ClickHouse active queries','cdc_clickhouse_metric{metric="Query"}','short'),
  ('ClickHouse failed queries/s','rate(cdc_clickhouse_events_total{event="FailedQuery"}[5m])','ops'),
+ ('Dashboard query p95 · SLO 500 ms','cdc_clickhouse_select_p95_seconds','s'),
+ ('ClickHouse max parts per partition · top 10','topk(10, cdc_clickhouse_max_parts_per_partition)','short'),
  ('Mart refresh age','time()-cdc_mart_last_success_timestamp_seconds','s'),
  ('Mart refresh duration','cdc_mart_refresh_duration_seconds','s'),
  ('Reconciliation execution age','time()-cdc_reconciliation_last_success_timestamp_seconds','s'),
@@ -90,6 +97,6 @@ queries=[
  ('Google Chat deliveries / 5m','increase(chat_webhook_deliveries_total[5m])','short'),
  ('Active alerts','ALERTS{alertstate="firing"}','short')]
 for title,expr,unit in queries:
- panel(platform,title,prom,dict(expr=expr,legendFormat='{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}}'),unit=unit)
+ panel(platform,title,prom,dict(expr=expr,legendFormat='{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}'),unit=unit)
 for d in [business,platform]:
  (ROOT/(d['uid']+'.json')).write_text(json.dumps(d,indent=2)+'\n')

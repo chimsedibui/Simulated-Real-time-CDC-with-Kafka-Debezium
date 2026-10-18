@@ -24,7 +24,7 @@ OPEN = ("UNPAID", "TO_SHIP", "READY_TO_SHIP")
 
 
 def pg():
-    return psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password="admin",
+    return psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password=os.environ["PG_PASSWORD"],
                             dbname="enterprise_db")
 
 

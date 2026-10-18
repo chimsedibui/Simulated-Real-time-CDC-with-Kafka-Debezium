@@ -62,3 +62,42 @@ tests:
       - eval_time: 30m
         alertname: IngestErrors
         exp_alerts: []
+  - interval: 1m
+    input_series:
+      - series: 'cdc_postgres_slot_safe_wal_bytes{slot="debezium_slot"}'
+        values: '8589934592x3 1073741824x5'
+      - series: 'cdc_postgres_slot_wal_reserved{slot="debezium_slot"}'
+        values: '1x5 0x3'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PostgresSlotWALAtRisk
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: PostgresSlotWALAtRisk
+        exp_alerts:
+          - exp_labels: {slot: debezium_slot, severity: critical, service: postgres}
+            exp_annotations:
+              summary: 'Replication slot debezium_slot is within 2 GiB of being invalidated'
+              description: 'Past max_slot_wal_keep_size PostgreSQL drops the WAL the connector still needs, and Debezium must snapshot again. Restore connector progress now.'
+      - eval_time: 7m
+        alertname: PostgresSlotLost
+        exp_alerts:
+          - exp_labels: {slot: debezium_slot, severity: critical, service: postgres}
+            exp_annotations:
+              summary: 'Replication slot debezium_slot has lost or unreserved WAL'
+              description: 'Changes may be missing from the warehouse. Re-snapshot through the signal table and run reconciliation.'
+  - interval: 1m
+    input_series:
+      - series: 'cdc_clickhouse_select_p95_seconds{user="grafana_reader"}'
+        values: '0.05x5 0.9x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: DashboardQuerySlow
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: DashboardQuerySlow
+        exp_alerts:
+          - exp_labels: {user: grafana_reader, severity: warning, service: clickhouse, slo: dashboard}
+            exp_annotations:
+              summary: 'Dashboard queries p95 is above the 500 ms SLO'
+              description: 'Check mart sizes, ClickHouse memory and merges, and concurrent refresh load.'

@@ -49,7 +49,7 @@ def streamed(table: str) -> bool:
 
 def main():
     pg = psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=int(os.getenv("PG_PORT", "5432")),
-                          user=os.getenv("PG_USER", "admin"), password=os.getenv("PG_PASSWORD", "admin"),
+                          user=os.getenv("PG_USER", "admin"), password=os.environ["PG_PASSWORD"],
                           dbname=os.getenv("PG_DB", "enterprise_db"))
     with pg.cursor() as cur:
         cur.execute("""SELECT table_name, column_name, data_type, is_nullable = 'YES'

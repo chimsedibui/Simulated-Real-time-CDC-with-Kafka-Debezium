@@ -23,12 +23,33 @@ groups:
           summary: 'Debezium connector/task is not RUNNING'
           description: 'Inspect Connect task errors and replication slot health. Increasing consumers will not fix a stopped connector.'
       - alert: CDCLagHigh
-        expr: cdc_ingest_lag_p95_seconds > 10 and on() cdc_dependency_up{dependency="clickhouse"} == 1
-        for: 5m
-        labels: {severity: warning, service: clickhouse}
+        expr: cdc_ingest_lag_p95_seconds > 5 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        for: 10m
+        labels: {severity: warning, service: clickhouse, slo: freshness}
         annotations:
-          summary: 'CDC p95 ingestion lag exceeds 10 seconds'
-          description: 'Check Kafka backlog, ClickHouse memory and merges. Consider capacity only if backlog keeps growing.'
+          summary: 'CDC p95 ingestion lag is above the 5-second freshness SLO'
+          description: 'Allowed up to 30 s during an 11.11 peak. Check Kafka backlog, Debezium lag, ClickHouse memory and merges.'
+      - alert: CDCLagCritical
+        expr: cdc_ingest_lag_p95_seconds > 30 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        for: 5m
+        labels: {severity: critical, service: clickhouse, slo: freshness}
+        annotations:
+          summary: 'CDC p95 ingestion lag is above 30 seconds, the peak freshness SLO'
+          description: 'Compare Debezium behind-source time with Kafka consumer lag to find the slow stage before adding capacity.'
+      - alert: DebeziumBehindSource
+        expr: cdc_debezium_behind_source_seconds > 10 and on() cdc_dependency_up{dependency="debezium-jmx"} == 1
+        for: 5m
+        labels: {severity: warning, service: debezium}
+        annotations:
+          summary: 'Debezium is more than 10 seconds behind PostgreSQL'
+          description: 'Check the change queue, producer throughput and Kafka. Retained WAL grows while this lasts.'
+      - alert: DebeziumQueueFilling
+        expr: cdc_debezium_queue_remaining_ratio < 0.2 and on() cdc_dependency_up{dependency="debezium-jmx"} == 1
+        for: 5m
+        labels: {severity: warning, service: debezium}
+        annotations:
+          summary: 'Debezium change queue is over 80% full'
+          description: 'Kafka is not keeping up with the connector. Inspect broker health and producer settings (R10).'
       - alert: KafkaBacklogGrowing
         expr: sum by(consumergroup) (kafka_consumergroup_lag) > 10000 and sum by(consumergroup) (deriv(kafka_consumergroup_lag[10m])) > 0
         for: 5m
@@ -77,6 +98,19 @@ groups:
         annotations:
           summary: 'Replication slot retains over 1 GiB of WAL'
           description: 'Check connector progress and free disk space. Do not delete replication slots as a first response.'
+      - alert: PostgresSlotWALAtRisk
+        expr: cdc_postgres_slot_safe_wal_bytes < 2147483648
+        for: 2m
+        labels: {severity: critical, service: postgres}
+        annotations:
+          summary: 'Replication slot {{ $labels.slot }} is within 2 GiB of being invalidated'
+          description: 'Past max_slot_wal_keep_size PostgreSQL drops the WAL the connector still needs, and Debezium must snapshot again. Restore connector progress now.'
+      - alert: PostgresSlotLost
+        expr: cdc_postgres_slot_wal_reserved == 0
+        labels: {severity: critical, service: postgres}
+        annotations:
+          summary: 'Replication slot {{ $labels.slot }} has lost or unreserved WAL'
+          description: 'Changes may be missing from the warehouse. Re-snapshot through the signal table and run reconciliation.'
       - alert: PostgresConnectionsHigh
         expr: cdc_postgres_connections / cdc_postgres_max_connections > 0.8
         for: 5m
@@ -104,6 +138,34 @@ groups:
         annotations:
           summary: 'Source API p95 latency exceeds 2 seconds'
           description: 'Check DB lock waits and CPU saturation. Scale API only when the application tier is the bottleneck.'
+      - alert: CheckoutLatencyHigh
+        expr: histogram_quantile(0.99, sum by(le)(rate(http_request_duration_seconds_bucket{job="source-api",handler="/checkouts",method="POST"}[5m]))) > 0.3 and on() sum(rate(http_request_duration_seconds_count{job="source-api",handler="/checkouts",method="POST"}[5m])) > 0.1
+        for: 10m
+        labels: {severity: warning, service: source-api, slo: write-path}
+        annotations:
+          summary: 'Checkout p99 latency is above the 300 ms SLO'
+          description: 'Inspect lock waits on SKU, flash-sale and voucher rows and the connection pool.'
+      - alert: DashboardQuerySlow
+        expr: cdc_clickhouse_select_p95_seconds{user="grafana_reader"} > 0.5
+        for: 10m
+        labels: {severity: warning, service: clickhouse, slo: dashboard}
+        annotations:
+          summary: 'Dashboard queries p95 is above the 500 ms SLO'
+          description: 'Check mart sizes, ClickHouse memory and merges, and concurrent refresh load.'
+      - alert: ClickHousePartsHigh
+        expr: max by(database, table)(cdc_clickhouse_max_parts_per_partition) > 300
+        for: 10m
+        labels: {severity: warning, service: clickhouse}
+        annotations:
+          summary: 'ClickHouse table {{ $labels.database }}.{{ $labels.table }} has over 300 parts in one partition'
+          description: 'Inserts are too small or merges are behind; ClickHouse refuses inserts with TOO_MANY_PARTS near 3000 (R18).'
+      - alert: KafkaUnderReplicated
+        expr: sum(kafka_topic_partition_under_replicated_partition) > 0
+        for: 5m
+        labels: {severity: critical, service: kafka}
+        annotations:
+          summary: 'Kafka has under-replicated partitions'
+          description: 'A broker is down or lagging; with RF=1 this cannot happen, with RF=3 a further broker loss risks data.'
       - alert: HostCPUHigh
         expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.85
         for: 10m

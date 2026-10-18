@@ -10,7 +10,7 @@ CREATE SCHEMA IF NOT EXISTS ecommerce;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cdc_user') THEN
-        CREATE ROLE cdc_user WITH LOGIN PASSWORD 'cdc_password' REPLICATION;
+        CREATE ROLE cdc_user WITH LOGIN REPLICATION;   -- password: passwords.sh
     END IF;
 END
 $$;

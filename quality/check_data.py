@@ -45,7 +45,7 @@ DISPUTE_WINDOW_S = float(os.getenv("DISPUTE_WINDOW_S", 86400))
 JOB_GRACE_REAL_S = 60                                    # scheduler runs every couple of wall-clock seconds
 SETTLE_TIMEOUT_S = int(os.getenv("SETTLE_TIMEOUT_S", "180"))
 
-PG = dict(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password="admin", dbname="enterprise_db",
+PG = dict(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password=os.environ["PG_PASSWORD"], dbname="enterprise_db",
           cursor_factory=psycopg2.extras.RealDictCursor)
 # Background jobs keep changing data after the simulator stops: every check reads ONE consistent snapshot ...
 pg = psycopg2.connect(**PG)
@@ -54,7 +54,7 @@ pg.set_session(isolation_level="REPEATABLE READ", readonly=True)
 pg_live = psycopg2.connect(**PG)
 pg_live.set_session(readonly=True, autocommit=True)
 ch = clickhouse_connect.get_client(host=os.getenv("CLICKHOUSE_HOST", "clickhouse"), port=8123,
-                                   username="admin", password="admin")
+                                   username="admin", password=os.environ["CLICKHOUSE_PASSWORD"])
 results = []
 
 

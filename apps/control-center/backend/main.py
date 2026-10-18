@@ -23,7 +23,7 @@ DB_CFG = {
     "host":     os.getenv("PG_HOST", "localhost"),
     "port":     int(os.getenv("PG_PORT", "5432")),
     "user":     os.getenv("PG_USER", "admin"),
-    "password": os.getenv("PG_PASSWORD", "admin"),
+    "password": os.environ["PG_PASSWORD"],
     "dbname":   os.getenv("PG_DB", "enterprise_db"),
 }
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:29092")
@@ -41,7 +41,7 @@ warehouse = Warehouse(
     host=os.getenv("CLICKHOUSE_HOST", "localhost"),
     port=int(os.getenv("CLICKHOUSE_PORT", "8123")),
     user=os.getenv("CLICKHOUSE_USER", "admin"),
-    password=os.getenv("CLICKHOUSE_PASSWORD", "admin"),
+    password=os.environ["CLICKHOUSE_PASSWORD"],
 )
 
 app = FastAPI(title="CDC Control Center")
@@ -120,7 +120,8 @@ def health():
 
 @app.post("/api/connector/register")
 def register_connector():
-    body = CONNECTOR_CONFIG.read_bytes()
+    # the PII salt is part of a config key, which Connect's config providers can't fill in
+    body = CONNECTOR_CONFIG.read_text().replace("${PII_SALT}", os.environ["PII_SALT"]).encode()
     req = urllib.request.Request(
         f"{DEBEZIUM_URL}/connectors", data=body, method="POST",
         headers={"Content-Type": "application/json"},

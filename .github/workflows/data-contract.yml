@@ -29,4 +29,4 @@ jobs:
       - name: Build the source schema from source/postgres/init.sql
         run: psql "postgresql://admin:admin@localhost:5432/enterprise_db" -v ON_ERROR_STOP=1 -q -f source/postgres/init.sql
       - name: Check the contract (schema vs silver spec vs connector)
-        run: PG_HOST=localhost python warehouse/clickhouse/check_contract.py
+        run: PG_HOST=localhost PG_PASSWORD=admin python warehouse/clickhouse/check_contract.py

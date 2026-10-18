@@ -25,18 +25,24 @@ class UpdateItem(BaseModel):
 
 def active_cart(cur, customer_id, create: bool) -> dict | None:
     """Lock (and optionally create) the customer's ACTIVE cart."""
-    if create:
-        cur.execute(
-            """INSERT INTO ecommerce.carts (customer_id) VALUES (%s)
-               ON CONFLICT (customer_id) WHERE status = 'ACTIVE' DO NOTHING RETURNING id""",
-            (customer_id,),
-        )
-        created = cur.fetchone()
-        if created:
-            outbox.emit(cur, "cart", created["id"], "CartCreated", {"cart_id": created["id"], "customer_id": customer_id})
-    cur.execute("SELECT * FROM ecommerce.carts WHERE customer_id = %s AND status = 'ACTIVE' FOR UPDATE",
-                (customer_id,))
-    return cur.fetchone()
+    # A concurrent checkout can close the existing cart between the skipped INSERT and the lock; the lock then
+    # finds no ACTIVE row, and the next INSERT succeeds.
+    for _ in range(3):
+        if create:
+            cur.execute(
+                """INSERT INTO ecommerce.carts (customer_id) VALUES (%s)
+                   ON CONFLICT (customer_id) WHERE status = 'ACTIVE' DO NOTHING RETURNING id""",
+                (customer_id,),
+            )
+            created = cur.fetchone()
+            if created:
+                outbox.emit(cur, "cart", created["id"], "CartCreated", {"cart_id": created["id"], "customer_id": customer_id})
+        cur.execute("SELECT * FROM ecommerce.carts WHERE customer_id = %s AND status = 'ACTIVE' FOR UPDATE",
+                    (customer_id,))
+        cart = cur.fetchone()
+        if cart or not create:
+            return cart
+    raise RuntimeError(f"no active cart for customer {customer_id} after 3 attempts")
 
 
 def _touch(cur, cart_id):

@@ -30,6 +30,7 @@ services:
       PG_HOST: postgres
       CLICKHOUSE_HOST: clickhouse
       DEBEZIUM_URL: http://debezium:8083
+      MONITOR_PASSWORD: ${MONITOR_PASSWORD:?set it in .env, see .env.example}
     restart: unless-stopped
   kafka-exporter:
     image: danielqsj/kafka-exporter:v1.9.0
@@ -49,7 +50,8 @@ services:
     environment:
       GF_INSTALL_PLUGINS: grafana-clickhouse-datasource 4.11.2
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set it in .env, see .env.example}
+      GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:?set it in .env, see .env.example}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro

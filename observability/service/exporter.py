@@ -27,13 +27,22 @@ PG_MAX = Gauge('cdc_postgres_max_connections', 'Configured maximum sessions')
 PG_DEAD = Gauge('cdc_postgres_deadlocks_total', 'Database deadlocks since stats reset')
 PG_LOCK = Gauge('cdc_postgres_lock_waiters', 'Sessions waiting on a lock')
 PG_WAL = Gauge('cdc_postgres_slot_retained_wal_bytes', 'WAL retained by logical slots', ['slot'])
+PG_SAFE = Gauge('cdc_postgres_slot_safe_wal_bytes', 'WAL a slot may still fall behind before max_slot_wal_keep_size invalidates it', ['slot'])
+PG_SLOT_OK = Gauge('cdc_postgres_slot_wal_reserved', 'Slot WAL is reserved (wal_status reserved/extended, not unreserved/lost)', ['slot'])
+CH_PARTS = Gauge('cdc_clickhouse_max_parts_per_partition', 'Most active parts in one partition of a table', ['database', 'table'])
+CH_QUERY_P95 = Gauge('cdc_clickhouse_select_p95_seconds', 'p95 duration of finished SELECTs over the last 5 minutes', ['user'])
+DBZ_BEHIND = Gauge('cdc_debezium_behind_source_seconds', 'Debezium streaming: time between commit and processing of the last event')
+DBZ_SINCE = Gauge('cdc_debezium_since_last_event_seconds', 'Debezium streaming: time since the last event')
+DBZ_QUEUE = Gauge('cdc_debezium_queue_remaining_ratio', 'Debezium streaming: free share of the internal change queue')
+DBZ_CONNECTED = Gauge('cdc_debezium_connected', 'Debezium streaming: connected to PostgreSQL')
+DBZ_EVENTS = Gauge('cdc_debezium_events_seen_total', 'Debezium streaming: events seen since the task started')
 CONNECT = Gauge('cdc_connect_running', 'Connector/task is RUNNING', ['connector', 'component'])
 SERVICE = Gauge('cdc_service_up', 'HTTP health endpoint succeeds', ['service'])
 
 
 def collect_clickhouse():
     ch = clickhouse_connect.get_client(host=os.getenv('CLICKHOUSE_HOST', 'clickhouse'),
-        username='monitor_reader', password='monitor_local_reader', connect_timeout=3, send_receive_timeout=10)
+        username='monitor_reader', password=os.environ['MONITOR_PASSWORD'], connect_timeout=3, send_receive_timeout=10)
     try:
         def one(sql):
             return ch.query(sql).result_rows[0]
@@ -51,13 +60,23 @@ def collect_clickhouse():
         REFRESH.set(refresh[0][0] if refresh else 0); DURATION.set(refresh[0][1] if refresh else 0)
         n, last = one('SELECT countIf(failing), toUnixTimestamp(max(last_run)) FROM ops.reconciliation_status')
         RECON.set(n); RECON_LAST.set(last)
+        CH_PARTS.clear()
+        for db, table, parts in ch.query("SELECT database, table, max(c) FROM (SELECT database, table, partition_id, count() AS c "
+                                         "FROM system.parts WHERE active AND database NOT IN ('system', 'INFORMATION_SCHEMA', 'information_schema') "
+                                         "GROUP BY database, table, partition_id) GROUP BY database, table").result_rows:
+            CH_PARTS.labels(db, table).set(parts)
+        CH_QUERY_P95.clear()
+        for user, p95 in ch.query("SELECT user, quantile(0.95)(query_duration_ms) / 1000 FROM system.query_log "
+                                  "WHERE event_time > now() - INTERVAL 5 MINUTE AND type = 'QueryFinish' AND query_kind = 'Select' "
+                                  "AND user IN ('grafana_reader', 'admin') GROUP BY user").result_rows:
+            CH_QUERY_P95.labels(user).set(p95)
     finally:
         ch.close()
 
 
 def collect_postgres():
     with psycopg2.connect(host=os.getenv('PG_HOST', 'postgres'), user='monitor_reader',
-                         password='monitor_local_reader', dbname='enterprise_db', connect_timeout=3,
+                         password=os.environ['MONITOR_PASSWORD'], dbname='enterprise_db', connect_timeout=3,
                          options='-c statement_timeout=5000') as conn:
         conn.set_session(readonly=True)
         with conn.cursor() as cur:
@@ -70,6 +89,12 @@ def collect_postgres():
             PG_WAL.clear()
             for slot, value in cur.fetchall():
                 PG_WAL.labels(slot).set(float(value))
+            cur.execute("SELECT slot_name, wal_status, safe_wal_size FROM pg_replication_slots WHERE slot_type='logical'")
+            PG_SAFE.clear(); PG_SLOT_OK.clear()
+            for slot, status, safe in cur.fetchall():
+                PG_SLOT_OK.labels(slot).set(status in ('reserved', 'extended'))
+                if safe is not None:                # NULL when max_slot_wal_keep_size is unlimited, or the slot is lost
+                    PG_SAFE.labels(slot).set(float(safe))
 
 
 def collect_connect():
@@ -86,10 +111,25 @@ def collect_connect():
             CONNECT.labels(name, 'task-'+str(task['id'])).set(task['state']=='RUNNING')
 
 
+def collect_debezium_jmx():
+    # Jolokia (JMX over HTTP) inside the Connect container; only reachable on the compose network
+    base = os.getenv('DEBEZIUM_JOLOKIA_URL', 'http://debezium:8778/jolokia')
+    with urlopen(base+'/read/debezium.postgres:type=connector-metrics,context=streaming,*', timeout=5) as r:
+        beans = json.load(r)['value']
+    if not beans:
+        raise RuntimeError('no streaming metrics yet')
+    m = next(iter(beans.values()))
+    DBZ_BEHIND.set(max(0, m['MilliSecondsBehindSource']) / 1000)
+    DBZ_SINCE.set(max(0, m['MilliSecondsSinceLastEvent']) / 1000)
+    DBZ_QUEUE.set(m['QueueRemainingCapacity'] / max(1, m['QueueTotalCapacity']))
+    DBZ_CONNECTED.set(m['Connected'])
+    DBZ_EVENTS.set(m['TotalNumberOfEventsSeen'])
+
+
 def main():
     logging.basicConfig(level=logging.INFO)
     start_http_server(9108)
-    collectors = {'clickhouse': collect_clickhouse, 'postgres': collect_postgres, 'debezium': collect_connect}
+    collectors = {'clickhouse': collect_clickhouse, 'postgres': collect_postgres, 'debezium': collect_connect, 'debezium-jmx': collect_debezium_jmx}
     while True:
         for name, collect in collectors.items():
             try:

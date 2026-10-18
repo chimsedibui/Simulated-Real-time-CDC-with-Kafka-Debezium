@@ -25,6 +25,12 @@ services:
       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE: false
       CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: false
+      # Connector configs read secrets as ${env:NAME}, so the password never sits in the stored config
+      CONNECT_CONFIG_PROVIDERS: env
+      # JMX over HTTP (Jolokia, port 8778) for the platform exporter; not published to the host
+      ENABLE_JOLOKIA: "true"
+      CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
+      CDC_DB_PASSWORD: ${CDC_DB_PASSWORD:?set it in .env, see .env.example}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8083/ || exit 1"]
       interval: 10s

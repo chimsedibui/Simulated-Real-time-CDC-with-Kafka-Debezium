@@ -37,6 +37,8 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 4. **warehouse-jobs** precomputes gold into `mart` tables at one watermark, freezes finished business days, and reconciles ClickHouse against PostgreSQL every 30 seconds.
 5. The **CDC Control Center** drives the simulator and the business clock, tails Kafka for a live feed, and links to the Grafana dashboards (`cdc-business`, `cdc-platform`).
 
+> Checkout p99 at an 11.11 peak (×1440, ~250 API requests/s): 162 ms over 5 minutes, 223 ms in the worst minute, against a 300 ms SLO.
+>
 > Measured on a 16-minute run at ×720 with an 11.11 sale and restarts of Debezium and ClickHouse: a commit reaches ClickHouse in 1.2 s at p50 and 2.3 s at p95; the busiest minute carried 875 events/s at a p95 of 1.8 s.
 
 ---
@@ -46,23 +48,23 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 | Service | Image / Tool | Port | Role |
 |---------|-------------|------|------|
 | PostgreSQL 15 | `postgres:15` | `5432` | Source database — logical replication enabled |
-| Kafka | `confluentinc/cp-kafka:latest` | `9092` / `29092` | Message broker — KRaft mode (no Zookeeper) |
+| Kafka | `confluentinc/cp-kafka:8.3.2` | `9092` / `29092` | Message broker — KRaft mode (no Zookeeper) |
 | Debezium | `debezium/connect:2.7.3.Final` | `8083` | CDC engine — bridges Postgres WAL to Kafka |
-| Kafka UI | `provectuslabs/kafka-ui:latest` | `8080` | Web UI to inspect topics and messages |
-| Adminer | `adminer:latest` | `8081` | Lightweight PostgreSQL web UI |
+| Kafka UI | `provectuslabs/kafka-ui:v0.7.2` | `8080` | Web UI to inspect topics and messages |
+| Adminer | `adminer:6.1.2` | `8081` | Lightweight PostgreSQL web UI |
 | ClickHouse | `clickhouse/clickhouse-server:25.8` | `8123` / `9000` | Data warehouse — Kafka engine ingestion, bronze/silver/gold |
 | Control Center | `apps/control-center` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, links to Grafana |
 | Source API | `source/source-api` (FastAPI, 2 Uvicorn workers) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs`, Prometheus metrics at `/metrics` |
 | Simulator | `source/simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
 | Warehouse jobs | `warehouse/jobs` (Python) | `9109` (metrics, internal) | Marts, business-day close, reconciliation at a pinned watermark |
-| Prometheus | `prom/prometheus:v3.2.1` | `127.0.0.1:9090` | Metrics (15 days) and 21 alert rules |
+| Prometheus | `prom/prometheus:v3.2.1` | `127.0.0.1:9090` | Metrics (15 days) and 30 alert rules |
 | Alertmanager | `prom/alertmanager:v0.28.1` | `127.0.0.1:9093` | Groups alerts, sends them to the chat-webhook bridge |
 | Grafana | `grafana/grafana:12.3.0` | `127.0.0.1:3000` | Business Analytics (marts) and Platform Health (Prometheus) dashboards |
 | Exporters | `observability/service`, `kafka-exporter`, `node-exporter` | internal | PostgreSQL / ClickHouse / Debezium metrics, Kafka offsets and lag, host CPU, memory, disk |
 | chat-webhook | `observability/service` (`bridge.py`) | internal | Formats alerts for Google Chat; the webhook URL is a gitignored secret file |
 | Validator | `quality` (profile `tools`) | — | API and stress tests, data checks, torn-read probe, run on demand |
 
-> ClickHouse must be 25.x or newer: `cp-kafka:latest` is now Kafka 4.x, which removed the old protocol versions that the librdkafka bundled in ClickHouse 24.x uses. The symptom is `Required feature not supported by broker`.
+> ClickHouse must be 25.x or newer: `cp-kafka:8.3.2` is Kafka 4.x, which removed the old protocol versions that the librdkafka bundled in ClickHouse 24.x uses. The symptom is `Required feature not supported by broker`.
 
 ---
 
@@ -132,7 +134,8 @@ Real-time CDC/
 ├── kafka/
 │   └── compose.yml               # broker (KRaft), Kafka UI
 ├── debezium/
-│   ├── postgres-connector.json   # connector config
+│   ├── postgres-connector.json   # connector config (password via ${env:…}, PII salt filled in on register)
+│   ├── register.sh               # create or update the connector
 │   └── compose.yml               # Kafka Connect + Debezium
 ├── warehouse/
 │   ├── clickhouse/
@@ -150,8 +153,9 @@ Real-time CDC/
 ├── observability/                # Prometheus (alerts.yml + tests), Alertmanager, Grafana (provisioning, dashboards,
 │   │                             #   generate_dashboards.py), service/ (platform-exporter, chat-webhook), start.sh
 │   └── compose.yml
+├── .env.example, setup-env.sh   # secrets template; setup-env.sh writes the gitignored .env with random values
 ├── docs/
-└── .github/workflows/            # CI: data contract; observability config, alert tests, dashboards
+└── .github/workflows/            # CI: data contract; observability config, alert tests, dashboards; smoke gate
 ```
 
 Monitoring setup, dashboards and alert runbooks are in [observability/README.md](../observability/README.md).
@@ -162,6 +166,12 @@ Monitoring setup, dashboards and alert runbooks are in [observability/README.md]
 
 ### 1. Start the stack
 
+Every password and the PII salt live in a gitignored `.env`. Create it once; `setup-env.sh` fills each value in `.env.example` with a random secret:
+
+```bash
+./setup-env.sh
+```
+
 The chat-webhook service mounts the Google Chat webhook URL from `observability/secrets/google-chat-webhook` (gitignored). Put the URL there, or create an empty file to run without Chat notifications:
 
 ```bash
@@ -169,7 +179,7 @@ touch observability/secrets/google-chat-webhook
 docker compose up -d
 ```
 
-On an existing PostgreSQL or ClickHouse volume, `./observability/start.sh` also creates the read-only monitoring users. Wait ~30 seconds for all services to become healthy:
+On existing volumes (init scripts only run on fresh ones), or after changing `.env`, run `./observability/start.sh`: it applies the accounts and passwords, the Grafana admin password and the connector config. Wait ~30 seconds for all services to become healthy:
 
 ```bash
 docker compose ps
@@ -180,10 +190,10 @@ docker compose ps
 This step is **required** — without it Kafka receives nothing.
 
 ```bash
-curl -X POST http://localhost:8083/connectors \
-  -H "Content-Type: application/json" \
-  -d @debezium/postgres-connector.json
+debezium/register.sh
 ```
+
+It creates or updates the connector from `debezium/postgres-connector.json`, filling in `PII_SALT` from `.env`. The database password is not in the config at all: `${env:CDC_DB_PASSWORD}` is resolved by the Connect worker from its environment.
 
 Verify it is running:
 
@@ -209,11 +219,11 @@ curl -X POST localhost:8200/stop
 |----|-----|-------------|
 | **CDC Control Center** | http://localhost:8000 | — |
 | Source API docs | http://localhost:8100/docs | — |
-| ClickHouse Play (SQL) | http://localhost:8123/play | User: `admin` · Password: `admin` |
+| ClickHouse Play (SQL) | http://localhost:8123/play | User: `admin` · Password: `CLICKHOUSE_PASSWORD` in `.env` |
 | Kafka UI | http://localhost:8080 | — |
-| Adminer (DB) | http://localhost:8081 | Server: `postgres` · User: `admin` · Password: `admin` · DB: `enterprise_db` |
+| Adminer (DB) | http://localhost:8081 | Server: `postgres` · User: `admin` · Password: `POSTGRES_PASSWORD` in `.env` · DB: `enterprise_db` |
 | Debezium API | http://localhost:8083 | — |
-| **Grafana** | http://localhost:3000 (`/d/cdc-business`, `/d/cdc-platform`) | User: `admin` · Password: `admin` (`GRAFANA_ADMIN_PASSWORD`) |
+| **Grafana** | http://localhost:3000 (`/d/cdc-business`, `/d/cdc-platform`) | User: `admin` · Password: `GRAFANA_ADMIN_PASSWORD` in `.env` |
 | Prometheus | http://localhost:9090 | — |
 | Alertmanager | http://localhost:9093 | — |
 
@@ -338,7 +348,7 @@ docker compose --profile tools run --rm validator python check_data.py
 - **Metrics:** every gold metric (daily GMV/NMV, P&L, product revenue, pack time per shop, return cohorts) recomputed in PostgreSQL with the same definition and compared; closed business days must keep their placed GMV and GMV.
 - **Ops:** marts at the current watermark equal gold computed live; a scheduled reconciliation run after settling matches every table; no email, phone or address in clear anywhere in ClickHouse.
 
-**Gates.** `quality/gate.sh quick|smoke|full` runs the whole chain; pick the smallest one that covers the change. Every gate stops at the first PostgreSQL deadlock and prints it.
+**Gates.** `quality/gate.sh quick|smoke|full` runs the whole chain; pick the smallest one that covers the change. Every gate stops at the first PostgreSQL deadlock and prints it. CI runs `smoke` on every push or pull request that touches the pipeline (`.github/workflows/gate-smoke.yml`).
 
 | Gate | Stack | What runs | Time |
 |------|-------|-----------|------|
@@ -450,7 +460,7 @@ They are defined once, at the top of `warehouse/clickhouse/init/03-gold.sql`, an
 
 `gold.daily_sales(v)` is live and keeps moving as orders are cancelled or returned. `gold.daily_sales_closed` freezes each business day one business hour after it ends, as first reported (written by `warehouse-jobs` at a pinned watermark).
 
-Example queries (in http://localhost:8123/play or `docker exec -it cdc-clickhouse clickhouse-client -u admin --password admin`):
+Example queries (in http://localhost:8123/play or `docker exec -it cdc-clickhouse bash -c 'clickhouse-client -u admin --password "$CLICKHOUSE_PASSWORD"'`):
 
 ```sql
 SELECT v, held_back FROM consistent.watermark;           -- pin this v for the queries below
@@ -506,8 +516,8 @@ npm install && npm run dev       # http://localhost:5173
 | Piece | What it does |
 |-------|--------------|
 | Grafana **Business Analytics** (`/d/cdc-business`) | Every mart from one completed `refresh_id`, read through the read-only `grafana_reader` ClickHouse user. Business dates follow the simulated clock, not Grafana's time picker. |
-| Grafana **Platform Health** (`/d/cdc-platform`) | Host CPU, memory and disk; Source API throughput, 5xx and p95; PostgreSQL sessions, locks, deadlocks and retained WAL; Kafka offsets and consumer lag; connector and task state; CDC lag, watermark, mart age and reconciliation. |
-| Prometheus alerts | 21 rules (`observability/prometheus/alerts.yml`, tested by `alerts.test.yml`): targets and dependencies down, connector not running, CDC lag, Kafka backlog, watermark stalled, stale marts or reconciliation, data drift, new ingest errors, retained WAL, connections, deadlocks, API errors and latency, host resources, Chat delivery. |
+| Grafana **Platform Health** (`/d/cdc-platform`) | Host CPU, memory and disk; Source API throughput, 5xx, p95 and checkout p99; PostgreSQL sessions, locks, deadlocks, retained WAL and WAL left before slot invalidation; Kafka offsets, consumer lag and under-replicated partitions; connector and task state, Debezium behind-source time and queue; ClickHouse parts per partition and dashboard query p95; CDC lag, watermark, mart age and reconciliation. |
+| Prometheus alerts | 30 rules (`observability/prometheus/alerts.yml`, tested by `alerts.test.yml`): targets and dependencies down, connector not running, Debezium behind source or queue filling, CDC lag against the freshness SLO, Kafka backlog and under-replicated partitions, watermark stalled, stale marts or reconciliation, data drift, new ingest errors, retained WAL and slot at risk or lost, connections, deadlocks, checkout p99 and dashboard query p95 against their SLOs, ClickHouse parts per partition, API errors and latency, host resources, Chat delivery. |
 | Alertmanager → chat-webhook | Groups alerts and posts firing and resolved messages to Google Chat; a failed delivery returns 503 so Alertmanager retries. |
 
 Grafana, Prometheus and Alertmanager listen on localhost only. Setup, verification commands and runbooks: [observability/README.md](../observability/README.md).
@@ -523,7 +533,10 @@ wal_level = logical        # required for CDC
 max_wal_senders = 10
 max_replication_slots = 10
 wal_keep_size = 1GB        # retain WAL long enough for Debezium to catch up
+max_slot_wal_keep_size = 8GB  # a stalled slot is invalidated past this instead of filling the disk
 ```
+
+Past `max_slot_wal_keep_size` PostgreSQL drops WAL the connector has not read yet: the disk is safe, but the connector needs a new snapshot. `PostgresSlotWALAtRisk` fires when less than 2 GiB is left, `PostgresSlotLost` once the slot has lost WAL.
 
 ### Debezium connector highlights (`debezium/postgres-connector.json`)
 
@@ -542,7 +555,7 @@ wal_keep_size = 1GB        # retain WAL long enough for Debezium to catch up
 **Least privilege.** Debezium connects as `cdc_user`: the `REPLICATION` role attribute, `SELECT` on the schema (also on tables added later), and writes only to its heartbeat and signal tables. It is not a superuser and owns nothing, so the publication and replica identities are set by the table owner in `source/postgres/init.sql`.
 
 `FULL` replica identity puts the whole old row in `before` on UPDATE and DELETE. State tables need it: silver deletes and `consistent.*` read it. Append-only tables (status history, stock ledger, tracking events, price history, seller ledger) and the outbox use `DEFAULT`, which keeps only the key and writes less WAL.
-**Personal data** is hashed in the connector (`column.mask.hash.v2.SHA-256.with.salt…`): buyer names, emails and phones, recipient names, phones and streets, shipping names and addresses, seller emails. Kafka and the warehouse hold salted SHA-256 values, so buyers can still be joined and counted but never read. Domain events carry no personal data. `check_data.py` fails if an email, phone or address reaches ClickHouse in clear.
+**Personal data** is hashed in the connector (`column.mask.hash.v2.SHA-256.with.salt…`): buyer names, emails and phones, recipient names, phones and streets, shipping names and addresses, seller emails. Kafka and the warehouse hold salted SHA-256 values, so buyers can still be joined and counted but never read. The salt is `PII_SALT` in `.env`; changing it changes every hash, so it is set once per environment. Domain events carry no personal data. `check_data.py` fails if an email, phone or address reaches ClickHouse in clear.
 
 `errors.tolerance = none` stops the connector on a change it cannot convert instead of dropping it, and there are no tombstones. On the ClickHouse side, `kafka_handle_error_mode = 'stream'` sends any message it cannot read to `bronze.ingest_errors`, which `check_data.py` requires to be empty.
 `decimal.handling.mode = string` sends `DECIMAL` columns as exact strings (`"109.99"`), so money is never rounded through floating point on its way to ClickHouse's `Decimal` columns.
@@ -563,7 +576,7 @@ Full reset — wipes all data and volumes:
 docker compose down -v           # -v also drops every named volume: Kafka, ClickHouse, Prometheus, Alertmanager, Grafana
 sudo rm -rf source/postgres/data # owned by the container's postgres user
 docker compose up -d
-# Re-register the connector (step 2 above, or the "register" link in the Control Center)
+debezium/register.sh             # or the "register" link in the Control Center
 ```
 
 To rebuild only the warehouse, for example after editing `warehouse/clickhouse/init/*.sql`, run `docker compose rm -sf clickhouse && docker volume rm realtime-cdc_clickhouse_data && docker compose up -d clickhouse`. The new tables re-ingest everything still retained in Kafka.
@@ -574,9 +587,7 @@ To rebuild only the warehouse, for example after editing `warehouse/clickhouse/i
 
 The platform review (requirements R1–R27, SLOs and the phased plan) lives in the document *Đánh giá Data Platform & Yêu cầu Scale*. Still open:
 
-- **Operations:** `max_slot_wal_keep_size` so a stopped connector can't fill the PostgreSQL disk (only `wal_keep_size` is set); secrets (database and reader passwords) and the PII salt (`cdc-pii-2026` in `postgres-connector.json`) out of the repository; pin `cp-kafka`, `kafka-ui` and `adminer`, still `:latest`.
-- **Monitoring (R26), still missing:** Debezium JMX (`MilliSecondsBehindSource`, queue size), Kafka under-replicated partitions, ClickHouse part count and query p95, alerts tied to each SLO.
-- **Write path:** measure checkout p99; `flash_sale_items.sold` is still a hot row at peak (R2).
-- **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9); bronze on tiered storage; marts maintained incrementally instead of recomputed; a load test at T1 peak with several simulators.
-- **Repository:** run `quality/gate.sh smoke` in CI on every pull request.
+- **Security:** API authentication and authorization (logins, scoped tokens, signed partner webhooks), a least-privilege database role for the Source API, file-based secrets instead of environment variables, TLS for Kafka and the databases. Plan in the artifact *Source API auth & secrets plan*. The old development passwords and PII salt remain in git history: rotate them in `.env` for any shared environment.
+- **Marts at scale (R20):** a refresh recomputes every mart from all history (~4 s at 23 k orders, growing linearly). Recompute only the business days touched since the previous watermark and keep closed days as stored partial aggregates. Dashboard reads are not the problem: 50–100 viewers on a 30 s refresh see p95 35 ms.
+- **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9, needs bronze and silver rewritten from JSON to Avro); bronze on tiered storage; a load test at T1 peak with several simulators.
 

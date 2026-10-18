@@ -7,11 +7,14 @@ services:
       - 5432:5432
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
       POSTGRES_DB: enterprise_db
+      CDC_DB_PASSWORD: ${CDC_DB_PASSWORD:?set it in .env, see .env.example}
+      MONITOR_PASSWORD: ${MONITOR_PASSWORD:?set it in .env, see .env.example}
     volumes:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
       - ../observability/setup-postgres.sql:/docker-entrypoint-initdb.d/02-monitoring.sql:ro
+      - ./postgres/passwords.sh:/docker-entrypoint-initdb.d/03-passwords.sh:ro
       - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
       - ./postgres/data:/var/lib/postgresql/data
@@ -35,7 +38,7 @@ services:
       PG_HOST: postgres
       PG_PORT: 5432
       PG_USER: admin
-      PG_PASSWORD: admin
+      PG_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
       PG_DB: enterprise_db
     depends_on:
       postgres:
@@ -66,7 +69,7 @@ services:
 
   adminer:
     restart: unless-stopped
-    image: adminer:latest
+    image: adminer:6.1.2
     container_name: cdc-adminer
     ports:
       - 8081:8080

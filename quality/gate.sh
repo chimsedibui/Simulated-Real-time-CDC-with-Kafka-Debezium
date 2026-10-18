@@ -21,7 +21,7 @@ OUT=${GATE_OUT:-/tmp/cdc-gate}
 mkdir -p "$OUT"
 
 pg() { $DC exec -T postgres psql -U admin -d enterprise_db -Atc "$1"; }
-ch() { $DC exec -T clickhouse clickhouse-client --user admin --password admin --query "$1"; }
+ch() { $DC exec -T clickhouse bash -c 'clickhouse-client --user admin --password "$CLICKHOUSE_PASSWORD" --query "$0"' "$1"; }
 api() { curl -s -m "${3:-10}" -X "$1" "localhost:8000/api/$2" -H 'Content-Type: application/json' -d "${4:-}"; }
 step() { echo; echo "== $*"; }
 deadlocks() { pg "SELECT deadlocks FROM pg_stat_database WHERE datname = 'enterprise_db'"; }
@@ -41,8 +41,7 @@ core_up() {
   $DC up -d --build postgres kafka debezium clickhouse source-api warehouse-jobs >/dev/null 2>&1
   for _ in $(seq 1 60); do curl -sf localhost:8083/ >/dev/null && break; sleep 3; done
   if ! curl -sf localhost:8083/connectors/postgres-connector >/dev/null; then
-    curl -sf -X POST localhost:8083/connectors -H "Content-Type: application/json" \
-      -d @debezium/postgres-connector.json >/dev/null
+    debezium/register.sh >/dev/null
     sleep 8
   fi
   curl -s localhost:8083/connectors/postgres-connector/status | python3 -c \

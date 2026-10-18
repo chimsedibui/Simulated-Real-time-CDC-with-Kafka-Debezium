@@ -48,12 +48,12 @@ RECONCILED = {
 def clickhouse():
     return clickhouse_connect.get_client(host=os.getenv("CLICKHOUSE_HOST", "clickhouse"), port=8123,
                                          username=os.getenv("CLICKHOUSE_USER", "admin"),
-                                         password=os.getenv("CLICKHOUSE_PASSWORD", "admin"))
+                                         password=os.environ["CLICKHOUSE_PASSWORD"])
 
 
 def postgres():
     conn = psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=int(os.getenv("PG_PORT", "5432")),
-                            user=os.getenv("PG_USER", "admin"), password=os.getenv("PG_PASSWORD", "admin"),
+                            user=os.getenv("PG_USER", "admin"), password=os.environ["PG_PASSWORD"],
                             dbname=os.getenv("PG_DB", "enterprise_db"))
     conn.set_session(readonly=True, autocommit=True)
     return conn

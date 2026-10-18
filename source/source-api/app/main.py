@@ -10,7 +10,7 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
 from .db import close_pool, init_pool, transaction
 from .jobs import start_scheduler
@@ -33,7 +33,10 @@ for module in (admin, sellers, customers, carts, checkouts, orders, logistics, r
     app.include_router(module.router)
 
 
-Instrumentator(excluded_handlers=["/health", "/metrics"], should_ignore_untemplated=True).instrument(app).expose(app)
+instrumentator = Instrumentator(excluded_handlers=["/health", "/metrics"], should_ignore_untemplated=True)
+# Fine per-handler buckets, so checkout p99 can be read against its 300 ms SLO
+instrumentator.add(metrics.default(latency_lowr_buckets=(0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.5, 0.75, 1, 2, 5)))
+instrumentator.instrument(app).expose(app)
 
 
 @app.get("/health")

@@ -2,7 +2,7 @@
 services:
   kafka:
     restart: unless-stopped
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:8.3.2
     container_name: kafka
     hostname: kafka
     ports:
@@ -34,7 +34,7 @@ services:
 
   kafka-ui:
     restart: unless-stopped
-    image: provectuslabs/kafka-ui:latest
+    image: provectuslabs/kafka-ui:v0.7.2
     container_name: cdc-kafka-ui
     hostname: kafka-ui
     depends_on:

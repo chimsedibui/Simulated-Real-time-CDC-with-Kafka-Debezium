@@ -13,8 +13,10 @@ services:
       - 9000:9000   # native protocol (clickhouse-client)
     environment:
       CLICKHOUSE_USER: admin
-      CLICKHOUSE_PASSWORD: admin
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set it in .env, see .env.example}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      GRAFANA_READER_PASSWORD: ${GRAFANA_READER_PASSWORD:?set it in .env, see .env.example}
+      MONITOR_PASSWORD: ${MONITOR_PASSWORD:?set it in .env, see .env.example}
     volumes:
       - ./clickhouse/init:/docker-entrypoint-initdb.d
       - ./clickhouse/config.d/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
@@ -24,7 +26,7 @@ services:
         soft: 262144
         hard: 262144
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --user admin --password admin --query 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "clickhouse-client --user admin --password $$CLICKHOUSE_PASSWORD --query 'SELECT 1' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,7 +39,9 @@ services:
     container_name: cdc-warehouse-jobs
     environment:
       CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set it in .env, see .env.example}
       PG_HOST: postgres            # read-only, for reconciliation
+      PG_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
       JOB_INTERVAL_S: 5
       MART_REFRESH_S: 15
       RECONCILE_S: 30

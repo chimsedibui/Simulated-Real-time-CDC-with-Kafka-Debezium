@@ -6,4 +6,6 @@ services:
     environment:
       SOURCE_API_URL: http://source-api:8100
       PG_HOST: postgres
+      PG_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
       CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set it in .env, see .env.example}

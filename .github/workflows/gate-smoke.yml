@@ -1,0 +1,42 @@
+# End-to-end smoke gate on a clean stack: seed, API + stress tests, 4 min of traffic at ×1440 with an 11.11
+# sale, torn-read probe and check_data (quality/gate.sh smoke). Throwaway secrets, no Chat notifications.
+name: gate-smoke
+
+on:
+  push:
+    branches: [main]
+    paths: ["source/**", "debezium/**", "kafka/**", "warehouse/**", "quality/**", "docker-compose.yml", ".github/workflows/gate-smoke.yml"]
+  pull_request:
+    paths: ["source/**", "debezium/**", "kafka/**", "warehouse/**", "quality/**", "docker-compose.yml", ".github/workflows/gate-smoke.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: gate-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Throwaway secrets
+        run: |
+          ./setup-env.sh
+          touch observability/secrets/google-chat-webhook
+      - name: Smoke gate
+        env:
+          GATE_OUT: ${{ runner.temp }}/gate
+        run: quality/gate.sh smoke
+      - name: Collect logs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/gate"
+          docker compose --profile tools ps -a > "$RUNNER_TEMP/gate/ps.txt" 2>&1 || true
+          docker compose --profile tools logs --no-color --tail 300 > "$RUNNER_TEMP/gate/compose.log" 2>&1 || true
+      - name: Upload gate output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-smoke
+          path: ${{ runner.temp }}/gate

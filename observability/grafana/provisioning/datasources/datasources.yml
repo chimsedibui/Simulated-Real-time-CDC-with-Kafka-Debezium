@@ -13,11 +13,15 @@ datasources:
     access: proxy
     jsonData:
       host: clickhouse
-      port: 8123
-      protocol: http
+      port: 9000
+      protocol: native
+      # The plugin defaults (50 open / 25 idle) queue a dashboard opened by many viewers at once
+      maxOpenConns: 100
+      maxIdleConns: 100
+      connMaxLifetime: 300
       username: grafana_reader
       defaultDatabase: mart
       tlsSkipVerify: false
     secureJsonData:
-      password: grafana_local_reader
+      password: $GRAFANA_READER_PASSWORD
     editable: false

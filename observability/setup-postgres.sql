@@ -1,6 +1,6 @@
 DO $$ BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'monitor_reader') THEN
-    CREATE ROLE monitor_reader LOGIN PASSWORD 'monitor_local_reader';
+    CREATE ROLE monitor_reader LOGIN;   -- password: source/postgres/passwords.sh
   END IF;
 END $$;
 GRANT CONNECT ON DATABASE enterprise_db TO monitor_reader;
