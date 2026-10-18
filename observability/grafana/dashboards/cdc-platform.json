@@ -34,7 +34,7 @@
         {
           "refId": "A",
           "expr": "up",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -64,7 +64,7 @@
         {
           "refId": "A",
           "expr": "cdc_dependency_up or cdc_service_up",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -94,7 +94,7 @@
         {
           "refId": "A",
           "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -124,7 +124,7 @@
         {
           "refId": "A",
           "expr": "1-node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -154,7 +154,7 @@
         {
           "refId": "A",
           "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -184,7 +184,7 @@
         {
           "refId": "A",
           "expr": "sum by(handler)(rate(http_requests_total{job=\"source-api\"}[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -214,7 +214,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.95,sum by(le)(rate(http_request_duration_highr_seconds_bucket{job=\"source-api\"}[5m])))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -244,7 +244,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.99,sum by(le)(rate(http_request_duration_seconds_bucket{job=\"source-api\",handler=\"/checkouts\",method=\"POST\"}[5m])))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -274,7 +274,7 @@
         {
           "refId": "A",
           "expr": "sum(rate(http_requests_total{job=\"source-api\",status=~\"5..\"}[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -304,7 +304,7 @@
         {
           "refId": "A",
           "expr": "sum by(topic)(rate(kafka_topic_partition_current_offset[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -334,7 +334,7 @@
         {
           "refId": "A",
           "expr": "sum by(consumergroup)(kafka_consumergroup_lag)",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -364,7 +364,7 @@
         {
           "refId": "A",
           "expr": "sum(kafka_topic_partition_under_replicated_partition)",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -394,7 +394,7 @@
         {
           "refId": "A",
           "expr": "cdc_debezium_behind_source_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -424,7 +424,7 @@
         {
           "refId": "A",
           "expr": "cdc_debezium_queue_remaining_ratio",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -454,7 +454,7 @@
         {
           "refId": "A",
           "expr": "cdc_ingest_lag_p95_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -484,7 +484,7 @@
         {
           "refId": "A",
           "expr": "rate(cdc_events_total[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -514,7 +514,7 @@
         {
           "refId": "A",
           "expr": "cdc_transactions_held_back",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -544,7 +544,7 @@
         {
           "refId": "A",
           "expr": "cdc_oldest_held_transaction_age_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -574,7 +574,7 @@
         {
           "refId": "A",
           "expr": "cdc_connect_running",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -604,7 +604,7 @@
         {
           "refId": "A",
           "expr": "cdc_postgres_slot_retained_wal_bytes",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -634,7 +634,7 @@
         {
           "refId": "A",
           "expr": "cdc_postgres_slot_safe_wal_bytes",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -664,7 +664,7 @@
         {
           "refId": "A",
           "expr": "cdc_postgres_connections",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -694,7 +694,7 @@
         {
           "refId": "A",
           "expr": "cdc_postgres_lock_waiters",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -724,7 +724,7 @@
         {
           "refId": "A",
           "expr": "increase(cdc_postgres_deadlocks_total[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -754,7 +754,7 @@
         {
           "refId": "A",
           "expr": "cdc_clickhouse_metric{metric=\"MemoryTracking\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -784,7 +784,7 @@
         {
           "refId": "A",
           "expr": "cdc_clickhouse_metric{metric=\"Query\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -814,7 +814,7 @@
         {
           "refId": "A",
           "expr": "rate(cdc_clickhouse_events_total{event=\"FailedQuery\"}[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -844,7 +844,7 @@
         {
           "refId": "A",
           "expr": "cdc_clickhouse_select_p95_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -874,7 +874,7 @@
         {
           "refId": "A",
           "expr": "topk(10, cdc_clickhouse_max_parts_per_partition)",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -904,7 +904,7 @@
         {
           "refId": "A",
           "expr": "time()-cdc_mart_last_success_timestamp_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -934,7 +934,7 @@
         {
           "refId": "A",
           "expr": "cdc_mart_refresh_duration_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -947,7 +947,7 @@
     },
     {
       "id": 32,
-      "title": "Reconciliation execution age",
+      "title": "Snapshot run duration \u00b7 full vs delta",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -963,8 +963,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time()-cdc_reconciliation_last_success_timestamp_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "expr": "warehouse_snapshot_duration_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -977,7 +977,7 @@
     },
     {
       "id": 33,
-      "title": "Reconciliation failing tables",
+      "title": "Keys re-read per delta snapshot",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -993,8 +993,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_reconciliation_failing_tables",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "expr": "warehouse_snapshot_keys",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -1007,7 +1007,7 @@
     },
     {
       "id": 34,
-      "title": "Quarantined ingestion errors",
+      "title": "Reconciliation execution age",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1023,13 +1023,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_ingest_errors_total",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "expr": "time()-cdc_reconciliation_last_success_timestamp_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": []
       },
@@ -1037,7 +1037,7 @@
     },
     {
       "id": 35,
-      "title": "Google Chat deliveries / 5m",
+      "title": "Reconciliation failing tables",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1053,8 +1053,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "increase(chat_webhook_deliveries_total[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "expr": "cdc_reconciliation_failing_tables",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {
@@ -1067,7 +1067,7 @@
     },
     {
       "id": 36,
-      "title": "Active alerts",
+      "title": "Quarantined ingestion errors",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1083,8 +1083,68 @@
       "targets": [
         {
           "refId": "A",
+          "expr": "cdc_ingest_errors_total",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 37,
+      "title": "Google Chat deliveries / 5m",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 144,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(chat_webhook_deliveries_total[5m])",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 38,
+      "title": "Active alerts",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 144,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
           "expr": "ALERTS{alertstate=\"firing\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
         }
       ],
       "fieldConfig": {

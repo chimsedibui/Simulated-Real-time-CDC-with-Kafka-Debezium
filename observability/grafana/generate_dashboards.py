@@ -91,12 +91,14 @@ queries=[
  ('ClickHouse max parts per partition · top 10','topk(10, cdc_clickhouse_max_parts_per_partition)','short'),
  ('Mart refresh age','time()-cdc_mart_last_success_timestamp_seconds','s'),
  ('Mart refresh duration','cdc_mart_refresh_duration_seconds','s'),
+ ('Snapshot run duration · full vs delta','warehouse_snapshot_duration_seconds','s'),
+ ('Keys re-read per delta snapshot','warehouse_snapshot_keys','short'),
  ('Reconciliation execution age','time()-cdc_reconciliation_last_success_timestamp_seconds','s'),
  ('Reconciliation failing tables','cdc_reconciliation_failing_tables','short'),
  ('Quarantined ingestion errors','cdc_ingest_errors_total','short'),
  ('Google Chat deliveries / 5m','increase(chat_webhook_deliveries_total[5m])','short'),
  ('Active alerts','ALERTS{alertstate="firing"}','short')]
 for title,expr,unit in queries:
- panel(platform,title,prom,dict(expr=expr,legendFormat='{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}}'),unit=unit)
+ panel(platform,title,prom,dict(expr=expr,legendFormat='{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}'),unit=unit)
 for d in [business,platform]:
  (ROOT/(d['uid']+'.json')).write_text(json.dumps(d,indent=2)+'\n')

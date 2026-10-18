@@ -11,7 +11,8 @@ Groups:
   write-path  — every row has its creation event; status history replays via allowed moves and actors
   pipeline    — PostgreSQL vs ClickHouse silver (31 tables), consistent.* vs silver, outbox vs bronze.domain_events
   metrics     — every gold metric equals the same definition computed in PostgreSQL; closed days stay as reported
-  ops         — marts equal gold at their watermark; scheduled reconciliation agrees; PII never reaches the warehouse
+  ops         — marts equal gold at their watermark; snapshots equal consistent.*; scheduled reconciliation agrees;
+                PII never reaches the warehouse
 
 Run with the simulator stopped so the pipeline can settle:
     docker compose --profile tools run --rm validator python check_data.py
@@ -708,12 +709,26 @@ def ops():
         bad.append(f"no mart refresh at or after watermark {v} within 120 s")
     else:
         v = ch.query(f"SELECT min(refresh_id) FROM ops.mart_refreshes WHERE refresh_id >= {v}").result_rows[0][0]
-        for name in ("overview_kpis", "daily_sales", "platform_pnl", "product_sales", "shop_performance"):
+        for (name,) in ch.query("SELECT name FROM system.tables WHERE database = 'mart'").result_rows:
             diff = ch.query(f"""SELECT count() FROM (
                 SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.{name} WHERE refresh_id = {v}
                 EXCEPT SELECT * FROM gold.{name}(v = {v}))""").result_rows[0][0]
             bad += [f"mart.{name}: {diff} rows differ from gold"] * (diff > 0)
     record("ops", "marts at the current watermark equal gold computed live", bad)
+
+    # snapshots are brought forward key by key; at rest each must equal consistent.<table> at its own watermark
+    v = ch.query("SELECT argMax(v, finished_at) FROM snap.runs").result_rows[0][0]
+    bad = []
+    for table, cols in ch.query("""SELECT table, arrayStringConcat(groupArray(name), ', ') FROM (
+                                       SELECT table, name FROM system.columns WHERE database = 'snap'
+                                       AND table IN (SELECT name FROM system.tables WHERE database = 'snap'
+                                                     AND engine = 'ReplacingMergeTree')
+                                       AND name NOT IN ('_v', '_gone') ORDER BY table, position)
+                                   GROUP BY table ORDER BY table""").result_rows:
+        a = ch.query(f"SELECT count(), sum(cityHash64({cols})) FROM snap.{table} FINAL").result_rows[0]
+        b = ch.query(f"SELECT count(), sum(cityHash64({cols})) FROM consistent.{table}(v = {v})").result_rows[0]
+        bad += [f"snap.{table}: {a[0]} rows vs {b[0]} in consistent.{table}(v = {v})"] * (a != b)
+    record("ops", "incremental snapshots equal consistent.* at their watermark", bad)
 
     settled = ch.query("SELECT now64(3)").result_rows[0][0]
     ran = _wait_for(f"SELECT count() FROM ops.reconciliation WHERE run_at > toDateTime64('{settled:%Y-%m-%d %H:%M:%S.%f}', 3, 'UTC')", 150)

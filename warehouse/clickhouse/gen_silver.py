@@ -151,20 +151,31 @@ VISIBLE = ("SELECT tx_id FROM bronze.cdc_transactions "
            "WHERE ingested_at > now64(3) - INTERVAL 90 MINUTE AND kafka_offset < {v:UInt64}")
 
 
-def consistent_sql(table: str, kind: str, key: str, spec: str) -> str:
+def consistent_sql(table: str, kind: str, key: str, spec: str, delta: bool = False) -> str:
     """consistent.<table>(v): silver as of commit watermark v.
 
     A row version is visible when its transaction ended before v (or it is a snapshot read, or older than RECENT).
     Event rows past v are hidden. A state row whose newest version is past v is shown as it was before: the
     `before` image of its earliest change past v, from bronze ("restore"), or the version's own _before when that
     change reached silver after bronze was read. Older versions cannot come from silver: merges drop them.
+
+    delta=True renders snap.<table>_delta(v) instead: the same rows, business columns only, for the keys in
+    snap.dirty at v (the first key column for event tables), so a snapshot can be brought to v key by key.
     """
     visible_row = f"_tx_id = 0 OR _synced_at < now64(3) - INTERVAL {RECENT} OR _tx_id IN (SELECT tx_id FROM visible)"
+    cols = [c.strip().split() for c in spec.split(",")]
+    name = f"snap.{table}_delta" if delta else f"consistent.{table}"
+    first_key = key.split(",")[0].strip()
+    dirty = f"(SELECT k FROM snap.dirty WHERE tbl = '{table}' AND v = {{v:UInt64}})"
     if kind == "event":
-        return (f"CREATE OR REPLACE VIEW consistent.{table} AS\n"
+        what = ", ".join(n for n, _ in cols) if delta else "*"
+        only = f" AND {first_key} IN {dirty}" if delta else ""
+        return (f"CREATE OR REPLACE VIEW {name} AS\n"
+                f"WITH visible AS ({VISIBLE})\n"
+                f"SELECT {what} FROM silver.{table} FINAL\nWHERE ({visible_row}){only};\n" if delta else
+                f"CREATE OR REPLACE VIEW {name} AS\n"
                 f"WITH visible AS ({VISIBLE})\n"
                 f"SELECT * FROM silver.{table} FINAL\nWHERE {visible_row};\n")
-    cols = [c.strip().split() for c in spec.split(",")]
     key_type = dict(cols)[key]
 
     def pick(n, t):
@@ -175,26 +186,99 @@ def consistent_sql(table: str, kind: str, key: str, spec: str) -> str:
                 f"CAST({from_before} AS {typed})) AS {n}")
 
     key_expr = extract(key, key_type).replace("(row,", "(if(op = 'd', before, after),")
+    meta = ("" if delta else
+            f",\n    if(r.found, toUInt64(0), s._version) AS _version,\n"
+            f"    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,\n"
+            f"    if(r.found, now64(3), s._synced_at) AS _synced_at,\n"
+            f"    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,\n"
+            f"    if(r.found, r.row, s._before) AS _before")
+    s_only = f" WHERE {key} IN {dirty}" if delta else ""
+    r_only = f" HAVING k IN {dirty}" if delta else ""
+    if delta:   # the key filter gets pushed below source_table = …, onto other tables' rows: a cast must not throw
+        key_expr = key_expr.replace("toUUID(", "toUUIDOrZero(", 1)
     # silver and restore are each read exactly once and joined by key: a CTE used twice would be evaluated twice,
     # at two moments, and a key could then come out of both sides
     return (
-        f"CREATE OR REPLACE VIEW consistent.{table} AS\n"
+        f"CREATE OR REPLACE VIEW {name} AS\n"
         f"WITH visible AS ({VISIBLE})\n"
-        f"SELECT\n" + ",\n".join(pick(n, t) for n, t in cols) + ",\n"
-        f"    if(r.found, toUInt64(0), s._version) AS _version,\n"
-        f"    if(r.found, toUInt8(0), s._is_deleted) AS _is_deleted,\n"
-        f"    if(r.found, now64(3), s._synced_at) AS _synced_at,\n"
-        f"    if(r.found, toUInt64(0), s._tx_id) AS _tx_id,\n"
-        f"    if(r.found, r.row, s._before) AS _before\n"
-        f"FROM (SELECT *, true AS present, {visible_row} AS vis FROM silver.{table} FINAL) AS s\n"
+        f"SELECT\n" + ",\n".join(pick(n, t) for n, t in cols) + meta + "\n"
+        f"FROM (SELECT *, true AS present, {visible_row} AS vis FROM silver.{table} FINAL{s_only}) AS s\n"
         f"FULL OUTER JOIN (\n"
         f"    SELECT {key_expr} AS k, argMin(before, lsn) AS row, true AS found\n"
         f"    FROM bronze.cdc_events\n"
         f"    WHERE source_table = '{table}' AND event_ts > now64(3) - INTERVAL 35 MINUTE AND tx_id != 0\n"
         f"      AND tx_id NOT IN (SELECT tx_id FROM visible)\n"
-        f"    GROUP BY k) AS r ON s.{key} = r.k\n"
+        f"    GROUP BY k{r_only}) AS r ON s.{key} = r.k\n"
         f"WHERE if(r.found, r.row != 'null', s.present AND (s.vis OR s._before != 'null'))\n"
         f"SETTINGS join_use_nulls = 0;\n"
+    )
+
+
+def snapshot_sql(table: str, kind: str, key: str, spec: str) -> str:
+    """snap.<table>: consistent.<table> as of the last watermark warehouse-jobs brought it to, typed columns only.
+    _v orders versions (2v for a removal, 2v + 1 for the row at v) and _gone marks a key absent at v, so FINAL shows
+    exactly consistent.<table>(v)."""
+    cols = [c.strip().split() for c in spec.split(",")]
+    width = max(len(n) for n, _ in cols) + 1
+    defs = [f"    {n:<{width}} {column_type(t)}" for n, t in cols]
+    defs += [f"    {'_v':<{width}} UInt64", f"    {'_gone':<{width}} UInt8"]
+    return (f"CREATE TABLE IF NOT EXISTS snap.{table}\n(\n" + ",\n".join(defs) +
+            f"\n)\nENGINE = ReplacingMergeTree(_v, _gone)\nORDER BY ({key});\n\n" +
+            consistent_sql(table, kind, key, spec, delta=True))
+
+
+SNAP_HEADER = """-- GENERATED by clickhouse/gen_silver.py — edit the spec there, not this file.
+--
+-- SNAP: consistent.<table>(v) kept as typed tables and brought forward key by key (R20). warehouse-jobs takes the
+-- keys touched by the transactions between the snapshot's watermark and the new one (snap.changed_keys), stores
+-- them in snap.dirty, and writes snap.<table>_delta(v) for just those keys. Gold read from snap (gold_snap.*)
+-- then costs a scan of typed columns instead of re-deriving every table from JSON for each mart.
+CREATE DATABASE IF NOT EXISTS snap;
+
+-- Keys to bring forward to watermark v (first key column for event tables: all events of that parent are re-read)
+CREATE TABLE IF NOT EXISTS snap.dirty
+(
+    v        UInt64,
+    tbl      LowCardinality(String),
+    k        UUID,
+    added_at DateTime DEFAULT now()
+)
+ENGINE = MergeTree
+ORDER BY (v, tbl, k)
+TTL added_at + INTERVAL 1 HOUR;
+
+-- Watermark each snapshot run reached, and how
+CREATE TABLE IF NOT EXISTS snap.runs
+(
+    v           UInt64,
+    mode        LowCardinality(String),       -- full | delta
+    keys        UInt64,
+    finished_at DateTime64(3, 'UTC'),
+    duration_ms UInt32
+)
+ENGINE = MergeTree
+ORDER BY v
+TTL toDateTime(finished_at) + INTERVAL 1 DAY;
+"""
+
+
+def changed_keys_sql() -> str:
+    """snap.changed_keys(prev, v, since): per table, the keys written by transactions that became visible between
+    watermarks prev and v, plus snapshot reads (no transaction) ingested since `since`."""
+    keys = ", ".join(f"source_table = '{t}', '{spec[1].split(',')[0].strip()}'"
+                     for t, spec in TABLES.items() if spec[1].split(",")[0].strip() != "id")
+    tables = ", ".join(f"'{t}'" for t in TABLES)
+    return (
+        "CREATE OR REPLACE VIEW snap.changed_keys AS\n"
+        "SELECT DISTINCT source_table AS tbl,\n"
+        f"       toUUIDOrZero(JSONExtractString(if(op = 'd', before, after), multiIf({keys}, 'id'))) AS k\n"
+        "FROM bronze.cdc_events\n"
+        f"WHERE source_table IN ({tables})\n"
+        "  AND event_ts >= {since:DateTime64(3, 'UTC')}\n"
+        "  AND (tx_id IN (SELECT tx_id FROM bronze.cdc_transactions\n"
+        "                 WHERE ingested_at > now64(3) - INTERVAL 2 HOUR\n"
+        "                   AND kafka_offset >= {prev:UInt64} AND kafka_offset < {v:UInt64})\n"
+        "       OR (tx_id = 0 AND ingested_at >= {since:DateTime64(3, 'UTC')}));\n"
     )
 
 
@@ -240,7 +324,13 @@ def render() -> str:
             + WATERMARK + "\n" + "\n".join(consistent_sql(t, *spec) for t, spec in TABLES.items()))
 
 
+def render_snapshots() -> str:
+    return (SNAP_HEADER + "\n" + "\n".join(snapshot_sql(t, *spec) for t, spec in TABLES.items()) + "\n"
+            + changed_keys_sql())
+
+
 if __name__ == "__main__":
-    out = Path(__file__).parent / "init" / "02-silver.sql"
-    out.write_text(render())
-    print(f"wrote {out} ({len(TABLES)} tables)")
+    init = Path(__file__).parent / "init"
+    (init / "02-silver.sql").write_text(render())
+    (init / "07-snapshots.sql").write_text(render_snapshots())
+    print(f"wrote {init}/02-silver.sql and 07-snapshots.sql ({len(TABLES)} tables)")
