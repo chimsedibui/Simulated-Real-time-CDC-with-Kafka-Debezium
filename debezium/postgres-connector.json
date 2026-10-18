@@ -22,7 +22,8 @@
     "key.converter.schemas.enable": "false",
     "value.converter.schemas.enable": "false",
 
-    "column.mask.with.length.chars": "ecommerce.customers.phone:12",
+    "_comment_pii": "Personal data is hashed (salted SHA-256) before it leaves PostgreSQL: Kafka and the warehouse can still join and count buyers but never see names, emails, phones or street addresses. Rotate the salt through a secret in production",
+    "column.mask.hash.v2.SHA-256.with.salt.cdc-pii-2026": "ecommerce.customers.full_name,ecommerce.customers.email,ecommerce.customers.phone,ecommerce.customer_addresses.recipient_name,ecommerce.customer_addresses.phone,ecommerce.customer_addresses.street,ecommerce.orders.ship_to_name,ecommerce.orders.ship_to_address,ecommerce.sellers.email",
 
     "_comment_unwrap": "DISABLED: ExtractNewRecordState strips before/after values",
     "_transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",

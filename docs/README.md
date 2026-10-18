@@ -128,9 +128,10 @@ Real-time CDC/
 ├── source_api/                   # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency)
 ├── simulator/                    # traffic simulator, config.yaml holds scale presets and odds
 ├── validation/                   # pytest API tests, check_data.py (invariants, reconciliation, metrics), probe_consistency.py
-├── warehouse_jobs/               # scheduled warehouse jobs at a pinned watermark (closing business days)
+├── warehouse_jobs/               # scheduled jobs at a pinned watermark: marts, business-day close, reconciliation
 ├── clickhouse/
 │   ├── gen_silver.py             # generates init/02-silver.sql from a table spec
+│   ├── check_contract.py         # data contract: source schema vs silver spec vs connector (CI: .github/workflows)
 │   ├── config.d/kafka.xml        # librdkafka settings (earliest offset, fast topic discovery)
 │   └── init/
 │       ├── 01-bronze.sql         # Kafka engine table + raw changelog
@@ -254,7 +255,8 @@ Data changes only through the **Source API** (OpenAPI docs at http://localhost:8
 
 Rules enforced by the API:
 
-- **Locks and hot rows:** every transaction takes row locks in one fixed order (voucher quota slots → inventory by SKU → flash-sale items), so concurrent checkouts can't oversell and never deadlock with cancellations or payment timeouts that give vouchers back. Rows that every transaction would otherwise update are split or batched:
+- **Locks and hot rows:** every transaction takes row locks in one fixed order (voucher quota slots → inventory by SKU → flash-sale items), so concurrent checkouts can't oversell and never deadlock with cancellations or payment timeouts that give vouchers back. Rows that every transaction would otherwise update are split, batched or locked late:
+  - a checkout only reads stock and flash quota; it takes them at its very end with conditional updates, so a hot SKU in a flash sale is locked for milliseconds. If the quota ran out meanwhile, the checkout fails with `flash_sold_out` and the retry pays the regular price;
   - a voucher's quota is spread over up to 16 slot rows; a checkout takes a random slot and skips busy ones, so 11.11 traffic on one platform voucher doesn't queue on a single row (the per-customer limit is kept with a per-customer advisory lock);
   - completing an order only inserts ledger entries; a job adds them to `shop_wallets` in batches, and payouts roll up their shop first;
   - shop ratings are computed from `product_reviews` instead of counters on `shops`.
@@ -323,6 +325,7 @@ docker compose --profile tools run --rm validator python check_data.py
 - **Write path:** no deadlocks recorded in PostgreSQL (the API retries them, so clients would never notice).
 - **Pipeline:** PostgreSQL against `silver` FINAL for all 30 tables; once settled, no open transactions and `consistent.*` equal to silver; the outbox against `bronze.domain_events`.
 - **Metrics:** every gold metric (daily GMV/NMV, P&L, product revenue, pack time per shop, return cohorts) recomputed in PostgreSQL with the same definition and compared; closed business days must keep their placed GMV and GMV.
+- **Ops:** marts at the current watermark equal gold computed live; a scheduled reconciliation run after settling matches every table; no email, phone or address in clear anywhere in ClickHouse.
 
 Torn reads can only be seen while data is flowing, so they have their own probe. Run it during a simulation:
 
@@ -385,6 +388,29 @@ SELECT * FROM gold.platform_pnl(v = 431977);
 Why a parameter: ClickHouse reads each table, and each subquery, at its own moment, and `now()` differs between subqueries. Views that each picked "the latest" state on their own disagreed inside one query, which the probe caught. A pinned `v` is the only choice every view makes identically. For the same reason the business-day close runs in the small `warehouse-jobs` service rather than a refreshable materialized view: it can pin `v` and pass it on.
 
 The result is a state that existed in PostgreSQL, usually under a second behind silver. Rows older than 30 minutes are shown without checking their transaction, so a transaction stuck for longer than that stops being held back.
+
+### Marts, reconciliation and the data contract
+
+The `warehouse-jobs` service runs three jobs, each at one pinned watermark:
+
+| Job | Every | What it does |
+|-----|-------|--------------|
+| Marts | 15 s | Computes every gold view at the current watermark into `mart.<view>` (tagged with `refresh_id` = that watermark) and records the refresh in `ops.mart_refreshes`. The Control Center reads one refresh, so a page costs milliseconds no matter how many people look at it. |
+| Business-day close | 5 s | Freezes finished business days into `gold.daily_sales_closed`. |
+| Reconciliation | 60 s | For each of 29 tables, compares PostgreSQL and `consistent.<table>(v)`: rows created up to one business hour before the watermark, plus the sum of a column that never changes after insert. Results go to `ops.reconciliation`; `ops.reconciliation_status` flags a table that disagreed two runs in a row (one miss can be a row deleted between the two reads), and the job logs it as an error. |
+
+```sql
+SELECT * FROM ops.reconciliation_status;                      -- latest result per table
+SELECT refresh_id, finished_at, duration_ms FROM ops.mart_refreshes ORDER BY refresh_id DESC LIMIT 5;
+SELECT * FROM mart.daily_sales WHERE refresh_id = (SELECT max(refresh_id) FROM ops.mart_refreshes) ORDER BY _row;
+```
+
+**Data contract.** `clickhouse/check_contract.py` fails when a source change would reach the warehouse silently wrong: a streamed table without a silver spec, a new source column the spec does not list, a type or nullability mismatch, a hashed PII column not declared as a string, a state table without `REPLICA IDENTITY FULL`, or a stale `02-silver.sql`. The GitHub workflow `.github/workflows/data-contract.yml` runs it on every change to `postgres/`, `clickhouse/` or `debezium/`, against a database built from `init.sql`.
+
+```bash
+docker run --rm --network 12real-time-cdc-with-kafka-debezium_real-time-cdc-network -v $PWD:/repo -w /repo \
+  python:3.11-slim sh -c "pip install -q psycopg2-binary && python clickhouse/check_contract.py"
+```
 
 ### Metric definitions
 
@@ -479,6 +505,8 @@ wal_keep_size = 1GB        # retain WAL long enough for Debezium to catch up
 ```
 
 `FULL` replica identity puts the whole old row in `before` on UPDATE and DELETE. State tables need it: silver deletes and `consistent.*` read it. Append-only tables (status history, stock ledger, tracking events, price history, seller ledger) and the outbox use `DEFAULT`, which keeps only the key and writes less WAL.
+**Personal data** is hashed in the connector (`column.mask.hash.v2.SHA-256.with.salt…`): buyer names, emails and phones, recipient names, phones and streets, shipping names and addresses, seller emails. Kafka and the warehouse hold salted SHA-256 values, so buyers can still be joined and counted but never read. Domain events carry no personal data. `check_data.py` fails if an email, phone or address reaches ClickHouse in clear.
+
 `errors.tolerance = none` stops the connector on a change it cannot convert instead of dropping it, and there are no tombstones. On the ClickHouse side, `kafka_handle_error_mode = 'stream'` sends any message it cannot read to `bronze.ingest_errors`, which `check_data.py` requires to be empty.
 `decimal.handling.mode = string` sends `DECIMAL` columns as exact strings (`"109.99"`), so money is never rounded through floating point on its way to ClickHouse's `Decimal` columns.
 

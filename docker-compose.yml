@@ -201,15 +201,20 @@ services:
     networks:
       - real-time-cdc-network
 
-  # Scheduled warehouse jobs (closing business days); each run pins one consistent watermark
+  # Scheduled warehouse jobs (marts, business-day close, reconciliation); each run pins one watermark
   warehouse-jobs:
     build: ./warehouse_jobs
     container_name: cdc-warehouse-jobs
     environment:
       CLICKHOUSE_HOST: clickhouse
-      JOB_INTERVAL_S: 10
+      PG_HOST: postgres            # read-only, for reconciliation
+      JOB_INTERVAL_S: 5
+      MART_REFRESH_S: 15
+      RECONCILE_S: 60
     depends_on:
       clickhouse:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - real-time-cdc-network

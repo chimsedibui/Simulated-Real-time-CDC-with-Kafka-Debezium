@@ -100,6 +100,12 @@ export interface WarehouseOverview {
   vouchers: Row[];
   flash_sales: Row[];
   settlement: Row[];
+  consistency: {
+    watermark: number;
+    held_back: number;
+    snapshot: { refresh_id: number; finished_at: string; duration_ms: number } | null;
+  };
+  data_quality: { ok: number; failing: number; tables: number; last_run: string | null };
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

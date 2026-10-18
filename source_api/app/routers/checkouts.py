@@ -14,7 +14,7 @@ from ..clock import business_now
 from ..db import transaction
 from ..domain import pricing, stock
 from ..domain.orders import issue_refund, lock_order, transition
-from ..errors import conflict, not_found
+from ..errors import DomainError, conflict, not_found
 from ..idempotency import run_command
 from ..settings import PAYMENT_PROVIDERS, PAYMENT_WINDOW_S, SELLER_SLA_S, shipping_fee
 from .carts import active_cart
@@ -74,7 +74,9 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
         if not address:
             raise not_found("address", body.address_id or "default")
 
-        # Fixed lock order everywhere: voucher quota slots → inventory → flash-sale items (releases go the same way)
+        # Lock order everywhere: voucher quota slots → inventory (by SKU) → flash-sale items (releases go the same way).
+        # Stock and flash quota are only read here; they are taken at the very end with conditional updates, so a
+        # hot SKU in a flash sale is locked for milliseconds, not for the whole checkout.
         if body.voucher_codes:
             pricing.lock_customer_vouchers(cur, body.customer_id)
         vouchers = pricing.load_vouchers(cur, body.voucher_codes)
@@ -95,7 +97,7 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
                JOIN ecommerce.product_skus s ON s.id = i.sku_id
                JOIN ecommerce.products p ON p.id = s.product_id
                JOIN ecommerce.shops sh ON sh.id = p.shop_id
-               WHERE i.sku_id = ANY(%s) ORDER BY i.sku_id FOR UPDATE OF i""",
+               WHERE i.sku_id = ANY(%s)""",
             (sorted(wanted, key=str),),
         )
         rows = {r["sku_id"]: r for r in cur.fetchall()}
@@ -143,7 +145,7 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
         )
         co = cur.fetchone()
 
-        orders, order_by_shop = [], {}
+        orders, order_by_shop, reservations = [], {}, []
         for d in drafts:
             cur.execute("SELECT nextval('ecommerce.order_number_seq') AS n")
             number = f"{t:%y%m%d}{cur.fetchone()['n']:08d}"
@@ -172,7 +174,7 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
                     (order["id"], ln["sku_id"], ln["product_id"], ln["quantity"], ln["list_price"], ln["unit_price"],
                      ln["line_total"], sd, pd, ln["line_total"] - sd - pd, ln["campaign_item_id"]),
                 )
-                stock.move(cur, ln["sku_id"], "RESERVE", ln["quantity"], "ORDER", order["id"])
+                reservations.append((ln["sku_id"], ln["quantity"], order["id"]))
             cur.execute(
                 """INSERT INTO ecommerce.order_status_history (order_id, from_status, to_status, actor, reason)
                    VALUES (%s, NULL, %s, 'BUYER', 'checkout')""",
@@ -191,9 +193,7 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
                 _new_payment(cur, co["id"], "COD", total, order_id=order["id"])
             orders.append(order)
 
-        for fid, qty in sorted(((ln["campaign_item_id"], ln["quantity"]) for d in drafts for ln in d["lines"]
-                                if ln["campaign_item_id"]), key=lambda x: str(x[0])):
-            cur.execute("UPDATE ecommerce.flash_sale_items SET sold = sold + %s WHERE id = %s", (qty, fid))
+        _take_stock_and_flash_quota(cur, reservations, drafts)
 
         for u in sorted(usages, key=lambda u: str(u["voucher"]["id"])):
             v = u["voucher"]
@@ -304,6 +304,28 @@ def buyer_cancel(order_id: UUID, body: BuyerAction, idempotency_key: str | None 
         return lock_order(cur, order_id)
 
     return run_command(idempotency_key, f"POST /orders/{order_id}/cancel", body.model_dump(mode="json"), handler)
+
+
+def _take_stock_and_flash_quota(cur, reservations: list, drafts: list):
+    """Reserve stock and flash quota last, in SKU / item order. Each is one conditional UPDATE, so the checked
+    amounts can't be oversold even though they were read without locks."""
+    for sku_id, qty, order_id in sorted(reservations, key=lambda r: str(r[0])):
+        try:
+            stock.move(cur, sku_id, "RESERVE", qty, "ORDER", order_id)
+        except DomainError as e:
+            if e.detail["code"] != "out_of_stock":
+                raise
+            cur.execute("SELECT available FROM ecommerce.inventory WHERE sku_id = %s", (sku_id,))
+            raise conflict("out_of_stock", "Not enough stock for some items",
+                           items=[{"sku_id": str(sku_id), "requested": qty, "available": cur.fetchone()["available"]}])
+    flash = sorted(((ln["campaign_item_id"], ln["quantity"], ln["sku_id"]) for d in drafts for ln in d["lines"]
+                    if ln["campaign_item_id"]), key=lambda x: str(x[0]))
+    for item_id, qty, sku_id in flash:
+        cur.execute("UPDATE ecommerce.flash_sale_items SET sold = sold + %s WHERE id = %s AND sold + %s <= quota "
+                    "RETURNING id", (qty, item_id, qty))
+        if not cur.fetchone():
+            raise conflict("flash_sold_out", "Flash sale quota ran out during checkout; the regular price applies now",
+                           sku_id=str(sku_id))
 
 
 def close_checkout(cur, co: dict, status: str, actor: str, reason: str):

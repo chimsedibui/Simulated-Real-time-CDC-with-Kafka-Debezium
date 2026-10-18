@@ -276,6 +276,26 @@ def test_flash_sale_price_and_quota_released_on_cancel():
     assert ok(api.get(f"/campaigns/{camp['id']}/items"))[0]["sold"] == 0
 
 
+def test_flash_quota_and_stock_hold_under_a_rush():
+    """20 buyers rush one flash SKU (quota 5, stock 12): flash price for exactly 5 units, never oversold."""
+    s = shop()
+    sku = listing(s["id"], price=200_000, stock=12)[0]
+    camp = ok(api.post("/admin/campaigns", json={"name": "Rush test", "kind": "FLASH_SALE", "duration_s": 3600,
+                                                 "items": [{"sku_id": sku, "sale_price": 99_000, "quota": 5}]}), 201)
+    buyers = [buyer()["id"] for _ in range(20)]
+    for c in buyers:
+        ok(add(c, sku), 201)
+    with ThreadPoolExecutor(max_workers=20) as pool:
+        results = list(pool.map(lambda c: checkout(c), buyers))
+    placed = [r.json()["orders"][0] for r in results if r.status_code == 201]
+    assert {code(r) for r in results if r.status_code != 201} <= {"out_of_stock", "flash_sold_out"}
+    prices = [order(o["id"])["items"][0]["unit_price"] for o in placed]
+    assert prices.count(99_000) == 5 and len(placed) <= 12
+    assert ok(api.get(f"/campaigns/{camp['id']}/items"))[0]["sold"] == 5
+    st = stock(sku)
+    assert (st["reserved"], st["available"]) == (len(placed), 12 - len(placed))
+
+
 def test_vouchers_shop_platform_freeship_are_allocated_to_lines():
     s1, s2 = shop("Hà Nội"), shop("Hà Nội")
     a, c = listing(s1["id"], price=300_000)[0], listing(s2["id"], price=100_000)[0]

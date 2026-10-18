@@ -83,11 +83,12 @@ def release_quota(cur, usages) -> None:
 
 
 def flash_prices(cur, wanted: dict, t) -> dict:
-    """sku_id -> active flash-sale row with enough quota left for the wanted quantity (rows locked)."""
+    """sku_id -> active flash-sale row with enough quota left for the wanted quantity (read only: the quota is
+    taken at the end of the checkout with a conditional update)."""
     cur.execute(
         """SELECT f.* FROM ecommerce.flash_sale_items f JOIN ecommerce.campaigns c ON c.id = f.campaign_id
            WHERE f.sku_id = ANY(%s) AND c.starts_at <= %s AND c.ends_at > %s
-           ORDER BY f.sku_id, f.sale_price FOR UPDATE OF f""",
+           ORDER BY f.sku_id, f.sale_price""",
         (sorted(wanted, key=str), t, t),
     )
     offers = {}

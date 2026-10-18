@@ -118,6 +118,9 @@ class Actors:
                         self.count("checkout.gave_up")
                         return
                     continue
+                if e.code == "flash_sold_out" and attempt < 3:
+                    self.count("checkout.flash_sold_out")              # pays the regular price on the retry
+                    continue
                 if e.code == "cart_empty":
                     return
                 raise

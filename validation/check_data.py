@@ -11,6 +11,7 @@ Groups:
   write-path  — every row has its creation event; status history replays via allowed moves and actors
   pipeline    — PostgreSQL vs ClickHouse silver (30 tables), consistent.* vs silver, outbox vs bronze.domain_events
   metrics     — every gold metric equals the same definition computed in PostgreSQL; closed days stay as reported
+  ops         — marts equal gold at their watermark; scheduled reconciliation agrees; PII never reaches the warehouse
 
 Run with the simulator stopped so the pipeline can settle:
     docker compose --profile tools run --rm validator python check_data.py
@@ -689,9 +690,50 @@ def metrics():
            [f"{r[0]} placed {r[1]}→{r[2]} gmv {r[3]}→{r[4]}" for r in closed] + [f"{r[0]} closed twice" for r in dup])
 
 
+# ---------------------------------------------------------------------------- ops (warehouse-jobs, PII)
+
+def _wait_for(sql, timeout_s=120):
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if ch.query(sql).result_rows[0][0]:
+            return True
+        time.sleep(3)
+    return False
+
+
+def ops():
+    v = ch.query("SELECT v FROM consistent.watermark").result_rows[0][0]
+    bad = []
+    if not _wait_for(f"SELECT count() FROM ops.mart_refreshes WHERE refresh_id = {v}"):
+        bad.append(f"no mart refresh at watermark {v} within 120 s")
+    else:
+        for name in ("overview_kpis", "daily_sales", "platform_pnl", "product_sales", "shop_performance"):
+            diff = ch.query(f"""SELECT count() FROM (
+                SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.{name} WHERE refresh_id = {v}
+                EXCEPT SELECT * FROM gold.{name}(v = {v}))""").result_rows[0][0]
+            bad += [f"mart.{name}: {diff} rows differ from gold"] * (diff > 0)
+    record("ops", "marts at the current watermark equal gold computed live", bad)
+
+    settled = ch.query("SELECT now64(3)").result_rows[0][0]
+    ran = _wait_for(f"SELECT count() FROM ops.reconciliation WHERE run_at > toDateTime64('{settled:%Y-%m-%d %H:%M:%S.%f}', 3, 'UTC')", 150)
+    rows = ch.query("""SELECT table_name, pg_rows, ch_rows, pg_sum, ch_sum FROM ops.reconciliation
+                       WHERE run_at = (SELECT max(run_at) FROM ops.reconciliation) AND NOT ok""").result_rows
+    record("ops", "scheduled reconciliation after settling: every table matches PostgreSQL",
+           (["no reconciliation run after the pipeline settled"] if not ran else []) +
+           [f"{t}: rows {a}/{b} sum {c}/{d}" for t, a, b, c, d in rows])
+
+    leaks = ch.query("""SELECT 'customers.email', count() FROM silver.customers FINAL WHERE email LIKE '%@%'
+                        UNION ALL SELECT 'customers.phone', count() FROM silver.customers FINAL WHERE match(phone, '^0[0-9]{8,10}$')
+                        UNION ALL SELECT 'orders.ship_to_address', count() FROM silver.orders FINAL WHERE position(ship_to_address, ', ') > 0
+                        UNION ALL SELECT 'bronze before/after', count() FROM bronze.cdc_events
+                            WHERE source_table = 'customers' AND (after LIKE '%@%' OR before LIKE '%@%')""").result_rows
+    record("ops", "PII is hashed before it leaves PostgreSQL (no emails, phones or addresses in the warehouse)",
+           [f"{c}: {n} rows in clear" for c, n in leaks if n])
+
+
 def main():
     for group in (money, state, stock, logistics, promo, returns, settlement, no_deadlocks, pipeline, write_path,
-                  metrics):
+                  metrics, ops):
         group()
     summary = q("""SELECT (SELECT count(*) FROM ecommerce.customers) customers, (SELECT count(*) FROM ecommerce.shops) shops,
                           (SELECT count(*) FROM ecommerce.product_skus) skus, (SELECT count(*) FROM ecommerce.checkouts) checkouts,

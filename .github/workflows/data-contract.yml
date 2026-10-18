@@ -1,0 +1,32 @@
+# Fails a change that would make the warehouse silently disagree with the source schema
+name: data-contract
+
+on:
+  push:
+    paths: ["postgres/**", "clickhouse/**", "debezium/**", ".github/workflows/data-contract.yml"]
+  pull_request:
+    paths: ["postgres/**", "clickhouse/**", "debezium/**", ".github/workflows/data-contract.yml"]
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: enterprise_db
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U admin -d enterprise_db" --health-interval 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install psycopg2-binary==2.9.10
+      - name: Build the source schema from postgres/init.sql
+        run: psql "postgresql://admin:admin@localhost:5432/enterprise_db" -v ON_ERROR_STOP=1 -q -f postgres/init.sql
+      - name: Check the contract (schema vs silver spec vs connector)
+        run: PG_HOST=localhost python clickhouse/check_contract.py

@@ -52,8 +52,24 @@ export function WarehousePanel() {
   const tierMax = Math.max(1, ...data.customer_tiers.map((t) => Number(t.total_customers)));
   const funnelMax = Math.max(1, ...data.funnel.map((f) => Number(f.n)));
 
+  const snap = data.consistency.snapshot;
+  const dq = data.data_quality;
+  const age = (iso: string | null | undefined) =>
+    iso ? `${Math.max(0, Math.round((Date.now() - new Date(iso.endsWith("Z") ? iso : iso + "Z").getTime()) / 1000))}s ago` : "–";
+
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[11px] text-slate-400">
+        <span>
+          Consistent snapshot at commit <span className="font-mono text-slate-200">#{snap ? snap.refresh_id : data.consistency.watermark}</span>
+          {snap ? <> · marts refreshed {age(snap.finished_at)} in {snap.duration_ms} ms</> : " · computed live (no mart refresh yet)"}
+          {data.consistency.held_back > 0 && <> · {data.consistency.held_back} transactions still landing</>}
+        </span>
+        <span className={dq.failing ? "text-rose-300" : dq.tables ? "text-emerald-300/90" : ""}>
+          Reconciliation with PostgreSQL: {dq.tables ? `${dq.ok}/${dq.tables} tables match` : "not run yet"}
+          {dq.failing > 0 && ` · ${dq.failing} failing`}{dq.tables > 0 && ` · ${age(dq.last_run)}`}
+        </span>
+      </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="GMV" value={fmt.compactMoney(kpis.gmv)} hint={`NMV ${fmt.compactMoney(kpis.nmv)} after cancellations and returns`}
           icon={<TrendingUp size={14} />} accent="text-emerald-300" />

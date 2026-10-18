@@ -344,16 +344,33 @@ ORDER BY sales DESC;
 -- late-payment refunds hand back money for orders that never counted as sales.
 CREATE OR REPLACE VIEW gold.platform_pnl AS
 SELECT
-    (SELECT sumIf(subtotal, confirmed) FROM gold.order_facts(v = {v:UInt64}))                                                AS gmv,
-    (SELECT sumIf(subtotal - returned_gross, confirmed AND kept) FROM gold.order_facts(v = {v:UInt64}))                      AS nmv,
-    (SELECT -sumIf(amount, entry_type IN ('COMMISSION', 'PAYMENT_FEE')) FROM consistent.seller_ledger_entries(v = {v:UInt64})) AS take,
-    (SELECT sumIf(platform_discount + shipping_subsidy, confirmed AND kept) FROM gold.order_facts(v = {v:UInt64}))            AS platform_promo_cost,
-    (SELECT sumIf(shop_discount, confirmed AND kept) FROM gold.order_facts(v = {v:UInt64}))                                  AS seller_promo_cost,
-    (SELECT sumIf(amount, return_id IS NOT NULL) FROM consistent.refunds(v = {v:UInt64}))                                    AS return_refunds,
-    (SELECT sumIf(amount, return_id IS NULL AND reason != 'late_payment') FROM consistent.refunds(v = {v:UInt64}))           AS cancellation_refunds,
-    (SELECT sumIf(amount, reason = 'late_payment') FROM consistent.refunds(v = {v:UInt64}))                                  AS late_payment_refunds,
-    (SELECT sum(amount) FROM consistent.seller_payouts(v = {v:UInt64}))                                                      AS paid_to_sellers,
-    round(take / nullIf((SELECT sumIf(subtotal, status = 'COMPLETED') FROM gold.order_facts(v = {v:UInt64})), 0), 4)          AS take_rate;
+    f.gmv                                         AS gmv,
+    f.nmv                                         AS nmv,
+    l.take                                        AS take,
+    f.platform_promo_cost                         AS platform_promo_cost,
+    f.seller_promo_cost                           AS seller_promo_cost,
+    r.return_refunds                              AS return_refunds,
+    r.cancellation_refunds                        AS cancellation_refunds,
+    r.late_payment_refunds                        AS late_payment_refunds,
+    p.paid_to_sellers                             AS paid_to_sellers,
+    round(l.take / nullIf(f.completed_gmv, 0), 4) AS take_rate
+FROM (
+    SELECT sumIf(subtotal, confirmed)                                AS gmv,
+           sumIf(subtotal - returned_gross, confirmed AND kept)      AS nmv,
+           sumIf(platform_discount + shipping_subsidy, confirmed AND kept) AS platform_promo_cost,
+           sumIf(shop_discount, confirmed AND kept)                  AS seller_promo_cost,
+           sumIf(subtotal, status = 'COMPLETED')                     AS completed_gmv
+    FROM gold.order_facts(v = {v:UInt64})) AS f
+CROSS JOIN (
+    SELECT -sumIf(amount, entry_type IN ('COMMISSION', 'PAYMENT_FEE')) AS take
+    FROM consistent.seller_ledger_entries(v = {v:UInt64})) AS l
+CROSS JOIN (
+    SELECT sumIf(amount, return_id IS NOT NULL)                          AS return_refunds,
+           sumIf(amount, return_id IS NULL AND reason != 'late_payment') AS cancellation_refunds,
+           sumIf(amount, reason = 'late_payment')                        AS late_payment_refunds
+    FROM consistent.refunds(v = {v:UInt64})) AS r
+CROSS JOIN (
+    SELECT sum(amount) AS paid_to_sellers FROM consistent.seller_payouts(v = {v:UInt64})) AS p;
 
 -- Pipeline health: end-to-end lag (Postgres commit -> ClickHouse) per table, last 15 minutes
 CREATE OR REPLACE VIEW gold.cdc_freshness AS
@@ -371,3 +388,17 @@ WHERE ingested_at >= now64(3) - INTERVAL 15 MINUTE
   AND op != 'r'
 GROUP BY source_table
 ORDER BY source_table;
+
+-- Headline numbers for the Control Center (same definitions as above)
+CREATE OR REPLACE VIEW gold.overview_kpis AS
+SELECT
+    count()                                                              AS orders,
+    sumIf(subtotal, confirmed)                                           AS gmv,
+    sumIf(subtotal - returned_gross, confirmed AND kept)                 AS nmv,
+    sumIf(total, status = 'COMPLETED')                                   AS completed_revenue,
+    round(sumIf(subtotal, confirmed) / nullIf(countIf(confirmed), 0))    AS avg_order_value,
+    uniqExactIf(customer_id, confirmed)                                  AS buyers,
+    countIf(status = 'CANCELLED')                                        AS cancelled,
+    (SELECT countIf(is_active) FROM consistent.customers(v = {v:UInt64})) AS active_customers,
+    (SELECT count() FROM consistent.shops(v = {v:UInt64}))               AS shops
+FROM gold.order_facts(v = {v:UInt64});

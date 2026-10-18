@@ -133,7 +133,7 @@ def _vnd(v) -> str:
 
 
 LABELS = {
-    "customers":          lambda r: f"{r.get('full_name', '')} · {r.get('segment', '')} · {r.get('tier', '')}",
+    "customers":          lambda r: f"buyer {str(r.get('id', ''))[:8]} · {r.get('segment', '')} · {r.get('tier', '')}",   # PII is hashed
     "customer_addresses": lambda r: f"{r.get('district', '')}, {r.get('province', '')}",
     "shops":              lambda r: f"{r.get('name', '')} · {r.get('shop_tier', '')} · {r.get('province', '')}",
     "products":           lambda r: r.get("name", ""),
