@@ -1,0 +1,67 @@
+# Source system: the marketplace's OLTP database, the only writer to it, and the simulated traffic
+services:
+  postgres:
+    image: postgres:15
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: enterprise_db
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ./postgres/data:/var/lib/postgresql/data
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d enterprise_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # The only writer to PostgreSQL: business commands, outbox events, idempotency
+  source-api:
+    build: ./source-api
+    container_name: cdc-source-api
+    hostname: source-api
+    ports:
+      - 8100:8100   # OpenAPI docs at /docs
+    environment:
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_USER: admin
+      PG_PASSWORD: admin
+      PG_DB: enterprise_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8100/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Simulated users and external systems; changes data only through the Source API
+  simulator:
+    build: ./simulator
+    container_name: cdc-simulator
+    hostname: simulator
+    ports:
+      - 8200:8200
+    environment:
+      SOURCE_API_URL: http://source-api:8100
+      SIM_SCALE: ${SIM_SCALE:-medium}
+      SIM_AUTO_SEED: ${SIM_AUTO_SEED:-true}
+      SIM_SPEED: ${SIM_SPEED:-240}           # business clock speed (×wall clock)
+    depends_on:
+      source-api:
+        condition: service_healthy
+
+  adminer:
+    image: adminer:latest
+    container_name: cdc-adminer
+    ports:
+      - 8081:8080

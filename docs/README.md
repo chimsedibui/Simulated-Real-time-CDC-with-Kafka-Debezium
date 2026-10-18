@@ -50,12 +50,11 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 | Kafka UI | `provectuslabs/kafka-ui:latest` | `8080` | Web UI to inspect topics and messages |
 | Adminer | `adminer:latest` | `8081` | Lightweight PostgreSQL web UI |
 | ClickHouse | `clickhouse/clickhouse-server:25.8` | `8123` / `9000` | Data warehouse — Kafka engine ingestion, bronze/silver/gold |
-| Control Center | `./webapp` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, warehouse analytics |
-| Source API | `./source_api` (FastAPI) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs` |
-| Simulator | `./simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
-| Validator | `./validation` (profile `tools`) | — | API tests and data-quality / reconciliation checks, run on demand |
-
-*Coming in the roadmap:* **Apache Flink** (stream processor), **Apache Iceberg** (table format), **MinIO** (S3-compatible object store).
+| Control Center | `apps/control-center` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, warehouse analytics |
+| Source API | `source/source-api` (FastAPI) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs` |
+| Simulator | `source/simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
+| Warehouse jobs | `warehouse/jobs` (Python) | — | Marts, business-day close, reconciliation at a pinned watermark |
+| Validator | `quality` (profile `tools`) | — | API and stress tests, data checks, torn-read probe, run on demand |
 
 > ClickHouse must be 25.x or newer: `cp-kafka:latest` is now Kafka 4.x, which removed the old protocol versions that the librdkafka bundled in ClickHouse 24.x uses. The symptom is `Required feature not supported by broker`.
 
@@ -113,36 +112,39 @@ Debezium streams every table except the infrastructure ones. Its `table.include.
 
 ## Project Structure
 
+Folders follow responsibility groups. Each group has its own `compose.yml`; the root `docker-compose.yml` only includes them.
+
 ```
 Real-time CDC/
-├── docker-compose.yml
-├── postgres/
-│   ├── init.sql                  # marketplace schema, outbox, publication (no business seed data)
-│   ├── postgresql.conf           # logical replication settings
-│   └── pg_hba.conf
+├── docker-compose.yml            # includes the groups below (project name: realtime-cdc)
+├── source/                       # the system being captured
+│   ├── postgres/                 # init.sql (schema, outbox, publication, cdc_user), postgresql.conf, pg_hba.conf
+│   ├── source-api/               # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency)
+│   ├── simulator/                # traffic simulator; config.yaml holds scale presets and odds
+│   └── compose.yml               # postgres, source-api, simulator, adminer
+├── kafka/
+│   └── compose.yml               # broker (KRaft), Kafka UI
 ├── debezium/
-│   └── postgres-connector.json   # connector config
-├── source_api/                   # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency)
-├── simulator/                    # traffic simulator, config.yaml holds scale presets and odds
-├── validation/                   # pytest API tests, check_data.py (invariants, reconciliation, metrics), probe_consistency.py
-├── warehouse_jobs/               # scheduled jobs at a pinned watermark: marts, business-day close, reconciliation
-├── clickhouse/
-│   ├── gen_silver.py             # generates init/02-silver.sql from a table spec
-│   ├── check_contract.py         # data contract: source schema vs silver spec vs connector (CI: .github/workflows)
-│   ├── config.d/kafka.xml        # librdkafka settings (earliest offset, fast topic discovery)
-│   └── init/
-│       ├── 01-bronze.sql         # Kafka engine table + raw changelog
-│       ├── 02-silver.sql         # current-state tables (ReplacingMergeTree)
-│       ├── 03-gold.sql           # business marts (views)
-│       └── 04-domain-events.sql  # outbox events → bronze.domain_events
-├── webapp/
-│   ├── Dockerfile                # node build → python runtime (build context: repo root)
-│   ├── backend/                  # FastAPI: generator, Kafka tail, ClickHouse queries
-│   └── frontend/                 # React + Vite + Tailwind + Recharts
+│   ├── postgres-connector.json   # connector config
+│   └── compose.yml               # Kafka Connect + Debezium
+├── warehouse/
+│   ├── clickhouse/
+│   │   ├── gen_silver.py         # silver spec → init/02-silver.sql (silver tables, consistent views, watermark)
+│   │   ├── check_contract.py     # data contract: source schema vs silver spec vs connector
+│   │   ├── config.d/kafka.xml    # librdkafka settings
+│   │   └── init/                 # 01-bronze, 02-silver, 03-gold, 04-domain-events, 05-ops
+│   ├── jobs/                     # warehouse-jobs: marts, business-day close, reconciliation
+│   └── compose.yml               # clickhouse, warehouse-jobs
+├── apps/
+│   ├── control-center/           # React + FastAPI: simulator control, live CDC feed, warehouse analytics
+│   └── compose.yml
+├── quality/                      # API + stress tests, check_data.py, probe_consistency.py, gate.sh
+│   └── compose.yml               # validator (profile "tools")
+├── docs/
 └── .github/workflows/            # CI: data contract
 ```
 
-A [proposed structure](#proposed-file-structure) for the Flink/lakehouse work is described in the roadmap.
+Observability (Prometheus, Grafana) will get its own `observability/` group when it is built (see the roadmap).
 
 ---
 
@@ -320,7 +322,7 @@ docker compose --profile tools run --rm validator python check_data.py
 - **Metrics:** every gold metric (daily GMV/NMV, P&L, product revenue, pack time per shop, return cohorts) recomputed in PostgreSQL with the same definition and compared; closed business days must keep their placed GMV and GMV.
 - **Ops:** marts at the current watermark equal gold computed live; a scheduled reconciliation run after settling matches every table; no email, phone or address in clear anywhere in ClickHouse.
 
-**Gates.** `scripts/gate.sh quick|smoke|full` runs the whole chain; pick the smallest one that covers the change. Every gate stops at the first PostgreSQL deadlock and prints it.
+**Gates.** `quality/gate.sh quick|smoke|full` runs the whole chain; pick the smallest one that covers the change. Every gate stops at the first PostgreSQL deadlock and prints it.
 
 | Gate | Stack | What runs | Time |
 |------|-------|-----------|------|
@@ -328,7 +330,7 @@ docker compose --profile tools run --rm validator python check_data.py
 | `smoke` | clean | seed, tests, 4 min at ×1440 with an 11.11 sale, probe, `check_data` | ~10 min |
 | `full` | clean | 16 min at ×720 with an 11.11 sale and restarts of Debezium and ClickHouse, probe, lag, `check_data` | ~25 min |
 
-`validation/test_stress.py` sends checkouts, cancellations and payments from 24 buyers at the same few SKUs, flash items and vouchers for 20 s, then requires zero deadlocks and no drift in stock, flash quota or voucher quota. Lock-order bugs that ordinary traffic shows once in 100 000 requests show up there in seconds. Put local port overrides in `docker-compose.override.yml` (gitignored).
+`quality/test_stress.py` sends checkouts, cancellations and payments from 24 buyers at the same few SKUs, flash items and vouchers for 20 s, then requires zero deadlocks and no drift in stock, flash quota or voucher quota. Lock-order bugs that ordinary traffic shows once in 100 000 requests show up there in seconds. Put local port overrides in `docker-compose.override.yml` (gitignored).
 
 Torn reads can only be seen while data is flowing, so they have their own probe. Run it during a simulation:
 
@@ -342,7 +344,7 @@ It polls cross-table invariants that hold inside one PostgreSQL transaction (com
 
 ## Data Warehouse (ClickHouse)
 
-ClickHouse reads Kafka directly, so the warehouse needs no extra stream processor or sink connector. The SQL in `clickhouse/init/` runs automatically the first time the `clickhouse_data` volume is created.
+ClickHouse reads Kafka directly, so the warehouse needs no extra stream processor or sink connector. The SQL in `warehouse/clickhouse/init/` runs automatically the first time the `clickhouse_data` volume is created.
 
 ```
 Kafka cdc.ecommerce.*
@@ -364,7 +366,7 @@ gold.*                       business marts
 |-------|---------|-------|
 | bronze | `cdc_events` | Every Debezium event, partitioned by day. Use it for audit, replay and lag metrics. |
 | bronze | `domain_events` | Outbox events from `events.*` (regex subscription), with their event ids. |
-| silver | One table per source table (17). Generated by `clickhouse/gen_silver.py` from a compact spec. | Typed columns (UUID, `Int64` VND, `DateTime64`) plus `_version`, `_is_deleted`, `_synced_at`. Append-only sources such as `order_status_history` are de-duplicated by key. |
+| silver | One table per source table (17). Generated by `warehouse/clickhouse/gen_silver.py` from a compact spec. | Typed columns (UUID, `Int64` VND, `DateTime64`) plus `_version`, `_is_deleted`, `_synced_at`. Append-only sources such as `order_status_history` are de-duplicated by key. |
 | bronze | `cdc_transactions` | One row per committed transaction (Debezium transaction metadata): how many of its events should land in `cdc_events`, in commit order. |
 | consistent | `watermark`, plus one parameterized view per silver table | What gold reads. See [Consistent reads](#consistent-reads-no-torn-transactions). |
 | gold | Parameterized views `(v)`: `order_facts`, `daily_sales`, plus the table `daily_sales_closed`, and `traffic_by_hour`, `order_status_summary`, `funnel`, `product_sales`, `category_sales`, `shop_performance`, `payment_summary`, `voucher_performance`, `flash_sale_performance`, `delivery_performance`, `return_rate_by_cohort`, `returns_summary`, `seller_settlement`, `platform_pnl`, `inventory_risk`, `customer_tiers`, `cdc_freshness` (not parameterized) | Views over `consistent.*(v)`. `daily_sales_closed` is filled by the `warehouse-jobs` service once per finished business day. |
@@ -408,16 +410,16 @@ SELECT refresh_id, finished_at, duration_ms FROM ops.mart_refreshes ORDER BY ref
 SELECT * FROM mart.daily_sales WHERE refresh_id = (SELECT max(refresh_id) FROM ops.mart_refreshes) ORDER BY _row;
 ```
 
-**Data contract.** `clickhouse/check_contract.py` fails when a source change would reach the warehouse silently wrong: a streamed table without a silver spec, a new source column the spec does not list, a type or nullability mismatch, a hashed PII column not declared as a string, a state table without `REPLICA IDENTITY FULL`, or a stale `02-silver.sql`. The GitHub workflow `.github/workflows/data-contract.yml` runs it on every change to `postgres/`, `clickhouse/` or `debezium/`, against a database built from `init.sql`.
+**Data contract.** `warehouse/clickhouse/check_contract.py` fails when a source change would reach the warehouse silently wrong: a streamed table without a silver spec, a new source column the spec does not list, a type or nullability mismatch, a hashed PII column not declared as a string, a state table without `REPLICA IDENTITY FULL`, or a stale `02-silver.sql`. The GitHub workflow `.github/workflows/data-contract.yml` runs it on every change to `source/postgres/`, `warehouse/clickhouse/` or `debezium/`, against a database built from `init.sql`.
 
 ```bash
-docker run --rm --network 12real-time-cdc-with-kafka-debezium_real-time-cdc-network -v $PWD:/repo -w /repo \
-  python:3.11-slim sh -c "pip install -q psycopg2-binary && python clickhouse/check_contract.py"
+docker run --rm --network realtime-cdc_default -v $PWD:/repo -w /repo \
+  python:3.11-slim sh -c "pip install -q psycopg2-binary && python warehouse/clickhouse/check_contract.py"
 ```
 
 ### Metric definitions
 
-They are defined once, at the top of `clickhouse/init/03-gold.sql`, and `check_data.py` recomputes each one in PostgreSQL.
+They are defined once, at the top of `warehouse/clickhouse/init/03-gold.sql`, and `check_data.py` recomputes each one in PostgreSQL.
 
 | Metric | Definition |
 |--------|------------|
@@ -457,7 +459,7 @@ SELECT count(), sum(total), countIf(status = 'COMPLETED') FROM silver.orders FIN
 
 ## CDC Control Center (web app)
 
-`webapp/` is a single container serving a React UI and a FastAPI backend on port `8000`.
+`apps/control-center/` is a single container serving a React UI and a FastAPI backend on port `8000`.
 
 | Area | What it does |
 |------|--------------|
@@ -472,12 +474,12 @@ Local development with hot reload (with the rest of the stack running in Docker)
 
 ```bash
 # backend
-cd webapp/backend
+cd apps/control-center/backend
 pip install -r requirements.txt
 KAFKA_BROKER=localhost:29092 SIMULATOR_URL=http://localhost:8200 SOURCE_API_URL=http://localhost:8100 uvicorn main:app --reload --port 8000
 
 # frontend (proxies /api to :8000)
-cd webapp/frontend
+cd apps/control-center/frontend
 npm install && npm run dev       # http://localhost:5173
 ```
 
@@ -508,7 +510,7 @@ wal_keep_size = 1GB        # retain WAL long enough for Debezium to catch up
 "decimal.handling.mode":    "string"
 ```
 
-**Least privilege.** Debezium connects as `cdc_user`: the `REPLICATION` role attribute, `SELECT` on the schema (also on tables added later), and writes only to its heartbeat and signal tables. It is not a superuser and owns nothing, so the publication and replica identities are set by the table owner in `postgres/init.sql`.
+**Least privilege.** Debezium connects as `cdc_user`: the `REPLICATION` role attribute, `SELECT` on the schema (also on tables added later), and writes only to its heartbeat and signal tables. It is not a superuser and owns nothing, so the publication and replica identities are set by the table owner in `source/postgres/init.sql`.
 
 `FULL` replica identity puts the whole old row in `before` on UPDATE and DELETE. State tables need it: silver deletes and `consistent.*` read it. Append-only tables (status history, stock ledger, tracking events, price history, seller ledger) and the outbox use `DEFAULT`, which keeps only the key and writes less WAL.
 **Personal data** is hashed in the connector (`column.mask.hash.v2.SHA-256.with.salt…`): buyer names, emails and phones, recipient names, phones and streets, shipping names and addresses, seller emails. Kafka and the warehouse hold salted SHA-256 values, so buyers can still be joined and counted but never read. Domain events carry no personal data. `check_data.py` fails if an email, phone or address reaches ClickHouse in clear.
@@ -530,12 +532,12 @@ Full reset — wipes all data and volumes:
 
 ```bash
 docker compose down -v           # -v also drops the kafka_data and clickhouse_data volumes
-sudo rm -rf postgres/data        # owned by the container's postgres user
+sudo rm -rf source/postgres/data # owned by the container's postgres user
 docker compose up -d
 # Re-register the connector (step 2 above, or the "register" link in the Control Center)
 ```
 
-To rebuild only the warehouse, for example after editing `clickhouse/init/*.sql`, run `docker compose rm -sf clickhouse && docker volume rm <project>_clickhouse_data && docker compose up -d clickhouse`. The new tables re-ingest everything still retained in Kafka.
+To rebuild only the warehouse, for example after editing `warehouse/clickhouse/init/*.sql`, run `docker compose rm -sf clickhouse && docker volume rm realtime-cdc_clickhouse_data && docker compose up -d clickhouse`. The new tables re-ingest everything still retained in Kafka.
 
 ---
 
@@ -545,4 +547,4 @@ The platform review (requirements R1–R27, SLOs and the phased plan) lives in t
 
 - **Operations:** alerts on connector state, replication-slot lag, held-back transactions and failing reconciliation (R26); `max_slot_wal_keep_size` so a stopped connector can't fill the PostgreSQL disk; Debezium connecting as the least-privileged `cdc_user`; secrets and the PII salt out of the repository; pinned image versions.
 - **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9); bronze on tiered storage; marts maintained incrementally instead of recomputed; a load test at T1 peak with several simulators.
-- **Repository:** run `scripts/gate.sh smoke` in CI on every pull request.
+- **Repository:** run `quality/gate.sh smoke` in CI on every pull request.

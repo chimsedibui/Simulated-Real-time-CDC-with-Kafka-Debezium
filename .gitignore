@@ -1,5 +1,5 @@
 # PostgreSQL data
-postgres/data/
+source/postgres/data/
 
 # Environment files
 .env
@@ -16,3 +16,7 @@ Thumbs.db
 
 # Local compose overrides (port clashes etc.), loaded automatically by docker compose
 docker-compose.override.yml
+
+# Python bytecode
+__pycache__/
+*.pyc

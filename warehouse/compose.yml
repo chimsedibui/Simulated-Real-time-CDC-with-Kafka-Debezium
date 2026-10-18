@@ -1,0 +1,49 @@
+# Warehouse: ClickHouse (bronze → silver → consistent → gold → marts) and its scheduled jobs
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.8
+    container_name: cdc-clickhouse
+    hostname: clickhouse
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - 8123:8123   # HTTP interface (Play UI at /play)
+      - 9000:9000   # native protocol (clickhouse-client)
+    environment:
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - ./clickhouse/init:/docker-entrypoint-initdb.d
+      - ./clickhouse/config.d/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
+      - clickhouse_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user admin --password admin --query 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Scheduled warehouse jobs (marts, business-day close, reconciliation); each run pins one watermark
+  warehouse-jobs:
+    build: ./jobs
+    container_name: cdc-warehouse-jobs
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      PG_HOST: postgres            # read-only, for reconciliation
+      JOB_INTERVAL_S: 5
+      MART_REFRESH_S: 15
+      RECONCILE_S: 30
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+volumes:
+  clickhouse_data:

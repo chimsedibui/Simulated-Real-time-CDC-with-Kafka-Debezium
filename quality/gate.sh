@@ -11,9 +11,9 @@
 # Every gate stops at the first PostgreSQL deadlock and prints it, instead of waiting for the end.
 # Local port clashes: put overrides in docker-compose.override.yml (gitignored); compose loads it automatically.
 #
-#   scripts/gate.sh quick
+#   quality/gate.sh quick
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.."                     # repository root
 
 MODE=${1:-quick}
 DC="docker compose --profile tools"
@@ -33,7 +33,7 @@ show_deadlocks() {
 reset_stack() {
   step "reset"
   $DC down -v >/dev/null 2>&1
-  docker run --rm -v "$PWD/postgres:/p" alpine sh -c "rm -rf /p/data"
+  docker run --rm -v "$PWD/source/postgres:/p" alpine sh -c "rm -rf /p/data"
 }
 
 core_up() {
@@ -51,7 +51,7 @@ core_up() {
 
 seed() {
   step "simulator + seed"
-  SIM_SPEED=240 $DC up -d --build simulator webapp >/dev/null 2>&1
+  SIM_SPEED=240 $DC up -d --build simulator control-center >/dev/null 2>&1
   local r=""
   for _ in $(seq 1 150); do
     r=$(curl -s localhost:8200/status?log_since=999999 | python3 -c \
@@ -126,7 +126,7 @@ case "$MODE" in
     else
       step "rebuild code (data kept)"
       api POST generator/stop 30 >/dev/null || true
-      $DC up -d --build source-api simulator warehouse-jobs webapp >/dev/null 2>&1
+      $DC up -d --build source-api simulator warehouse-jobs control-center >/dev/null 2>&1
       for _ in $(seq 1 30); do curl -sf localhost:8100/health >/dev/null && break; sleep 2; done
     fi
     pg "SELECT pg_stat_reset()" >/dev/null          # deadlock counter starts from zero for this run

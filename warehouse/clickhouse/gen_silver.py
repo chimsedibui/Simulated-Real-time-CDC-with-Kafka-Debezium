@@ -1,6 +1,6 @@
-"""Generates clickhouse/init/02-silver.sql from a compact spec of the source tables.
+"""Generates warehouse/clickhouse/init/02-silver.sql from a compact spec of the source tables.
 
-    python3 clickhouse/gen_silver.py
+    python3 warehouse/clickhouse/gen_silver.py
 
 State tables become ReplacingMergeTree(_version = WAL LSN, _is_deleted) keyed by the primary key;
 event tables (append-only in PostgreSQL) take inserts only.

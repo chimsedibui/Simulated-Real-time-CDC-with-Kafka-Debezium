@@ -3,9 +3,9 @@ name: data-contract
 
 on:
   push:
-    paths: ["postgres/**", "clickhouse/**", "debezium/**", ".github/workflows/data-contract.yml"]
+    paths: ["source/postgres/**", "warehouse/clickhouse/**", "debezium/**", ".github/workflows/data-contract.yml"]
   pull_request:
-    paths: ["postgres/**", "clickhouse/**", "debezium/**", ".github/workflows/data-contract.yml"]
+    paths: ["source/postgres/**", "warehouse/clickhouse/**", "debezium/**", ".github/workflows/data-contract.yml"]
 
 jobs:
   contract:
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install psycopg2-binary==2.9.10
-      - name: Build the source schema from postgres/init.sql
-        run: psql "postgresql://admin:admin@localhost:5432/enterprise_db" -v ON_ERROR_STOP=1 -q -f postgres/init.sql
+      - name: Build the source schema from source/postgres/init.sql
+        run: psql "postgresql://admin:admin@localhost:5432/enterprise_db" -v ON_ERROR_STOP=1 -q -f source/postgres/init.sql
       - name: Check the contract (schema vs silver spec vs connector)
-        run: PG_HOST=localhost python clickhouse/check_contract.py
+        run: PG_HOST=localhost python warehouse/clickhouse/check_contract.py

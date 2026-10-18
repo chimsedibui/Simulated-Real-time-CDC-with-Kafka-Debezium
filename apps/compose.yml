@@ -1,0 +1,32 @@
+# Applications: the CDC Control Center (simulator control, live CDC feed, warehouse analytics)
+services:
+  control-center:
+    build:
+      context: ..                            # needs debezium/postgres-connector.json as well
+      dockerfile: apps/control-center/Dockerfile
+    container_name: cdc-control-center
+    ports:
+      - 8000:8000
+    environment:
+      PG_HOST: postgres            # read-only queries for health
+      PG_PORT: 5432
+      PG_USER: admin
+      PG_PASSWORD: admin
+      PG_DB: enterprise_db
+      KAFKA_BROKER: kafka:9092
+      DEBEZIUM_URL: http://debezium:8083
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin
+      SIMULATOR_URL: http://simulator:8200
+      SOURCE_API_URL: http://source-api:8100
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      simulator:
+        condition: service_started

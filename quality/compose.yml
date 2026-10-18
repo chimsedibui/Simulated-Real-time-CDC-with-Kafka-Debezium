@@ -1,0 +1,9 @@
+# Quality: API and stress tests, data checks, torn-read probe (on demand, profile "tools"); gates: quality/gate.sh
+services:
+  validator:
+    build: .
+    profiles: ["tools"]
+    environment:
+      SOURCE_API_URL: http://source-api:8100
+      PG_HOST: postgres
+      CLICKHOUSE_HOST: clickhouse

@@ -8,8 +8,8 @@ Fails when a source change would otherwise reach the warehouse silently wrong:
   - a state table without REPLICA IDENTITY FULL (consistent.* needs the before image)
   - clickhouse/init/02-silver.sql not regenerated after a spec change
 
-    PG_HOST=localhost PG_PORT=15432 python3 clickhouse/check_contract.py
-Exit code 0 = contract holds. Runs in CI against a fresh database built from postgres/init.sql.
+    PG_HOST=localhost PG_PORT=15432 python3 warehouse/clickhouse/check_contract.py
+Exit code 0 = contract holds. Runs in CI against a fresh database built from source/postgres/init.sql.
 """
 
 import json
@@ -23,7 +23,7 @@ import psycopg2
 sys.path.insert(0, str(Path(__file__).parent))
 from gen_silver import TABLES, render  # noqa: E402
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 CONNECTOR = json.loads((ROOT / "debezium" / "postgres-connector.json").read_text())["config"]
 
 # Source columns deliberately kept out of the warehouse, with the reason
@@ -92,11 +92,11 @@ def main():
             if column not in cols:
                 problems.append(f"{table}.{column}: new source column not in the silver spec (add it, or list why not)")
         if kind == "state" and identity.get(table) != "f":
-            problems.append(f"{table}: state table needs REPLICA IDENTITY FULL (set in postgres/init.sql)")
+            problems.append(f"{table}: state table needs REPLICA IDENTITY FULL (set in source/postgres/init.sql)")
 
-    generated = (ROOT / "clickhouse" / "init" / "02-silver.sql").read_text()
+    generated = (Path(__file__).parent / "init" / "02-silver.sql").read_text()
     if generated != render():
-        problems.append("clickhouse/init/02-silver.sql is stale: run python3 clickhouse/gen_silver.py")
+        problems.append("warehouse/clickhouse/init/02-silver.sql is stale: run python3 warehouse/clickhouse/gen_silver.py")
 
     for p in problems:
         print(f"[FAIL] {p}")
