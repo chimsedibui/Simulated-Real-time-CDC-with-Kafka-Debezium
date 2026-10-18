@@ -1,8 +1,0 @@
-test_empty_backlog_returns_without_sleep (test_validation_wait.SchedulerSettlingTests.test_empty_backlog_returns_without_sleep) ... ok
-test_live_state_is_polled_until_jobs_catch_up (test_validation_wait.SchedulerSettlingTests.test_live_state_is_polled_until_jobs_catch_up) ... ok
-test_timeout_preserves_failure_for_normal_validation (test_validation_wait.SchedulerSettlingTests.test_timeout_preserves_failure_for_normal_validation) ... ok
-
-----------------------------------------------------------------------
-Ran 3 tests in 0.015s
-
-OK

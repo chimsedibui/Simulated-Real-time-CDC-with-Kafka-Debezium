@@ -1,1 +1,0 @@
-stop the stack and remove its volumes first: docker compose --profile tools down -v

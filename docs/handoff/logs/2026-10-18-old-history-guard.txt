@@ -1,2 +1,0 @@
-error: backup was taken against another Kafka (transaction topic nb_K5DbpQGOP181XZKklNw, now 1YQKmKt_SL6E_Ltk7bvMMA): data was reset.
-       Restoring would mix two histories; pass --force to restore the backup as it is, without catching up

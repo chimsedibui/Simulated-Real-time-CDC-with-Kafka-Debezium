@@ -1,3 +1,0 @@
- Container realtime-cdc-validator-run-3278f2541d6d Creating
- Container realtime-cdc-validator-run-3278f2541d6d Created
-31 tables, 319 source columns checked: contract holds

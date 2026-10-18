@@ -33,8 +33,9 @@ app = FastAPI(title="Traffic simulator", lifespan=lifespan)
 
 class TickConfig(BaseModel):
     interval: float | None = Field(None, ge=0.5, le=60)
-    orders_per_tick: int | None = Field(None, ge=0, le=50)
-    new_customers_per_tick: int | None = Field(None, ge=0, le=20)
+    # names kept for the Control Center: buyer sessions and new customers per business hour (engine caps the same)
+    orders_per_tick: int | None = Field(None, ge=0, le=5000)
+    new_customers_per_tick: int | None = Field(None, ge=0, le=1000)
 
 
 class ActionRequest(BaseModel):

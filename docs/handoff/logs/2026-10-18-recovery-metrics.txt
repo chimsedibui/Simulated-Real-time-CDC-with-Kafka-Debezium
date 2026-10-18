@@ -1,4 +1,0 @@
-sum(kafka_consumergroup_lag{consumergroup=~"clickhouse.*"}) [{'metric': {}, 'value': [1792342056.453, '2']}]
-cdc_ingest_lag_p95_seconds [{'metric': {'__name__': 'cdc_ingest_lag_p95_seconds', 'instance': 'platform-exporter:9108', 'job': 'platform'}, 'value': [1792342056.456, '89.59535000000001']}]
-cdc_transactions_held []
-cdc_reconciliation_failing_tables [{'metric': {'__name__': 'cdc_reconciliation_failing_tables', 'instance': 'platform-exporter:9108', 'job': 'platform'}, 'value': [1792342056.458, '0']}]

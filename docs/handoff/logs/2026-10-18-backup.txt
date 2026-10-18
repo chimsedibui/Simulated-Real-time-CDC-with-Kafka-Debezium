@@ -1,2 +1,0 @@
-backup ch-20261018-161901 done in 26s (1.6G)
-backup ch-20261018-161956-incr done in 21s (60M), based on ch-20261018-161901

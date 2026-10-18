@@ -1,4 +1,0 @@
- Container realtime-cdc-prometheus-run-74fcaf29529b Creating
- Container realtime-cdc-prometheus-run-74fcaf29529b Created
-  SUCCESS
-

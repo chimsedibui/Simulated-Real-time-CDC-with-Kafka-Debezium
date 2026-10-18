@@ -1,3 +1,0 @@
-Created temporary 5-minute silence for CDCLagHigh / CDCLagCritical only: 1ebb05e4-7a4a-441b-8061-3c955e532440
-No alert rules or metric data changed; no synthetic alert was sent.
-Replay sample expired; Prometheus alerts cleared. Temporary silence removed early.

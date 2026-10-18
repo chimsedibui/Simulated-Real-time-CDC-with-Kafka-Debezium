@@ -1,3 +1,0 @@
-PASS: deployment docs links and heading anchors
-QA07: 66
-Total QA: 850

@@ -1,4 +1,0 @@
-PASS: all 31 silver table row counts and content checksums match after full restore and Kafka replay
-PASS: all four bronze table row counts and content checksums match (ingestion timestamps excluded)
-PASS: watermark matches: 128342
-Comparison canonicalizes UNION ALL results by table_name; row order is not a SQL guarantee.
