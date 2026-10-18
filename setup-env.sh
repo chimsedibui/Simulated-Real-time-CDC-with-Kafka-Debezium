@@ -27,6 +27,20 @@ for f in password_pepper admin_password clients/sim-orchestrator clients/quality
          webhooks/MOMO webhooks/VNPAY webhooks/NAPAS webhooks/GHN webhooks/GHTK webhooks/SPX webhooks/JT webhooks/VTP; do
   [[ -s "secrets/$f" ]] || { rand > "secrets/$f"; echo "Wrote secrets/$f"; }
 done
+# local CA and a certificate for the gateway (api.cdc.localhost, auth.cdc.localhost); trust secrets/tls/ca.crt
+if [[ ! -s secrets/tls/server.crt ]]; then
+  mkdir -p secrets/tls
+  openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=CDC local CA" \
+    -keyout secrets/tls/ca.key -out secrets/tls/ca.crt 2>/dev/null
+  openssl req -newkey rsa:2048 -nodes -subj "/CN=cdc.localhost" \
+    -keyout secrets/tls/server.key -out secrets/tls/server.csr 2>/dev/null
+  printf 'subjectAltName=DNS:api.cdc.localhost,DNS:auth.cdc.localhost,DNS:app.cdc.localhost,DNS:localhost\nextendedKeyUsage=serverAuth\n' \
+    > secrets/tls/server.ext
+  openssl x509 -req -in secrets/tls/server.csr -CA secrets/tls/ca.crt -CAkey secrets/tls/ca.key -CAcreateserial \
+    -days 825 -extfile secrets/tls/server.ext -out secrets/tls/server.crt 2>/dev/null
+  rm -f secrets/tls/server.csr secrets/tls/server.ext
+  echo "Wrote secrets/tls (trust secrets/tls/ca.crt to call https://api.cdc.localhost:8443 without -k)"
+fi
 # readable by the container users (the files stay private to this machine: secrets/ is gitignored)
-chmod 755 secrets secrets/clients secrets/webhooks
-find secrets -type f -exec chmod 644 {} +
+chmod 755 secrets secrets/clients secrets/webhooks secrets/tls 2>/dev/null || true
+find secrets -type f ! -name ca.key -exec chmod 644 {} +   # the CA key stays private

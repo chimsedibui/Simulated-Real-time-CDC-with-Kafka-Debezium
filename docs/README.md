@@ -56,6 +56,7 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 | SeaweedFS | `chrislusf/seaweedfs:4.47` | internal | S3-compatible bucket for bronze's cold volume |
 | Control Center | `apps/control-center` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, links to Grafana |
 | Source API | `source/source-api` (FastAPI, `API_WORKERS` Uvicorn workers, default 6) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs`, Prometheus metrics at `/metrics` |
+| Gateway | `traefik:v3.5.3` | `127.0.0.1:8443` | HTTPS entry for outside clients: `api.cdc.localhost` (`/v1`, docs), `auth.cdc.localhost`; rate limits, security headers, CORS |
 | Identity | `source/identity` (FastAPI, argon2id, EdDSA JWT) | `127.0.0.1:8300` | Sign-up and login for buyers and sellers, rotating refresh tokens, service-client and exchanged tokens; own database `identity_db` |
 | Simulator | `source/simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
 | Warehouse jobs | `warehouse/jobs` (Python) | `9109` (metrics, internal) | Marts, business-day close, reconciliation at a pinned watermark |
@@ -154,6 +155,7 @@ Real-time CDC/
 │   └── compose.yml
 ├── quality/                      # API + stress tests, check_data.py, probe_consistency.py, gate.sh
 │   └── compose.yml               # validator (profile "tools")
+├── gateway/                      # Traefik: HTTPS, rate limits, headers, CORS (dynamic.yml)
 ├── observability/                # Prometheus (alerts.yml + tests), Alertmanager, Grafana (provisioning, dashboards,
 │   │                             #   generate_dashboards.py), service/ (platform-exporter, chat-webhook), start.sh
 │   └── compose.yml
@@ -222,7 +224,8 @@ curl -X POST localhost:8200/stop
 | UI | URL | Credentials |
 |----|-----|-------------|
 | **CDC Control Center** | http://localhost:8000 | — |
-| Source API docs | http://localhost:8100/docs | Bearer token (`/v1`) |
+| Source API (HTTPS) | https://api.cdc.localhost:8443/docs | Bearer token (`/v1`); trust `secrets/tls/ca.crt` |
+| Source API docs (direct) | http://localhost:8100/docs | Bearer token (`/v1`) |
 | Identity | http://localhost:8300/.well-known/openid-configuration | `admin@cdc.local` · password in `secrets/admin_password` |
 | ClickHouse Play (SQL) | http://localhost:8123/play | User: `admin` · Password: `CLICKHOUSE_PASSWORD` in `.env` |
 | Kafka UI | http://localhost:8080 | — |
@@ -394,6 +397,12 @@ The Source API trusts no identity a caller types in. Every request carries a tok
 - **Database roles:** the API writes as `source_api` (rows only, no DDL); readers use `app_reader`; nothing connects to `enterprise_db` without a grant.
 - **Monitoring:** `auth_decisions_total{outcome}`, `identity_logins_total{outcome}`, `identity_tokens_total{grant}` on Platform Health; `LoginFailuresHigh` fires when most logins fail.
 - **Tests:** `quality/test_auth.py` covers anonymous calls, forged tokens, cross-buyer and cross-shop access, signed webhooks, idempotency isolation, refresh reuse and lockout.
+
+**Edge.** Outside clients go through the gateway at `https://api.cdc.localhost:8443` and `https://auth.cdc.localhost:8443` (a local CA in `secrets/tls`, made by `setup-env.sh`; `*.localhost` resolves to 127.0.0.1). It accepts TLS 1.2+, routes only `/v1` and the API docs (never `/health` or `/metrics`), adds HSTS, `nosniff` and `DENY` framing, allows CORS for `https://app.cdc.localhost` only, and limits requests per client IP: 5/s for logins, 50/s for the rest of identity, 300/s for the API. Services inside the compose network keep talking to each other directly; every host port stays bound to 127.0.0.1.
+
+```bash
+curl --cacert secrets/tls/ca.crt https://api.cdc.localhost:8443/v1/categories
+```
 
 The simulator signs buyers and sellers up through the identity service, starts a share of sessions with a real password login (a few mistyped), acts through exchanged tokens otherwise, and signs every gateway and carrier callback. Routes are versioned under `/v1`; the unversioned paths exist only while `AUTH_MODE` is not `enforce`.
 
@@ -636,7 +645,7 @@ To rebuild only the warehouse, for example after editing `warehouse/clickhouse/i
 
 The platform review (requirements R1–R27, SLOs and the phased plan) lives in the document *Đánh giá Data Platform & Yêu cầu Scale*. Still open:
 
-- **Security:** an HTTPS gateway with rate limits in front of the API and identity (P7), database passwords as secret files instead of environment variables (P8), TLS for Kafka and the databases. Plan in the artifact *Source API auth & secrets plan*. The old development passwords and PII salt remain in git history: rotate them in `.env` for any shared environment.
+- **Security:** database passwords as secret files instead of environment variables (P8), TLS for Kafka and the databases. Plan in the artifact *Source API auth & secrets plan*. The old development passwords and PII salt remain in git history: rotate them in `.env` for any shared environment.
 - **Marts at scale:** snapshots are incremental (R20), but each mart is still aggregated over the whole snapshot; at T1 volumes the heaviest marts (shop, product, category sales) would need per-day partial aggregates.
 - **Cold storage:** bronze moves to S3 after 30 days (R13/R19); Kafka itself still keeps the broker default retention, and silver is not rebuilt from the lake (R21).
 - **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9, needs bronze and silver rewritten from JSON to Avro); the T1 peak of 5,400 events/s (measured locally: ~1,800, limited by the write path: split the stock of best-selling SKUs into slots like voucher quota).

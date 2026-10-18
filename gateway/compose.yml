@@ -1,0 +1,33 @@
+# Edge: the one HTTPS entry for outside clients (api.cdc.localhost, auth.cdc.localhost on 127.0.0.1:8443).
+# TLS from a local CA (secrets/tls, made by setup-env.sh), rate limits, security headers, CORS; routes only /v1
+# and the API docs, never /health or /metrics. Services inside the compose network still talk directly.
+services:
+  gateway:
+    restart: unless-stopped
+    image: traefik:v3.5.3
+    container_name: cdc-gateway
+    hostname: gateway
+    command:
+      - --entrypoints.websecure.address=:8443
+      - --entrypoints.metrics.address=:8082
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=true
+      - --metrics.prometheus=true
+      - --metrics.prometheus.entrypoint=metrics
+      - --accesslog=true
+      - --accesslog.format=json
+      - --accesslog.fields.headers.defaultmode=drop      # no Authorization headers in the logs
+      - --log.level=INFO
+      - --ping=true
+      - --ping.entrypoint=metrics
+    ports:
+      - 127.0.0.1:8443:8443
+    volumes:
+      - ./dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ../secrets/tls/server.crt:/certs/server.crt:ro
+      - ../secrets/tls/server.key:/certs/server.key:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping", "--ping.entrypoint=metrics", "--entrypoints.metrics.address=:8082"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -8,3 +8,4 @@ include:
   - apps/compose.yml
   - quality/compose.yml
   - observability/compose.yml
+  - gateway/compose.yml

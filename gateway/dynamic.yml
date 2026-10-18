@@ -1,0 +1,71 @@
+http:
+  routers:
+    api:
+      rule: Host(`api.cdc.localhost`) && PathPrefix(`/v1/`)
+      entryPoints: [websecure]
+      service: source-api
+      middlewares: [security-headers, cors, api-limit]
+      tls: {}
+    api-docs:
+      rule: Host(`api.cdc.localhost`) && (Path(`/docs`) || Path(`/openapi.json`))
+      entryPoints: [websecure]
+      service: source-api
+      middlewares: [security-headers]
+      tls: {}
+    # password guessing is throttled per client IP well below normal API use; the identity service also locks
+    # accounts after 10 wrong passwords
+    auth-login:
+      rule: Host(`auth.cdc.localhost`) && Path(`/v1/auth/login`)
+      priority: 100
+      entryPoints: [websecure]
+      service: identity
+      middlewares: [security-headers, cors, login-limit]
+      tls: {}
+    auth:
+      rule: Host(`auth.cdc.localhost`) && (PathPrefix(`/v1/auth/`) || PathPrefix(`/.well-known/`))
+      entryPoints: [websecure]
+      service: identity
+      middlewares: [security-headers, cors, auth-limit]
+      tls: {}
+
+  middlewares:
+    security-headers:
+      headers:
+        stsSeconds: 31536000
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: no-referrer
+        customResponseHeaders:
+          Server: ""
+    cors:
+      headers:
+        accessControlAllowOriginList: ["https://app.cdc.localhost"]       # the only browser app allowed
+        accessControlAllowMethods: [GET, POST, PUT, PATCH, DELETE]
+        accessControlAllowHeaders: [Authorization, Content-Type, Idempotency-Key]
+        accessControlMaxAge: 600
+    login-limit:
+      rateLimit: {average: 5, period: 1s, burst: 10}
+    auth-limit:
+      rateLimit: {average: 50, period: 1s, burst: 100}
+    api-limit:
+      rateLimit: {average: 300, period: 1s, burst: 600}
+
+  services:
+    source-api:
+      loadBalancer:
+        servers: [{url: "http://source-api:8100"}]
+        healthCheck: {path: /health, interval: 10s}
+    identity:
+      loadBalancer:
+        servers: [{url: "http://identity:8300"}]
+        healthCheck: {path: /health, interval: 10s}
+
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /certs/server.crt
+        keyFile: /certs/server.key
+  options:
+    default:
+      minVersion: VersionTLS12
