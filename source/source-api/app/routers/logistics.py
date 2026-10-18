@@ -8,10 +8,10 @@ be delivered straight from a hub). Applying an event moves the order — or, for
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Header, Query
+from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel, Field
 
-from .. import outbox
+from .. import auth, outbox
 from ..db import transaction
 from ..domain.orders import transition
 from ..domain.returns import set_return_status
@@ -44,12 +44,15 @@ class TrackingEvent(BaseModel):
 
 
 @router.post("/logistics/webhook")
-def tracking_webhook(body: TrackingEvent, idempotency_key: str | None = Header(None)):
+def tracking_webhook(body: TrackingEvent, idempotency_key: str | None = Header(None),
+                     partner: str | None = Depends(auth.verify_webhook)):
+    """Carrier callback, signed by the carrier (X-Partner, X-Signature); a carrier reports only its own parcels."""
     def handler(cur):
         cur.execute("SELECT * FROM ecommerce.shipments WHERE tracking_number = %s FOR UPDATE", (body.tracking_number,))
         s = cur.fetchone()
         if not s:
             raise not_found("shipment", body.tracking_number)
+        auth.partner_is(s["carrier"], partner, "shipment")
         cur.execute("SELECT 1 FROM ecommerce.shipment_events WHERE carrier_event_id = %s", (body.carrier_event_id,))
         if cur.fetchone():
             return {"shipment": s, "result": "duplicate_ignored"}
@@ -121,6 +124,7 @@ def _move_return(cur, s: dict, event: str):
 @router.get("/shipments")
 def list_shipments(direction: Literal["FORWARD", "RETURN"] = "FORWARD", status: str | None = None,
                    random: bool = False, limit: int = Query(100, ge=1, le=5000)):
+    auth.require_scope("ops:read")
     order = "RANDOM()" if random else "s.updated_at DESC"
     with transaction() as cur:
         cur.execute(
@@ -137,10 +141,12 @@ def list_shipments(direction: Literal["FORWARD", "RETURN"] = "FORWARD", status: 
 @router.get("/shipments/{tracking_number}")
 def get_shipment(tracking_number: str):
     with transaction() as cur:
-        cur.execute("SELECT * FROM ecommerce.shipments WHERE tracking_number = %s", (tracking_number,))
+        cur.execute("""SELECT s.*, o.customer_id, o.shop_id FROM ecommerce.shipments s
+                       JOIN ecommerce.orders o ON o.id = s.order_id WHERE s.tracking_number = %s""", (tracking_number,))
         s = cur.fetchone()
         if not s:
             raise not_found("shipment", tracking_number)
+        auth.read_party(s["customer_id"], s["shop_id"], "shipment")
         cur.execute("SELECT carrier_event_id, event_type, event_time, location, applied, created_at "
                     "FROM ecommerce.shipment_events WHERE shipment_id = %s ORDER BY event_time, id", (s["id"],))
         s["events"] = cur.fetchall()

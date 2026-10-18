@@ -13,11 +13,13 @@ services:
       MONITOR_PASSWORD: ${MONITOR_PASSWORD:?set it in .env, see .env.example}
       SOURCE_API_DB_PASSWORD: ${SOURCE_API_DB_PASSWORD:?set it in .env, see .env.example}
       APP_READER_PASSWORD: ${APP_READER_PASSWORD:?set it in .env, see .env.example}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?set it in .env, see .env.example}
     volumes:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
       - ../observability/setup-postgres.sql:/docker-entrypoint-initdb.d/02-monitoring.sql:ro
       - ./postgres/roles.sql:/docker-entrypoint-initdb.d/02a-roles.sql:ro
       - ./postgres/passwords.sh:/docker-entrypoint-initdb.d/03-passwords.sh:ro
+      - ./postgres/identity.sh:/docker-entrypoint-initdb.d/04-identity.sh:ro
       - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
       - ./postgres/data:/var/lib/postgresql/data
@@ -46,11 +48,42 @@ services:
       # Python runs one core per process: 2 workers capped the API at ~380 requests/s under load tests
       API_WORKERS: ${API_WORKERS:-6}
       DB_POOL_MAX: ${DB_POOL_MAX:-12}          # per worker: 6 x 12 = 72 of PostgreSQL's 200 connections
+      AUTH_MODE: ${AUTH_MODE:-enforce}          # off | permissive | enforce (app/auth.py)
+      AUTH_ISSUER: http://identity:8300
+    volumes:
+      - ../secrets/webhooks:/run/secrets/webhooks:ro   # partner signing keys (payment gateways, carriers)
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8100/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Logins and tokens: buyers and sellers register and sign in here; service clients get scoped tokens
+  identity:
+    restart: unless-stopped
+    build: ./identity
+    container_name: cdc-identity
+    hostname: identity
+    ports:
+      - 127.0.0.1:8300:8300
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?set it in .env, see .env.example}
+      SOURCE_API_URL: http://source-api:8100
+    volumes:
+      - identity_keys:/keys                      # Ed25519 signing key, generated on first start
+      - ../secrets/password_pepper:/run/secrets/password_pepper:ro
+      - ../secrets/admin_password:/run/secrets/admin_password:ro
+      - ../secrets/clients:/run/secrets/clients:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8300/health')\""]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -69,6 +102,10 @@ services:
       SIM_SCALE: ${SIM_SCALE:-medium}
       SIM_AUTO_SEED: ${SIM_AUTO_SEED:-true}
       SIM_SPEED: ${SIM_SPEED:-240}           # business clock speed (×wall clock)
+      IDENTITY_URL: http://identity:8300
+    volumes:
+      - ../secrets/clients/sim-orchestrator:/run/secrets/clients/sim-orchestrator:ro
+      - ../secrets/webhooks:/run/secrets/webhooks:ro    # it plays the payment gateways and carriers
     depends_on:
       source-api:
         condition: service_healthy
@@ -82,6 +119,10 @@ services:
       SIM_SCALE: ${SIM_SCALE:-medium}
       SIM_AUTO_SEED: "false"
       SIM_SPEED: ${SIM_SPEED:-240}
+      IDENTITY_URL: http://identity:8300
+    volumes:
+      - ../secrets/clients/sim-orchestrator:/run/secrets/clients/sim-orchestrator:ro
+      - ../secrets/webhooks:/run/secrets/webhooks:ro
     depends_on:
       source-api:
         condition: service_healthy
@@ -92,3 +133,6 @@ services:
     container_name: cdc-adminer
     ports:
       - 127.0.0.1:8081:8080
+
+volumes:
+  identity_keys:

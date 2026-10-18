@@ -110,3 +110,7 @@ ops:                                      # platform operations agent
       - { prefix: MEGA100K, kind: FIXED, value: 100000, min_spend: 800000, usage_limit: 2000 }
       - { prefix: MEGA15, kind: PERCENT, value: 1500, max_discount: 200000, min_spend: 300000, usage_limit: 3000 }
       - { prefix: MEGASHIP, kind: FREESHIP, value: 50000, usage_limit: 10000 }
+
+auth:
+  login_ratio: 0.05          # sessions of buyers this simulator signed up that start with a password login
+  wrong_password_ratio: 0.02 # of those, a mistyped password first (counts toward the account lockout)

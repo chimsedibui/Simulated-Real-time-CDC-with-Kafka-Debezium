@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header
 from pydantic import BaseModel, Field
 
-from .. import clock, outbox
+from .. import auth, clock, outbox
 from ..db import transaction
 from ..errors import conflict, not_found
 from ..idempotency import run_command
@@ -57,6 +57,7 @@ class Campaign(BaseModel):
 
 @router.post("/admin/categories")
 def upsert_category(body: Category):
+    auth.require_scope("admin")
     with transaction() as cur:
         parent_id = None
         if body.parent_slug:
@@ -80,6 +81,7 @@ def upsert_category(body: Category):
 
 @router.post("/admin/brands")
 def upsert_brand(body: Brand):
+    auth.require_scope("admin")
     with transaction() as cur:
         cur.execute("INSERT INTO ecommerce.brands (name) VALUES (%s) ON CONFLICT (name) DO NOTHING RETURNING id, name",
                     (body.name,))
@@ -113,12 +115,15 @@ def get_clock():
 
 @router.put("/admin/clock")
 def set_clock(body: ClockSpeed):
+    auth.require_scope("sim:clock")
     with transaction() as cur:
         return clock.set_speed(cur, body.speed)
 
 
 @router.post("/admin/vouchers", status_code=201)
 def create_platform_voucher(body: PlatformVoucher, idempotency_key: str | None = Header(None)):
+    auth.require_scope("admin")
+
     def handler(cur):
         return create_voucher(cur, "PLATFORM", None, body)
 
@@ -127,6 +132,8 @@ def create_platform_voucher(body: PlatformVoucher, idempotency_key: str | None =
 
 @router.post("/admin/campaigns", status_code=201)
 def create_campaign(body: Campaign, idempotency_key: str | None = Header(None)):
+    auth.require_scope("admin")
+
     def handler(cur):
         t = clock.business_now(cur) + timedelta(seconds=body.starts_in_s)
         cur.execute("INSERT INTO ecommerce.campaigns (name, kind, starts_at, ends_at) VALUES (%s, %s, %s, %s) RETURNING *",

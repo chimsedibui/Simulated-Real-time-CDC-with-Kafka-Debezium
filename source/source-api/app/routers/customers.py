@@ -5,13 +5,14 @@ import psycopg2
 from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, Field
 
-from .. import outbox
+from .. import auth, outbox
 from ..db import transaction
 from ..errors import conflict, not_found
 from ..idempotency import run_command
 from ..settings import REGIONS
 
 router = APIRouter(prefix="/customers", tags=["customers"])
+internal = APIRouter(tags=["internal"])                     # called by the identity service when a buyer registers
 
 
 class AddressIn(BaseModel):
@@ -51,8 +52,11 @@ def _add_address(cur, customer_id, a: AddressIn, default: bool) -> dict:
     return address
 
 
+@internal.post("/internal/customers", status_code=201)
 @router.post("", status_code=201)
 def register_customer(body: RegisterCustomer, idempotency_key: str | None = Header(None)):
+    auth.require_scope("customers:provision")       # buyers register through the identity service
+
     def handler(cur):
         try:
             cur.execute("SAVEPOINT register")
@@ -75,6 +79,8 @@ def register_customer(body: RegisterCustomer, idempotency_key: str | None = Head
 
 @router.post("/{customer_id}/addresses", status_code=201)
 def add_address(customer_id: UUID, body: AddressIn, idempotency_key: str | None = Header(None)):
+    auth.customer(customer_id)
+
     def handler(cur):
         cur.execute("SELECT id FROM ecommerce.customers WHERE id = %s FOR UPDATE", (customer_id,))
         if not cur.fetchone():
@@ -86,6 +92,8 @@ def add_address(customer_id: UUID, body: AddressIn, idempotency_key: str | None 
 
 @router.post("/{customer_id}/deactivate")
 def deactivate_customer(customer_id: UUID, idempotency_key: str | None = Header(None)):
+    auth.require_scope("admin")
+
     def handler(cur):
         cur.execute("SELECT id, is_active FROM ecommerce.customers WHERE id = %s FOR UPDATE", (customer_id,))
         customer = cur.fetchone()
@@ -105,7 +113,8 @@ def deactivate_customer(customer_id: UUID, idempotency_key: str | None = Header(
 @router.get("")
 def list_customers(active: bool | None = None, segment: str | None = None, random: bool = False,
                    limit: int = Query(100, ge=1, le=5000)):
-    order = "RANDOM()" if random else "created_at DESC"
+    auth.require_scope("ops:read")
+    order = "RANDOM()" if random else "c.created_at DESC"
     with transaction() as cur:
         cur.execute(
             f"""SELECT c.id, c.full_name, c.segment, c.tier, c.total_spent, c.is_active, a.id AS default_address_id
@@ -116,11 +125,16 @@ def list_customers(active: bool | None = None, segment: str | None = None, rando
                 ORDER BY {order} LIMIT %(limit)s""",
             {"active": active, "segment": segment, "limit": limit},
         )
-        return cur.fetchall()
+        rows = cur.fetchall()
+    if auth.mask_pii():
+        for r in rows:
+            r["full_name"] = auth.mask(r["full_name"])
+    return rows
 
 
 @router.get("/{customer_id}")
 def get_customer(customer_id: UUID):
+    auth.read_customer(customer_id)
     with transaction() as cur:
         cur.execute("SELECT * FROM ecommerce.customers WHERE id = %s", (customer_id,))
         customer = cur.fetchone()
@@ -129,4 +143,9 @@ def get_customer(customer_id: UUID):
         cur.execute("SELECT * FROM ecommerce.customer_addresses WHERE customer_id = %s ORDER BY created_at",
                     (customer_id,))
         customer["addresses"] = cur.fetchall()
+    if auth.mask_pii():
+        for row in (customer, *customer["addresses"]):
+            for col in ("full_name", "email", "phone", "recipient_name", "street"):
+                if col in row:
+                    row[col] = auth.mask(row[col])
     return customer

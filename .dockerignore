@@ -6,5 +6,6 @@ source/postgres/data
 docs
 
 observability/secrets
+secrets
 .env
 .env.*

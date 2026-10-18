@@ -6,10 +6,10 @@ from datetime import timedelta
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
 
-from .. import outbox
+from .. import auth, outbox
 from ..clock import business_now
 from ..db import transaction
 from ..domain import pricing, stock
@@ -25,7 +25,7 @@ PaymentMethod = Literal["COD", "WALLET", "CARD", "BANK_TRANSFER"]
 
 
 class CheckoutIn(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None       # the caller's own; may be omitted with a customer token
     payment_method: PaymentMethod
     address_id: UUID | None = None     # default address when omitted
     voucher_codes: list[str] = Field(default_factory=list, max_length=10)
@@ -38,7 +38,7 @@ class PaymentWebhook(BaseModel):
 
 
 class BuyerAction(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None
     reason: str | None = Field(None, max_length=40)
 
 
@@ -58,6 +58,8 @@ def _new_payment(cur, checkout_id, method: str, amount: int, order_id=None) -> d
 
 @router.post("/checkouts", status_code=201)
 def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
+    body.customer_id = auth.own_customer_id(body.customer_id)
+
     def handler(cur):
         cur.execute("SELECT * FROM ecommerce.customers WHERE id = %s", (body.customer_id,))
         customer = cur.fetchone()
@@ -229,6 +231,7 @@ def retry_payment(checkout_id: UUID, idempotency_key: str | None = Header(None))
     """Buyer tries again after a failed attempt; any still-pending attempt is superseded."""
     def handler(cur):
         co = _lock_checkout(cur, checkout_id)
+        auth.customer(co["customer_id"], "checkout")
         if co["status"] != "PENDING_PAYMENT":
             raise conflict("not_awaiting_payment", f"Checkout is {co['status']}")
         if co["pay_by"] < business_now(cur):
@@ -241,8 +244,10 @@ def retry_payment(checkout_id: UUID, idempotency_key: str | None = Header(None))
 
 
 @router.post("/payments/webhook")
-def payment_webhook(body: PaymentWebhook, idempotency_key: str | None = Header(None)):
-    """Gateway callback. Providers retry and duplicate callbacks: a repeated outcome is a no-op."""
+def payment_webhook(body: PaymentWebhook, idempotency_key: str | None = Header(None),
+                    partner: str | None = Depends(auth.verify_webhook)):
+    """Gateway callback, signed by the provider (X-Partner, X-Signature). Providers retry and duplicate callbacks:
+    a repeated outcome is a no-op."""
     def handler(cur):
         cur.execute("SELECT checkout_id FROM ecommerce.payments WHERE transaction_ref = %s", (body.transaction_ref,))
         ref = cur.fetchone()
@@ -251,6 +256,7 @@ def payment_webhook(body: PaymentWebhook, idempotency_key: str | None = Header(N
         co = _lock_checkout(cur, ref["checkout_id"])             # lock order: checkout → payment → orders
         cur.execute("SELECT * FROM ecommerce.payments WHERE transaction_ref = %s FOR UPDATE", (body.transaction_ref,))
         payment = cur.fetchone()
+        auth.partner_is(payment["provider"], partner, "payment")
 
         if payment["status"] == body.status:
             return {"payment": payment, "result": "duplicate_ignored"}
@@ -299,7 +305,8 @@ def buyer_cancel(order_id: UUID, body: BuyerAction, idempotency_key: str | None 
         o = cur.fetchone()
         if not o:
             raise not_found("order", order_id)
-        if o["customer_id"] != body.customer_id:
+        auth.customer(o["customer_id"], "order")
+        if body.customer_id is not None and o["customer_id"] != body.customer_id:
             raise conflict("not_your_order", "Order belongs to another customer")
         reason = body.reason or "buyer_changed_mind"
         if o["status"] != "UNPAID":
@@ -377,6 +384,7 @@ def get_checkout(checkout_id: UUID):
         co = cur.fetchone()
         if not co:
             raise not_found("checkout", checkout_id)
+        auth.read_customer(co["customer_id"], "checkout")
         cur.execute("SELECT * FROM ecommerce.payments WHERE checkout_id = %s ORDER BY created_at", (checkout_id,))
         co["payments"] = cur.fetchall()
         cur.execute("SELECT id, order_number, shop_id, status, total, shop_discount, platform_discount, shipping_subsidy "

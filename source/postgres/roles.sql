@@ -6,7 +6,9 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_reader') THEN CREATE ROLE app_reader LOGIN; END IF;
 END
 $$;
-GRANT CONNECT ON DATABASE enterprise_db TO source_api, app_reader;
+-- nobody connects to the business database unless granted (the identity service's role has no business here)
+REVOKE CONNECT ON DATABASE enterprise_db FROM PUBLIC;
+GRANT CONNECT ON DATABASE enterprise_db TO source_api, app_reader, cdc_user, monitor_reader;
 GRANT USAGE ON SCHEMA ecommerce TO source_api, app_reader;
 
 -- source_api: the only writer. Reads and writes rows; owns nothing and runs no DDL

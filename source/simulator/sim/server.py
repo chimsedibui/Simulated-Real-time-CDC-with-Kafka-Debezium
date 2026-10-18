@@ -7,12 +7,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from .client import SourceApi
+from .client import SourceApi, Tokens
 from .config import load_config
 from .engine import Simulator
 
 cfg = load_config()
-sim = Simulator(cfg, SourceApi(cfg["source_api_url"]))
+sim = Simulator(cfg, SourceApi(cfg["source_api_url"], tokens=Tokens(cfg["identity_url"], "sim-orchestrator")))
 ACTIONS = {"customer", "order", "cart", "advance", "cancel", "restock", "flash_sale", "mega_sale"}
 
 

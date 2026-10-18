@@ -21,6 +21,8 @@ scrape_configs:
     static_configs: [{targets: ["node-exporter:9100"]}]
   - job_name: source-api
     static_configs: [{targets: ["source-api:8100"]}]
+  - job_name: identity
+    static_configs: [{targets: ["identity:8300"]}]
   - job_name: chat-webhook
     static_configs: [{targets: ["chat-webhook:8080"]}]
   - job_name: warehouse-jobs

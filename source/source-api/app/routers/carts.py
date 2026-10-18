@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, Field
 
-from .. import outbox
+from .. import auth, outbox
 from ..db import transaction
 from ..errors import conflict, not_found
 from ..idempotency import run_command
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/carts", tags=["cart"])
 
 
 class AddItem(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None       # the caller's own; may be omitted with a customer token
     sku_id: UUID
     quantity: int = Field(1, ge=1, le=100)
 
@@ -57,6 +57,8 @@ def _locked_item(cur, item_id) -> dict:
         (item_id,),
     )
     item = cur.fetchone()
+    if item:
+        auth.customer(item["customer_id"], "cart_item")
     if not item:
         raise not_found("cart_item", item_id)
     return item
@@ -64,6 +66,8 @@ def _locked_item(cur, item_id) -> dict:
 
 @router.post("/items", status_code=201)
 def add_item(body: AddItem, idempotency_key: str | None = Header(None)):
+    body.customer_id = auth.own_customer_id(body.customer_id)
+
     def handler(cur):
         cur.execute("SELECT is_active FROM ecommerce.customers WHERE id = %s", (body.customer_id,))
         customer = cur.fetchone()
@@ -128,6 +132,7 @@ def remove_item(item_id: UUID, idempotency_key: str | None = Header(None)):
 
 @router.get("")
 def list_carts(status: str = "ACTIVE", random: bool = False, limit: int = Query(50, ge=1, le=1000)):
+    auth.require_scope("ops:read")
     order = "RANDOM()" if random else "c.updated_at DESC"
     with transaction() as cur:
         cur.execute(
@@ -141,7 +146,8 @@ def list_carts(status: str = "ACTIVE", random: bool = False, limit: int = Query(
 
 
 @router.get("/active")
-def get_active_cart(customer_id: UUID):
+def get_active_cart(customer_id: UUID | None = None):
+    customer_id = auth.read_customer_id(customer_id)
     with transaction() as cur:
         cur.execute("SELECT * FROM ecommerce.carts WHERE customer_id = %s AND status = 'ACTIVE'", (customer_id,))
         cart = cur.fetchone()

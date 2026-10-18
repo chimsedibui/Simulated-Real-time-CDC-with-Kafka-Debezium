@@ -8,7 +8,7 @@ import psycopg2
 from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, Field
 
-from .. import outbox
+from .. import auth, outbox
 from ..clock import business_now
 from ..db import transaction
 from ..domain.orders import lock_order, transition
@@ -27,17 +27,17 @@ class ReturnLine(BaseModel):
 
 
 class RequestReturn(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None
     reason: Literal["DAMAGED", "WRONG_ITEM", "NOT_AS_DESCRIBED", "MISSING_PARTS", "CHANGED_MIND"]
     items: list[ReturnLine] = Field(min_length=1)
 
 
 class BuyerRef(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None
 
 
 class ShopRef(BaseModel):
-    shop_id: UUID
+    shop_id: UUID | None = None
 
 
 class Inspection(ShopRef):
@@ -55,7 +55,7 @@ class ReviewLine(BaseModel):
 
 
 class PostReviews(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None
     items: list[ReviewLine] = Field(min_length=1)
 
 
@@ -81,7 +81,8 @@ def approve(cur, ret: dict, actor: str, reason: str) -> dict:
 def request_return(order_id: UUID, body: RequestReturn, idempotency_key: str | None = Header(None)):
     def handler(cur):
         order = lock_order(cur, order_id)
-        if order["customer_id"] != body.customer_id:
+        auth.customer(order["customer_id"], "order")
+        if body.customer_id is not None and order["customer_id"] != body.customer_id:
             raise conflict("not_your_order", "Order belongs to another customer")
         cur.execute("SELECT id, quantity, net_amount FROM ecommerce.order_items WHERE order_id = %s", (order_id,))
         lines = {r["id"]: r for r in cur.fetchall()}
@@ -98,7 +99,7 @@ def request_return(order_id: UUID, body: RequestReturn, idempotency_key: str | N
         cur.execute(
             """INSERT INTO ecommerce.returns (order_id, customer_id, shop_id, reason, status, respond_by)
                VALUES (%s, %s, %s, %s, 'REQUESTED', %s) RETURNING *""",
-            (order_id, body.customer_id, order["shop_id"], body.reason, respond_by),
+            (order_id, order["customer_id"], order["shop_id"], body.reason, respond_by),
         )
         ret = cur.fetchone()
         expected = 0
@@ -117,7 +118,8 @@ def request_return(order_id: UUID, body: RequestReturn, idempotency_key: str | N
 
 def _seller_return(cur, return_id, shop_id) -> dict:
     ret = _lock_return(cur, return_id)
-    if ret["shop_id"] != shop_id:
+    auth.shop(ret["shop_id"], "return")
+    if shop_id is not None and ret["shop_id"] != shop_id:
         raise conflict("not_your_return", "Return belongs to another shop")
     return ret
 
@@ -150,7 +152,8 @@ def seller_inspect(return_id: UUID, body: Inspection, idempotency_key: str | Non
 def buyer_dispute(return_id: UUID, body: BuyerRef, idempotency_key: str | None = Header(None)):
     def handler(cur):
         ret = _lock_return(cur, return_id)
-        if ret["customer_id"] != body.customer_id:
+        auth.customer(ret["customer_id"], "return")
+        if body.customer_id is not None and ret["customer_id"] != body.customer_id:
             raise conflict("not_your_return", "Return belongs to another customer")
         return set_return_status(cur, ret, "DISPUTED", "BUYER", "buyer_disputed")
 
@@ -159,6 +162,8 @@ def buyer_dispute(return_id: UUID, body: BuyerRef, idempotency_key: str | None =
 
 @router.post("/admin/returns/{return_id}/resolve")
 def platform_resolve(return_id: UUID, body: Resolution, idempotency_key: str | None = Header(None)):
+    auth.require_scope("admin")
+
     def handler(cur):
         ret = _lock_return(cur, return_id)
         if ret["status"] != "DISPUTED":
@@ -172,11 +177,16 @@ def platform_resolve(return_id: UUID, body: Resolution, idempotency_key: str | N
 
 
 @router.get("/returns")
-def list_returns(status: str | None = None, random: bool = False, limit: int = Query(100, ge=1, le=5000)):
+def list_returns(status: str | None = None, customer_id: UUID | None = None, shop_id: UUID | None = None,
+                 random: bool = False, limit: int = Query(100, ge=1, le=5000)):
+    customer_id, shop_id = auth.scope_listing(customer_id, shop_id)
     order = "RANDOM()" if random else "created_at DESC"
     with transaction() as cur:
-        cur.execute(f"SELECT * FROM ecommerce.returns WHERE (%(s)s IS NULL OR status = %(s)s) ORDER BY {order} LIMIT %(l)s",
-                    {"s": status, "l": limit})
+        cur.execute(f"""SELECT * FROM ecommerce.returns WHERE (%(s)s IS NULL OR status = %(s)s)
+                          AND (%(c)s::uuid IS NULL OR customer_id = %(c)s::uuid)
+                          AND (%(h)s::uuid IS NULL OR shop_id = %(h)s::uuid)
+                        ORDER BY {order} LIMIT %(l)s""",
+                    {"s": status, "c": customer_id, "h": shop_id, "l": limit})
         return cur.fetchall()
 
 
@@ -187,6 +197,7 @@ def get_return(return_id: UUID):
         ret = cur.fetchone()
         if not ret:
             raise not_found("return", return_id)
+        auth.read_party(ret["customer_id"], ret["shop_id"], "return")
         cur.execute("SELECT * FROM ecommerce.return_items WHERE return_id = %s", (return_id,))
         ret["items"] = cur.fetchall()
     return ret
@@ -199,7 +210,8 @@ def post_reviews(order_id: UUID, body: PostReviews, idempotency_key: str | None 
         order = cur.fetchone()
         if not order:
             raise not_found("order", order_id)
-        if order["customer_id"] != body.customer_id:
+        auth.customer(order["customer_id"], "order")
+        if body.customer_id is not None and order["customer_id"] != body.customer_id:
             raise conflict("not_your_order", "Order belongs to another customer")
         if order["status"] != "COMPLETED":
             raise conflict("not_reviewable", "Only completed orders can be reviewed")
@@ -216,7 +228,7 @@ def post_reviews(order_id: UUID, body: PostReviews, idempotency_key: str | None 
                                                                rating, comment)
                        VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
                     (r.order_item_id, order_id, lines[r.order_item_id]["product_id"], order["shop_id"],
-                     body.customer_id, r.rating, r.comment),
+                     order["customer_id"], r.rating, r.comment),
                 )
                 posted.append({"review_id": cur.fetchone()["id"], "rating": r.rating})
         except psycopg2.errors.UniqueViolation:

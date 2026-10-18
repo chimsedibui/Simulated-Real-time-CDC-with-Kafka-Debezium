@@ -9,7 +9,7 @@ import psycopg2
 from fastapi import APIRouter, Header, Query
 from pydantic import BaseModel, Field, model_validator
 
-from .. import outbox
+from .. import auth, outbox
 from ..clock import business_now
 from ..db import transaction
 from ..domain import pricing, stock
@@ -19,6 +19,7 @@ from ..idempotency import run_command
 from ..settings import COMMISSION_BPS, REGIONS
 
 router = APIRouter(tags=["seller"])
+internal = APIRouter(tags=["internal"])                     # called by the identity service when a seller registers
 
 CARRIERS = {"GHN": ("GHN", 30), "GHTK": ("S", 25), "SPX": ("SPXVN", 25), "J&T": ("JT", 15), "VTP": ("VTP", 5)}
 
@@ -81,15 +82,17 @@ class ShopVoucher(BaseModel):
 
 
 class SellerAction(BaseModel):
-    shop_id: UUID
+    shop_id: UUID | None = None           # the caller's own shop; may be omitted with a seller token
 
 
 class SellerCancel(SellerAction):
     reason: Literal["out_of_stock", "buyer_request", "pricing_error"] = "out_of_stock"
 
 
+@internal.post("/internal/sellers", status_code=201)
 @router.post("/sellers", status_code=201)
 def onboard_seller(body: OnboardSeller, idempotency_key: str | None = Header(None)):
+    auth.require_scope("sellers:provision")         # sellers register through the identity service
     if body.shop.province not in REGIONS:
         raise conflict("unknown_province", f"Unsupported province {body.shop.province}")
 
@@ -119,6 +122,8 @@ def onboard_seller(body: OnboardSeller, idempotency_key: str | None = Header(Non
 
 @router.post("/shops/{shop_id}/products", status_code=201)
 def list_product(shop_id: UUID, body: ListProduct, idempotency_key: str | None = Header(None)):
+    auth.shop(shop_id)
+
     def handler(cur):
         cur.execute("SELECT id, is_active FROM ecommerce.shops WHERE id = %s", (shop_id,))
         shop = cur.fetchone()
@@ -173,9 +178,11 @@ def list_product(shop_id: UUID, body: ListProduct, idempotency_key: str | None =
 @router.post("/skus/{sku_id}/restock")
 def restock(sku_id: UUID, body: Restock, idempotency_key: str | None = Header(None)):
     def handler(cur):
-        cur.execute("SELECT sku_id FROM ecommerce.inventory WHERE sku_id = %s", (sku_id,))
-        if not cur.fetchone():
+        cur.execute("SELECT sku_id, shop_id FROM ecommerce.inventory WHERE sku_id = %s", (sku_id,))
+        inv = cur.fetchone()
+        if not inv:
             raise not_found("sku", sku_id)
+        auth.shop(inv["shop_id"], "sku")
         cur.execute("SELECT gen_random_uuid() AS id")
         restock_id = cur.fetchone()["id"]
         row = stock.move(cur, sku_id, "RESTOCK", body.quantity, "RESTOCK", restock_id)
@@ -192,10 +199,12 @@ def restock(sku_id: UUID, body: Restock, idempotency_key: str | None = Header(No
 @router.patch("/skus/{sku_id}/price")
 def change_price(sku_id: UUID, body: PriceChange, idempotency_key: str | None = Header(None)):
     def handler(cur):
-        cur.execute("SELECT * FROM ecommerce.product_skus WHERE id = %s FOR UPDATE", (sku_id,))
+        cur.execute("""SELECT s.*, p.shop_id FROM ecommerce.product_skus s JOIN ecommerce.products p ON p.id = s.product_id
+                       WHERE s.id = %s FOR UPDATE OF s""", (sku_id,))
         sku = cur.fetchone()
         if not sku:
             raise not_found("sku", sku_id)
+        auth.shop(sku["shop_id"], "sku")
         list_price = max(body.list_price or sku["list_price"], body.price)
         if body.price == sku["price"] and list_price == sku["list_price"]:
             return sku
@@ -215,6 +224,8 @@ def change_price(sku_id: UUID, body: PriceChange, idempotency_key: str | None = 
 
 @router.post("/shops/{shop_id}/vouchers", status_code=201)
 def create_shop_voucher(shop_id: UUID, body: ShopVoucher, idempotency_key: str | None = Header(None)):
+    auth.shop(shop_id)
+
     def handler(cur):
         cur.execute("SELECT id FROM ecommerce.shops WHERE id = %s", (shop_id,))
         if not cur.fetchone():
@@ -250,7 +261,8 @@ def create_voucher(cur, scope: str, shop_id, body) -> dict:
 
 def _seller_order(cur, order_id, shop_id) -> dict:
     order = lock_order(cur, order_id)
-    if order["shop_id"] != shop_id:
+    auth.shop(order["shop_id"], "order")
+    if shop_id is not None and order["shop_id"] != shop_id:
         raise conflict("not_your_order", "Order belongs to another shop")
     return order
 
@@ -309,7 +321,13 @@ def list_shops(limit: int = Query(1000, ge=1, le=10000)):
                ORDER BY s.created_at LIMIT %s""",
             (limit,),
         )
-        return cur.fetchall()
+        shops = cur.fetchall()
+    p = auth.current()
+    if not p.can_read_all():                 # public directory: a wallet is only for ops and the shop itself
+        for row in shops:
+            if str(row["id"]) not in p.shop_ids:
+                row.pop("wallet_balance", None)
+    return shops
 
 
 @router.get("/skus")
@@ -334,12 +352,15 @@ def list_skus(available: bool = False, shop_id: UUID | None = None, random: bool
 
 
 @router.get("/inventory/low-stock")
-def low_stock(limit: int = Query(20, ge=1, le=1000)):
+def low_stock(shop_id: UUID | None = None, limit: int = Query(20, ge=1, le=1000)):
+    if not auth.current().can_read_all():
+        shop_id = auth.own_shop_id(shop_id)
     with transaction() as cur:
         cur.execute(
             """SELECT sku_id, shop_id, on_hand, reserved, available, reorder_point
                FROM ecommerce.inventory WHERE available <= reorder_point
+                 AND (%s::uuid IS NULL OR shop_id = %s::uuid)
                ORDER BY available, sku_id LIMIT %s""",
-            (limit,),
+            (shop_id, shop_id, limit),
         )
         return cur.fetchall()

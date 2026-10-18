@@ -34,7 +34,7 @@
         {
           "refId": "A",
           "expr": "up",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -64,7 +64,7 @@
         {
           "refId": "A",
           "expr": "cdc_dependency_up or cdc_service_up",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -94,7 +94,7 @@
         {
           "refId": "A",
           "expr": "1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -124,7 +124,7 @@
         {
           "refId": "A",
           "expr": "1-node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -154,7 +154,7 @@
         {
           "refId": "A",
           "expr": "node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -184,7 +184,7 @@
         {
           "refId": "A",
           "expr": "sum by(handler)(rate(http_requests_total{job=\"source-api\"}[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -214,7 +214,7 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.95,sum by(le)(rate(http_request_duration_highr_seconds_bucket{job=\"source-api\"}[5m])))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -243,8 +243,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99,sum by(le)(rate(http_request_duration_seconds_bucket{job=\"source-api\",handler=\"/checkouts\",method=\"POST\"}[5m])))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "histogram_quantile(0.99,sum by(le)(rate(http_request_duration_seconds_bucket{job=\"source-api\",handler=~\"(/v1)?/checkouts\",method=\"POST\"}[5m])))",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -257,7 +257,7 @@
     },
     {
       "id": 9,
-      "title": "Source API 5xx/s",
+      "title": "Authorization decisions/s",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -273,13 +273,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(http_requests_total{job=\"source-api\",status=~\"5..\"}[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "sum by(outcome)(rate(auth_decisions_total[5m]))",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -287,7 +287,7 @@
     },
     {
       "id": 10,
-      "title": "Kafka topic ingress/s",
+      "title": "Logins/s by outcome \u00b7 tokens issued/s by grant",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -303,8 +303,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(topic)(rate(kafka_topic_partition_current_offset[5m]))",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "sum by(outcome)(rate(identity_logins_total[5m])) or sum by(grant)(rate(identity_tokens_total[5m]))",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -317,12 +317,72 @@
     },
     {
       "id": 11,
-      "title": "Kafka consumer backlog",
+      "title": "Source API 5xx/s",
       "type": "timeseries",
       "description": "",
       "gridPos": {
         "x": 0,
         "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total{job=\"source-api\",status=~\"5..\"}[5m]))",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "title": "Kafka topic ingress/s",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(topic)(rate(kafka_topic_partition_current_offset[5m]))",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "title": "Kafka consumer backlog",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
         "w": 12,
         "h": 8
       },
@@ -334,7 +394,7 @@
         {
           "refId": "A",
           "expr": "sum by(consumergroup)(kafka_consumergroup_lag)",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -346,13 +406,13 @@
       "options": {}
     },
     {
-      "id": 12,
+      "id": 14,
       "title": "Kafka under-replicated partitions",
       "type": "timeseries",
       "description": "",
       "gridPos": {
         "x": 12,
-        "y": 40,
+        "y": 48,
         "w": 12,
         "h": 8
       },
@@ -364,7 +424,7 @@
         {
           "refId": "A",
           "expr": "sum(kafka_topic_partition_under_replicated_partition)",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -376,68 +436,8 @@
       "options": {}
     },
     {
-      "id": 13,
-      "title": "Debezium behind source",
-      "type": "timeseries",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 48,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "cdc_debezium_behind_source_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "id": 14,
-      "title": "Debezium change queue free",
-      "type": "timeseries",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 48,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "cdc_debezium_queue_remaining_ratio",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
       "id": 15,
-      "title": "CDC ingest p95 lag",
+      "title": "Debezium behind source",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -453,8 +453,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_ingest_lag_p95_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_debezium_behind_source_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -467,7 +467,7 @@
     },
     {
       "id": 16,
-      "title": "CDC events/s \u00b7 approximate",
+      "title": "Debezium change queue free",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -483,13 +483,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(cdc_events_total[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_debezium_queue_remaining_ratio",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ops"
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -497,7 +497,7 @@
     },
     {
       "id": 17,
-      "title": "Held transactions",
+      "title": "CDC ingest p95 lag",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -513,13 +513,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_transactions_held_back",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_ingest_lag_p95_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": []
       },
@@ -527,7 +527,7 @@
     },
     {
       "id": 18,
-      "title": "Oldest held transaction age",
+      "title": "CDC events/s \u00b7 approximate",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -543,13 +543,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_oldest_held_transaction_age_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "rate(cdc_events_total[5m])",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -557,7 +557,7 @@
     },
     {
       "id": 19,
-      "title": "Debezium connector/task running",
+      "title": "Held transactions",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -573,8 +573,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_connect_running",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_transactions_held_back",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -587,7 +587,7 @@
     },
     {
       "id": 20,
-      "title": "Postgres retained WAL",
+      "title": "Oldest held transaction age",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -603,8 +603,68 @@
       "targets": [
         {
           "refId": "A",
+          "expr": "cdc_oldest_held_transaction_age_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 21,
+      "title": "Debezium connector/task running",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 80,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cdc_connect_running",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 22,
+      "title": "Postgres retained WAL",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 80,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
           "expr": "cdc_postgres_slot_retained_wal_bytes",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -616,13 +676,13 @@
       "options": {}
     },
     {
-      "id": 21,
+      "id": 23,
       "title": "Slot WAL left before invalidation",
       "type": "timeseries",
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 80,
+        "y": 88,
         "w": 12,
         "h": 8
       },
@@ -634,7 +694,7 @@
         {
           "refId": "A",
           "expr": "cdc_postgres_slot_safe_wal_bytes",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -646,13 +706,13 @@
       "options": {}
     },
     {
-      "id": 22,
+      "id": 24,
       "title": "Postgres connections",
       "type": "timeseries",
       "description": "",
       "gridPos": {
         "x": 12,
-        "y": 80,
+        "y": 88,
         "w": 12,
         "h": 8
       },
@@ -664,67 +724,7 @@
         {
           "refId": "A",
           "expr": "cdc_postgres_connections",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "id": 23,
-      "title": "Postgres lock waiters",
-      "type": "timeseries",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 88,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "cdc_postgres_lock_waiters",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "id": 24,
-      "title": "Postgres deadlocks / 5m",
-      "type": "timeseries",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 88,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "increase(cdc_postgres_deadlocks_total[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -737,7 +737,7 @@
     },
     {
       "id": 25,
-      "title": "ClickHouse memory",
+      "title": "Postgres lock waiters",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -753,13 +753,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_clickhouse_metric{metric=\"MemoryTracking\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_postgres_lock_waiters",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -767,7 +767,7 @@
     },
     {
       "id": 26,
-      "title": "ClickHouse active queries",
+      "title": "Postgres deadlocks / 5m",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -783,8 +783,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_clickhouse_metric{metric=\"Query\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "increase(cdc_postgres_deadlocks_total[5m])",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -797,7 +797,7 @@
     },
     {
       "id": 27,
-      "title": "ClickHouse failed queries/s",
+      "title": "ClickHouse memory",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -813,38 +813,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(cdc_clickhouse_events_total{event=\"FailedQuery\"}[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "id": 28,
-      "title": "ClickHouse storage \u00b7 hot (default) vs cold (S3)",
-      "type": "timeseries",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 104,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by(disk)(cdc_clickhouse_bytes_on_disk)",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_clickhouse_metric{metric=\"MemoryTracking\"}",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -856,8 +826,38 @@
       "options": {}
     },
     {
+      "id": 28,
+      "title": "ClickHouse active queries",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 104,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "cdc_clickhouse_metric{metric=\"Query\"}",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
       "id": 29,
-      "title": "Dashboard query p95 \u00b7 SLO 500 ms",
+      "title": "ClickHouse failed queries/s",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -873,13 +873,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_clickhouse_select_p95_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "rate(cdc_clickhouse_events_total{event=\"FailedQuery\"}[5m])",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "ops"
         },
         "overrides": []
       },
@@ -887,7 +887,7 @@
     },
     {
       "id": 30,
-      "title": "ClickHouse max parts per partition \u00b7 top 10",
+      "title": "ClickHouse storage \u00b7 hot (default) vs cold (S3)",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -903,13 +903,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, cdc_clickhouse_max_parts_per_partition)",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "sum by(disk)(cdc_clickhouse_bytes_on_disk)",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -917,7 +917,7 @@
     },
     {
       "id": 31,
-      "title": "Mart refresh age",
+      "title": "Dashboard query p95 \u00b7 SLO 500 ms",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -933,8 +933,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time()-cdc_mart_last_success_timestamp_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_clickhouse_select_p95_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -947,7 +947,7 @@
     },
     {
       "id": 32,
-      "title": "Mart refresh duration",
+      "title": "ClickHouse max parts per partition \u00b7 top 10",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -963,13 +963,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_mart_refresh_duration_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "topk(10, cdc_clickhouse_max_parts_per_partition)",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -977,7 +977,7 @@
     },
     {
       "id": 33,
-      "title": "Snapshot run duration \u00b7 full vs delta",
+      "title": "Mart refresh age",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -993,8 +993,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "warehouse_snapshot_duration_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "time()-cdc_mart_last_success_timestamp_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -1007,7 +1007,7 @@
     },
     {
       "id": 34,
-      "title": "Keys re-read per delta snapshot",
+      "title": "Mart refresh duration",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1023,13 +1023,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "warehouse_snapshot_keys",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_mart_refresh_duration_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": []
       },
@@ -1037,7 +1037,7 @@
     },
     {
       "id": 35,
-      "title": "Reconciliation execution age",
+      "title": "Snapshot run duration \u00b7 full vs delta",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1053,8 +1053,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time()-cdc_reconciliation_last_success_timestamp_seconds",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "warehouse_snapshot_duration_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -1067,7 +1067,7 @@
     },
     {
       "id": 36,
-      "title": "Reconciliation failing tables",
+      "title": "Keys re-read per delta snapshot",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1083,8 +1083,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_reconciliation_failing_tables",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "warehouse_snapshot_keys",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -1097,7 +1097,7 @@
     },
     {
       "id": 37,
-      "title": "Quarantined ingestion errors",
+      "title": "Reconciliation execution age",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1113,13 +1113,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "cdc_ingest_errors_total",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "time()-cdc_reconciliation_last_success_timestamp_seconds",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "short"
+          "unit": "s"
         },
         "overrides": []
       },
@@ -1127,7 +1127,7 @@
     },
     {
       "id": 38,
-      "title": "Google Chat deliveries / 5m",
+      "title": "Reconciliation failing tables",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1143,8 +1143,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "increase(chat_webhook_deliveries_total[5m])",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "expr": "cdc_reconciliation_failing_tables",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {
@@ -1157,7 +1157,7 @@
     },
     {
       "id": 39,
-      "title": "Active alerts",
+      "title": "Quarantined ingestion errors",
       "type": "timeseries",
       "description": "",
       "gridPos": {
@@ -1173,8 +1173,68 @@
       "targets": [
         {
           "refId": "A",
+          "expr": "cdc_ingest_errors_total",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 40,
+      "title": "Google Chat deliveries / 5m",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 152,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(chat_webhook_deliveries_total[5m])",
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 41,
+      "title": "Active alerts",
+      "type": "timeseries",
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 160,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
           "expr": "ALERTS{alertstate=\"firing\"}",
-          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}"
+          "legendFormat": "{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}"
         }
       ],
       "fieldConfig": {

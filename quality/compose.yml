@@ -9,3 +9,7 @@ services:
       PG_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set it in .env, see .env.example}
+      IDENTITY_URL: http://identity:8300
+    volumes:
+      - ../secrets/clients/quality:/run/secrets/clients/quality:ro
+      - ../secrets/webhooks:/run/secrets/webhooks:ro

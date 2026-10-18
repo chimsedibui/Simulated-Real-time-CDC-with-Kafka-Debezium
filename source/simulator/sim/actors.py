@@ -21,12 +21,12 @@ class Actors:
 
     def register_customer(self, quiet: bool = False):
         name = vn.full_name()
-        c = self.api.command("/customers", {
-            "full_name": name, "email": vn.email_for(name), "phone": vn.phone(),
-            "segment": pick(self.cfg["buyer"]["segment_mix"]),
-            "registered_channel": "APP" if chance(0.75) else "WEB",
-            "address": vn.address(name),
-        })
+        profile = {"full_name": name, "email": vn.email_for(name), "phone": vn.phone(),
+                   "segment": pick(self.cfg["buyer"]["segment_mix"]),
+                   "registered_channel": "APP" if chance(0.75) else "WEB", "address": vn.address(name)}
+        c = self.api.tokens.register("/v1/auth/register", profile)["customer"]     # sign-up through identity
+        with self.lock:
+            self.accounts[c["id"]] = profile["email"]
         self.count("customers.registered")
         if not quiet:
             log.info(f"[customer.registered] {name} · {c['segment']} · {c['default_address']['province']}")
@@ -48,6 +48,8 @@ class Actors:
         if not self.skus or not self.customers:
             return
         customer = random.choices(self.customers, weights=self.customer_weights)[0]
+        me = f"customer:{customer['id']}"
+        self.sign_in(customer["id"], me)
         seg = customer["segment"]
         boost = 4 if seg == "BARGAIN_HUNTER" else 2
         weights = self.sku_weights if not self.flash_skus else \
@@ -56,18 +58,18 @@ class Actors:
         basket = {}                                       # shop_id -> merchandise value this session
         for sku in picks.values():
             qty = random.randint(1, 5) if seg == "BUSINESS" else random.choices([1, 2, 3], weights=b["quantity_weights"])[0]
-            self.api.command("/carts/items", {"customer_id": customer["id"], "sku_id": sku["id"], "quantity": qty})
+            self.api.command("/carts/items", {"sku_id": sku["id"], "quantity": qty}, as_=me)
             basket[sku["shop_id"]] = basket.get(sku["shop_id"], 0) + sku["price"] * qty
             self.count("cart.items_added")
 
         if chance(b["edit_cart_ratio"]):
-            items = self.api.query("/carts/active", customer_id=customer["id"])["items"]
+            items = self.api.query("/carts/active", as_=me)["items"]
             if len(items) > 1 and chance(0.5):
-                self.api.command(f"/carts/items/{random.choice(items)['id']}", method="DELETE")
+                self.api.command(f"/carts/items/{random.choice(items)['id']}", method="DELETE", as_=me)
                 self.count("cart.items_removed")
             elif items:
                 self.api.command(f"/carts/items/{random.choice(items)['id']}", {"quantity": random.randint(1, 3)},
-                                 method="PATCH")
+                                 method="PATCH", as_=me)
 
         ratio = b["checkout_ratio"][seg] * (1.4 if self.flash_skus and seg == "BARGAIN_HUNTER" else 1)
         go = chance(min(ratio, 0.95)) if force_checkout is None else force_checkout
@@ -94,14 +96,26 @@ class Actors:
                 by_shop.setdefault(v["shop_id"], v["code"])
         return codes + list(by_shop.values())
 
+    def sign_in(self, customer_id: str, me: str):
+        """Some sessions start with a real password login (customers this simulator signed up); the rest use an
+        exchanged token. A few mistype their password, which the identity service counts toward a lockout."""
+        a = self.cfg["auth"]
+        email = self.accounts.get(customer_id)
+        if email and chance(a["login_ratio"]):
+            if chance(a["wrong_password_ratio"]):
+                self.api.tokens.login(me, email, password="mistyped-password")
+                self.count("auth.wrong_password")
+            if self.api.tokens.login(me, email):
+                self.count("auth.logins")
+
     def checkout(self, customer_id: str, seg: str = "REGULAR", basket: dict | None = None):
+        me = f"customer:{customer_id}"
         method = pick(self.cfg["buyer"]["payment_methods"])
         codes = self.choose_vouchers(seg, basket or {})
         res = None
         for attempt in range(4):
             try:
-                res = self.api.command("/checkouts", {"customer_id": customer_id, "payment_method": method,
-                                                      "voucher_codes": codes})
+                res = self.api.command("/checkouts", {"payment_method": method, "voucher_codes": codes}, as_=me)
                 break
             except ApiError as e:
                 if e.code == "voucher_invalid" and e.detail.get("voucher") in codes:
@@ -110,10 +124,10 @@ class Actors:
                     continue
                 if e.code == "out_of_stock" and attempt < 3:
                     short = {i["sku_id"] for i in e.detail["items"]}
-                    items = self.api.query("/carts/active", customer_id=customer_id)["items"]
+                    items = self.api.query("/carts/active", as_=me)["items"]
                     for item in items:
                         if item["sku_id"] in short:
-                            self.api.command(f"/carts/items/{item['id']}", method="DELETE")
+                            self.api.command(f"/carts/items/{item['id']}", method="DELETE", as_=me)
                     if len(short) >= len(items):
                         self.count("checkout.gave_up")
                         return
@@ -134,7 +148,7 @@ class Actors:
         log.info(f"[checkout] {len(res['orders'])} order(s) · {vnd(co['grand_total'])} · {method}"
                  + (f" · −{vnd(co['discount_total'])}" if co["discount_total"] else ""))
         if res["payment"]:
-            self.schedule_payment(res["payment"]["transaction_ref"], co["id"])
+            self.schedule_payment(res["payment"]["transaction_ref"], co["id"], res["payment"]["provider"], customer_id)
 
     def buyers_after_sale(self, dt_h: float):
         b = self.cfg["buyer"]
@@ -156,12 +170,12 @@ class Actors:
         self.parallel(tasks)
 
     def _confirm(self, o):
-        self.api.command(f"/orders/{o['id']}/confirm-received", {"customer_id": o["customer_id"]})
+        self.api.command(f"/orders/{o['id']}/confirm-received", {}, as_=f"customer:{o['customer_id']}")
         self.count("orders.confirmed")
 
     def _cancel(self, o, status: str):
-        self.api.command(f"/orders/{o['id']}/cancel", {"customer_id": o["customer_id"], "reason": random.choice(
-            ["changed_mind", "found_cheaper", "wrong_address", "ordered_by_mistake"])})
+        self.api.command(f"/orders/{o['id']}/cancel", {"reason": random.choice(
+            ["changed_mind", "found_cheaper", "wrong_address", "ordered_by_mistake"])}, as_=f"customer:{o['customer_id']}")
         self.count(f"orders.buyer_cancelled.{status.lower()}")
         log.info(f"[order.cancelled] {o['order_number']} by buyer ({status})")
 
@@ -178,7 +192,8 @@ class Actors:
             lines = [{"order_item_id": line["id"], "quantity": random.randint(1, line["quantity"])}]
         else:
             lines = [{"order_item_id": i["id"], "quantity": i["quantity"]} for i in items]
-        self.api.command(f"/orders/{o['id']}/returns", {"customer_id": o["customer_id"], "reason": reason, "items": lines})
+        self.api.command(f"/orders/{o['id']}/returns", {"reason": reason, "items": lines},
+                         as_=f"customer:{o['customer_id']}")
         self.count(f"returns.requested.{reason}")
         log.info(f"[return.requested] {o['order_number']} · {reason} · {sum(l['quantity'] for l in lines)} unit(s)")
 
@@ -189,12 +204,12 @@ class Actors:
         reviews = [{"order_item_id": i["id"], "rating": random.choices([1, 2, 3, 4, 5], weights=weights)[0],
                     "comment": random.choice([None, "Giao nhanh, đóng gói kỹ", "Hàng đúng mô tả", "Tạm ổn",
                                               "Shop tư vấn nhiệt tình", "Giao hơi chậm"])} for i in items]
-        self.api.command(f"/orders/{o['id']}/reviews", {"customer_id": o["customer_id"], "items": reviews})
+        self.api.command(f"/orders/{o['id']}/reviews", {"items": reviews}, as_=f"customer:{o['customer_id']}")
         self.count("reviews.posted", len(reviews))
 
     # ================================================================== payment gateway (mock)
 
-    def schedule_payment(self, ref: str, checkout_id: str, attempt: int = 1):
+    def schedule_payment(self, ref: str, checkout_id: str, provider: str, customer_id: str, attempt: int = 1):
         g = self.cfg["payment_gateway"]
         if chance(g["never_pay_rate"]):
             self.count("payments.never_paid")
@@ -206,8 +221,9 @@ class Actors:
             due = now + random.uniform(*g["delay_s"])
             outcome = "SUCCEEDED" if chance(g["success_rate"]) else "FAILED"
         with self.lock:
-            heapq.heappush(self.payments, (due, next(self.seq), {"ref": ref, "outcome": outcome,
-                                                                  "checkout_id": checkout_id, "attempt": attempt}))
+            heapq.heappush(self.payments, (due, next(self.seq), {"ref": ref, "outcome": outcome, "provider": provider,
+                                                                  "checkout_id": checkout_id, "attempt": attempt,
+                                                                  "customer_id": customer_id}))
 
     def gateway_callbacks(self, now: datetime):
         due = []
@@ -222,17 +238,19 @@ class Actors:
                 "failure_reason": None if job["outcome"] == "SUCCEEDED" else random.choice(
                     ["insufficient_funds", "card_declined", "otp_timeout", "bank_maintenance"])}
         event_id = f"gw-{uuid.uuid4()}"
-        res = self.api.command("/payments/webhook", body, key=event_id)
+        res = self.api.command("/payments/webhook", body, key=event_id, signed=job["provider"])
         if chance(g["duplicate_callback_rate"]):
             # providers redeliver: sometimes the same event id, sometimes a new one
-            self.api.command("/payments/webhook", body, key=event_id if chance(0.5) else f"gw-{uuid.uuid4()}")
+            self.api.command("/payments/webhook", body, key=event_id if chance(0.5) else f"gw-{uuid.uuid4()}",
+                             signed=job["provider"])
             self.count("payments.duplicate_callbacks")
         self.count(f"payments.{res['result']}")
         if res["result"] != "paid":
             log.info(f"[payment.{res['result']}] {job['ref'][:16]}… attempt {job['attempt']}")
         if job["outcome"] == "FAILED" and chance(g["retry_after_failure"]):
-            retry = self.api.command(f"/checkouts/{job['checkout_id']}/payments")
-            self.schedule_payment(retry["transaction_ref"], job["checkout_id"], job["attempt"] + 1)
+            retry = self.api.command(f"/checkouts/{job['checkout_id']}/payments", as_=f"customer:{job['customer_id']}")
+            self.schedule_payment(retry["transaction_ref"], job["checkout_id"], retry["provider"], job["customer_id"],
+                                  job["attempt"] + 1)
 
     # ================================================================== sellers
 
@@ -254,17 +272,18 @@ class Actors:
         self.restock_low(dt_h)
 
     def _pack(self, o):
-        self.api.command(f"/orders/{o['id']}/pack", {"shop_id": o["shop_id"]})
+        self.api.command(f"/orders/{o['id']}/pack", {}, as_=f"shop:{o['shop_id']}")
         self.count("orders.packed")
 
     def _seller_cancel(self, o):
-        self.api.command(f"/orders/{o['id']}/seller-cancel", {"shop_id": o["shop_id"], "reason": "out_of_stock"})
+        self.api.command(f"/orders/{o['id']}/seller-cancel", {"reason": "out_of_stock"}, as_=f"shop:{o['shop_id']}")
         self.count("orders.seller_cancelled")
         log.info(f"[order.cancelled] {o['order_number']} by seller (out of stock)")
 
     def _change_price(self, sku):
         new = max(1_000, round(sku["price"] * random.uniform(0.85, 1.15) / 1_000) * 1_000)
-        self.api.command(f"/skus/{sku['id']}/price", {"price": new, "reason": "repricing"}, method="PATCH")
+        self.api.command(f"/skus/{sku['id']}/price", {"price": new, "reason": "repricing"}, method="PATCH",
+                         as_=f"shop:{sku['shop_id']}")
         sku["price"] = new
         self.count("prices.changed")
 
@@ -276,7 +295,7 @@ class Actors:
 
     def _restock(self, row):
         qty = random.randint(*self.cfg["seller"]["restock_units"])
-        self.api.command(f"/skus/{row['sku_id']}/restock", {"quantity": qty})
+        self.api.command(f"/skus/{row['sku_id']}/restock", {"quantity": qty}, as_=f"shop:{row['shop_id']}")
         self.count("inventory.restocks")
 
     def returns_work(self, dt_h: float):
@@ -294,19 +313,19 @@ class Actors:
         self.parallel(tasks)
 
     def _answer_return(self, r, approve: bool):
-        self.api.command(f"/returns/{r['id']}/{'approve' if approve else 'reject'}", {"shop_id": r["shop_id"]})
+        self.api.command(f"/returns/{r['id']}/{'approve' if approve else 'reject'}", {}, as_=f"shop:{r['shop_id']}")
         self.count(f"returns.{'approved' if approve else 'rejected'}")
 
     def _inspect(self, r):
         items = self.api.query(f"/returns/{r['id']}")["items"]
         sellable = self.cfg["seller"]["sellable_ratio"]
         conditions = {i["order_item_id"]: "SELLABLE" if chance(sellable) else "DAMAGED" for i in items}
-        res = self.api.command(f"/returns/{r['id']}/inspect", {"shop_id": r["shop_id"], "conditions": conditions})
+        res = self.api.command(f"/returns/{r['id']}/inspect", {"conditions": conditions}, as_=f"shop:{r['shop_id']}")
         self.count("returns.refunded")
         log.info(f"[return.refunded] {vnd(res['refund_amount'])} · {r['reason']}")
 
     def _dispute(self, r):
-        self.api.command(f"/returns/{r['id']}/dispute", {"customer_id": r["customer_id"]})
+        self.api.command(f"/returns/{r['id']}/dispute", {}, as_=f"customer:{r['customer_id']}")
         self.count("returns.disputed")
 
     # ================================================================== carriers (mock)
@@ -364,7 +383,7 @@ class Actors:
                 at = last + timedelta(seconds=1)
         hub = s["to_province"] if event in ("OUT_FOR_DELIVERY", "DELIVERED", "DELIVERY_FAILED") else s["from_province"]
         ev = {"tracking_number": s["tracking_number"], "event": event, "event_time": at.isoformat(),
-              "location": f"Hub {hub}", "carrier_event_id": f"{s['carrier']}-{uuid.uuid4()}"}
+              "location": f"Hub {hub}", "carrier_event_id": f"{s['carrier']}-{uuid.uuid4()}", "carrier": s["carrier"]}
         res = self._send_scan(ev)
         if res and chance(c["duplicate_callback_rate"]):
             self._send_scan(ev)                      # same carrier event redelivered
@@ -381,7 +400,8 @@ class Actors:
             log.info(f"[carrier.{event.lower()}] {s['order_number']} · {s['carrier']} {s['tracking_number']}")
 
     def _send_scan(self, ev):
-        res = self.api.command("/logistics/webhook", ev, key=ev["carrier_event_id"])
+        body = {k: v for k, v in ev.items() if k != "carrier"}
+        res = self.api.command("/logistics/webhook", body, key=ev["carrier_event_id"], signed=ev["carrier"])
         if res["result"] != "applied":
             self.count(f"carrier.{res['result']}")
         return res

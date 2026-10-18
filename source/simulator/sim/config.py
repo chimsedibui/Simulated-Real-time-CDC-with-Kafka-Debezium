@@ -7,6 +7,7 @@ import yaml
 def load_config() -> dict:
     path = Path(os.getenv("SIM_CONFIG", Path(__file__).parent.parent / "config.yaml"))
     cfg = yaml.safe_load(path.read_text())
+    cfg.setdefault("identity_url", os.getenv("IDENTITY_URL", "http://identity:8300"))
     if os.getenv("SOURCE_API_URL"):
         cfg["source_api_url"] = os.environ["SOURCE_API_URL"]
     if os.getenv("SIM_SCALE"):

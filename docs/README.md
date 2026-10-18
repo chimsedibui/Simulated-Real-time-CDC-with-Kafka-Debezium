@@ -56,6 +56,7 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 | SeaweedFS | `chrislusf/seaweedfs:4.47` | internal | S3-compatible bucket for bronze's cold volume |
 | Control Center | `apps/control-center` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, links to Grafana |
 | Source API | `source/source-api` (FastAPI, `API_WORKERS` Uvicorn workers, default 6) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs`, Prometheus metrics at `/metrics` |
+| Identity | `source/identity` (FastAPI, argon2id, EdDSA JWT) | `127.0.0.1:8300` | Sign-up and login for buyers and sellers, rotating refresh tokens, service-client and exchanged tokens; own database `identity_db` |
 | Simulator | `source/simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
 | Warehouse jobs | `warehouse/jobs` (Python) | `9109` (metrics, internal) | Marts, business-day close, reconciliation at a pinned watermark |
 | Prometheus | `prom/prometheus:v3.2.1` | `127.0.0.1:9090` | Metrics (15 days) and 31 alert rules |
@@ -129,7 +130,8 @@ Real-time CDC/
 ├── source/                       # the system being captured
 │   ├── postgres/                 # init.sql (schema, outbox, publication, cdc_user), postgresql.conf, pg_hba.conf;
 │   │                             #   also runs observability/setup-postgres.sql (monitor_reader)
-│   ├── source-api/               # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency)
+│   ├── source-api/               # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency), auth.py
+│   ├── identity/                 # FastAPI: sign-up, login, tokens (identity_db)
 │   ├── simulator/                # traffic simulator; config.yaml holds scale presets and odds
 │   └── compose.yml               # postgres, source-api, simulator, adminer
 ├── kafka/
@@ -168,7 +170,7 @@ Monitoring setup, dashboards and alert runbooks are in [observability/README.md]
 
 ### 1. Start the stack
 
-Every password and the PII salt live in a gitignored `.env`. Create it once; `setup-env.sh` fills each value in `.env.example` with a random secret:
+Every password and the PII salt live in a gitignored `.env`, and the auth secrets (password pepper, admin login, service-client secrets, partner webhook keys) in the gitignored `secrets/` directory, one file each. `setup-env.sh` creates both with random values and only ever adds what is missing:
 
 ```bash
 ./setup-env.sh
@@ -220,7 +222,8 @@ curl -X POST localhost:8200/stop
 | UI | URL | Credentials |
 |----|-----|-------------|
 | **CDC Control Center** | http://localhost:8000 | — |
-| Source API docs | http://localhost:8100/docs | — |
+| Source API docs | http://localhost:8100/docs | Bearer token (`/v1`) |
+| Identity | http://localhost:8300/.well-known/openid-configuration | `admin@cdc.local` · password in `secrets/admin_password` |
 | ClickHouse Play (SQL) | http://localhost:8123/play | User: `admin` · Password: `CLICKHOUSE_PASSWORD` in `.env` |
 | Kafka UI | http://localhost:8080 | — |
 | Adminer (DB) | http://localhost:8081 | Server: `postgres` · User: `admin` · Password: `POSTGRES_PASSWORD` in `.env` · DB: `enterprise_db` |
@@ -369,6 +372,30 @@ docker compose --profile tools run --rm validator python probe_consistency.py --
 ```
 
 It polls cross-table invariants that hold inside one PostgreSQL transaction (completed order has its SALE entry, order line has its order, payout has its ledger entry, inventory = Σ stock ledger, …) through `silver FINAL` and through `consistent.*(v)` with one pinned watermark per poll, and fails if `consistent.*` ever breaks one.
+
+---
+
+## Security: identity, tokens, partners
+
+The Source API trusts no identity a caller types in. Every request carries a token from the identity service, or a signature for partner callbacks; `AUTH_MODE` (`off`, `permissive` to count would-be denials, `enforce`) sets whether the API refuses.
+
+| Caller | How it authenticates | What it may do |
+|--------|----------------------|----------------|
+| Buyer | `POST /v1/auth/register` or `/v1/auth/login` on the identity service → 10-minute EdDSA access token + rotating 30-day refresh token (a reused refresh token revokes the session) | Only their own cart, checkouts, orders, returns and profile; someone else's resource answers 404 |
+| Seller | `POST /v1/auth/register/seller`, then login | Only their own shop: listings, prices, stock, vouchers, packing, returns; no wallet of another shop |
+| Ops / admin | Login with an ops or admin membership; scopes `ops:read`, `pii:read`, `admin` | Ops read everything with personal data masked unless `pii:read`; admins write platform data |
+| Service client (simulator `sim-orchestrator`, `quality`) | `client_credentials` at `/v1/auth/token`; may exchange its token for a customer's or shop's (RFC 8693, `act` names the client) | Its scopes; acting as a buyer or shop, exactly what that buyer or shop may do |
+| Payment gateway, carrier | `X-Partner` + `X-Signature: t=<unix>,v1=<HMAC-SHA256(key, t + "." + body)>`, 5 minutes of clock skew | Only callbacks about its own payments or parcels |
+
+- **Passwords:** argon2id (19 MiB, 2 passes) with a pepper kept outside the database; 10 wrong passwords in 15 minutes lock an account for 15 minutes; unknown emails get the same answer and timing.
+- **Identity data stays out of CDC:** users, memberships, refresh tokens and the audit log live in `identity_db`, owned by `identity_app`, which can connect to nothing else. A publication belongs to one database, so none of it can reach Kafka or the warehouse.
+- **Registration is a retryable saga:** the user is created PENDING, the customer or shop is provisioned through `POST /v1/internal/customers` / `sellers` (scope `*:provision`, Idempotency-Key = user id), then the user becomes ACTIVE.
+- **Idempotency keys are per caller:** a key is stored with a prefix derived from the caller, so nobody can replay another caller's response.
+- **Database roles:** the API writes as `source_api` (rows only, no DDL); readers use `app_reader`; nothing connects to `enterprise_db` without a grant.
+- **Monitoring:** `auth_decisions_total{outcome}`, `identity_logins_total{outcome}`, `identity_tokens_total{grant}` on Platform Health; `LoginFailuresHigh` fires when most logins fail.
+- **Tests:** `quality/test_auth.py` covers anonymous calls, forged tokens, cross-buyer and cross-shop access, signed webhooks, idempotency isolation, refresh reuse and lockout.
+
+The simulator signs buyers and sellers up through the identity service, starts a share of sessions with a real password login (a few mistyped), acts through exchanged tokens otherwise, and signs every gateway and carrier callback. Routes are versioned under `/v1`; the unversioned paths exist only while `AUTH_MODE` is not `enforce`.
 
 ---
 
@@ -609,7 +636,7 @@ To rebuild only the warehouse, for example after editing `warehouse/clickhouse/i
 
 The platform review (requirements R1–R27, SLOs and the phased plan) lives in the document *Đánh giá Data Platform & Yêu cầu Scale*. Still open:
 
-- **Security:** API authentication and authorization (logins, scoped tokens, signed partner webhooks), file-based secrets instead of environment variables, TLS for Kafka and the databases. Plan in the artifact *Source API auth & secrets plan*. The old development passwords and PII salt remain in git history: rotate them in `.env` for any shared environment.
+- **Security:** an HTTPS gateway with rate limits in front of the API and identity (P7), database passwords as secret files instead of environment variables (P8), TLS for Kafka and the databases. Plan in the artifact *Source API auth & secrets plan*. The old development passwords and PII salt remain in git history: rotate them in `.env` for any shared environment.
 - **Marts at scale:** snapshots are incremental (R20), but each mart is still aggregated over the whole snapshot; at T1 volumes the heaviest marts (shop, product, category sales) would need per-day partial aggregates.
 - **Cold storage:** bronze moves to S3 after 30 days (R13/R19); Kafka itself still keeps the broker default retention, and silver is not rebuilt from the lake (R21).
 - **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9, needs bronze and silver rewritten from JSON to Avro); the T1 peak of 5,400 events/s (measured locally: ~1,800, limited by the write path: split the stock of best-selling SKUs into slots like voucher quota).

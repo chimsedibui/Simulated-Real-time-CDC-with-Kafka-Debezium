@@ -6,17 +6,85 @@ Each test builds its own shops, listings and buyers through the API, so it can r
 simulator and never depends on existing data.
 """
 
+import hashlib
+import hmac
+import json
 import os
+import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import httpx
 import pytest
 
-API = os.getenv("SOURCE_API_URL", "http://source-api:8100")
-api = httpx.Client(base_url=API, timeout=30)
+API = os.getenv("SOURCE_API_URL", "http://source-api:8100") + "/v1"
+IDENTITY = os.getenv("IDENTITY_URL", "http://identity:8300")
+SECRETS = Path(os.getenv("SECRETS_DIR", "/run/secrets"))
+
+
+class ClientToken(httpx.Auth):
+    """Bearer token of a service client (client credentials), renewed a minute before it expires."""
+
+    def __init__(self, client_id: str = "quality", subject: str | None = None):
+        self.client_id, self.subject, self.token, self.exp = client_id, subject, None, 0.0
+        self.lock = threading.Lock()
+
+    def fetch(self) -> str:
+        with self.lock:
+            if time.time() > self.exp:
+                form = {"client_id": self.client_id,
+                        "client_secret": (SECRETS / "clients" / self.client_id).read_text().strip()}
+                form |= {"grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+                         "requested_subject": self.subject} if self.subject else {"grant_type": "client_credentials"}
+                r = httpx.post(f"{IDENTITY}/v1/auth/token", data=form, timeout=10)
+                r.raise_for_status()
+                self.token, self.exp = r.json()["access_token"], time.time() + r.json()["expires_in"] - 60
+            return self.token
+
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"Bearer {self.fetch()}"
+        yield request
+
+
+PROVIDERS = {}            # transaction_ref -> provider, learnt from checkout and retry responses (signing key)
+
+
+def _learn_payments(response: httpx.Response):
+    if response.request.method == "POST" and response.status_code == 201 and "/checkouts" in response.request.url.path:
+        response.read()
+        body = response.json()
+        for p in (body.get("payment"), body) if isinstance(body, dict) else ():
+            if isinstance(p, dict) and p.get("transaction_ref") and p.get("provider"):
+                PROVIDERS[p["transaction_ref"]] = p["provider"]
+
+
+# the tests set up shops, buyers and master data as the platform admin (quality client); test_auth.py covers
+# what buyers and sellers may and may not do with their own tokens
+api = httpx.Client(base_url=API, timeout=30, auth=ClientToken(), event_hooks={"response": [_learn_payments]})
+
+
+def partner_id(name: str) -> str:
+    return "".join(ch for ch in name.upper() if ch.isalnum())
+
+
+def signed(partner: str, body: dict) -> dict:
+    """Headers of a webhook signed the way a payment gateway or carrier signs it."""
+    raw = json.dumps(body).encode()
+    ts = str(int(time.time()))
+    key = (SECRETS / "webhooks" / partner_id(partner)).read_bytes().strip()
+    return {"content": raw, "headers": {"Content-Type": "application/json", "X-Partner": partner_id(partner),
+                                        "X-Signature": f"t={ts},v1=" + hmac.new(key, ts.encode() + b"." + raw,
+                                                                                hashlib.sha256).hexdigest()}}
+
+
+def carrier_of(tracking: str) -> str:
+    for prefix, carrier in (("SPXVN", "SPX"), ("GHN", "GHN"), ("VTP", "VTP"), ("JT", "JT"), ("S", "GHTK")):
+        if tracking.startswith(prefix):
+            return carrier
+    return "GHN"
 
 
 def ok(r: httpx.Response, status: int = 200) -> dict:
@@ -83,8 +151,10 @@ def shop_row(shop_id) -> dict:
 
 
 def pay(ref, status="SUCCEEDED", key=None):
-    headers = {"Idempotency-Key": key} if key else {}
-    return api.post("/payments/webhook", json={"transaction_ref": ref, "status": status}, headers=headers)
+    req = signed(PROVIDERS.get(ref, "MOMO"), {"transaction_ref": ref, "status": status})
+    if key:
+        req["headers"]["Idempotency-Key"] = key
+    return api.post("/payments/webhook", **req)
 
 
 _clock_base = None
@@ -102,9 +172,9 @@ _step = iter(range(1, 10**9, 10))
 
 
 def track(tracking, event, at=None, event_id=None):
-    return api.post("/logistics/webhook", json={
+    return api.post("/logistics/webhook", **signed(carrier_of(tracking), {
         "tracking_number": tracking, "event": event, "carrier_event_id": event_id or f"evt-{uuid.uuid4()}",
-        "event_time": at or carrier_time(next(_step)), "location": "Hub"})
+        "event_time": at or carrier_time(next(_step)), "location": "Hub"}))
 
 
 def pack(o, s) -> str:

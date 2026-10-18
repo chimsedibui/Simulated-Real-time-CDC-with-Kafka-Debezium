@@ -145,8 +145,15 @@ groups:
         annotations:
           summary: 'Source API p95 latency exceeds 2 seconds'
           description: 'Check DB lock waits and CPU saturation. Scale API only when the application tier is the bottleneck.'
+      - alert: LoginFailuresHigh
+        expr: sum(rate(identity_logins_total{outcome=~"failed|locked"}[5m])) > 1 and sum(rate(identity_logins_total{outcome=~"failed|locked"}[5m])) > 0.5 * sum(rate(identity_logins_total[5m]))
+        for: 10m
+        labels: {severity: warning, service: identity}
+        annotations:
+          summary: 'Most logins are failing or hitting locked accounts'
+          description: 'Possible credential stuffing. Inspect identity audit (identity_db.audit) by client IP before blocking.'
       - alert: CheckoutLatencyHigh
-        expr: histogram_quantile(0.99, sum by(le)(rate(http_request_duration_seconds_bucket{job="source-api",handler="/checkouts",method="POST"}[5m]))) > 0.3 and on() sum(rate(http_request_duration_seconds_count{job="source-api",handler="/checkouts",method="POST"}[5m])) > 0.1
+        expr: histogram_quantile(0.99, sum by(le)(rate(http_request_duration_seconds_bucket{job="source-api",handler=~"(/v1)?/checkouts",method="POST"}[5m]))) > 0.3 and on() sum(rate(http_request_duration_seconds_count{job="source-api",handler=~"(/v1)?/checkouts",method="POST"}[5m])) > 0.1
         for: 10m
         labels: {severity: warning, service: source-api, slo: write-path}
         annotations:

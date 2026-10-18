@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
+from . import auth
 from .db import transaction
 from .errors import DomainError
 
@@ -36,6 +37,8 @@ def run_command(key: str | None, endpoint: str, body, handler, status_code: int 
 
 
 def _run(key: str | None, endpoint: str, body, handler, status_code: int):
+    if key:
+        key = f"{auth.current().key_scope}:{key}"[:100]    # one caller can never replay another caller's response
     with transaction() as cur:
         if key:
             request_hash = _hash(body)

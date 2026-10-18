@@ -84,6 +84,7 @@ class Simulator(Actors):
         self.ops_day = None
         self.business_now = None
         self.remeasure = False
+        self.accounts = {}          # customer_id -> email of the buyers this simulator signed up (password logins)
         self.clock_speed = cfg["clock"]["speed"]
         self.logs = LogBuffer()
         log.addHandler(self.logs)
@@ -133,13 +134,12 @@ class Simulator(Actors):
                 self.tick_cfg["new_customers_per_tick"] = max(0, min(int(new_customers_per_tick), 1000))
 
     def set_speed(self, speed: float) -> dict:
-        r = self.api.http.put("/admin/clock", json={"speed": speed})
-        r.raise_for_status()
+        body = self.api.command("/admin/clock", {"speed": speed}, method="PUT")
         self.clock_speed = speed
         self.remeasure = True             # next tick takes Δt from the interval; business_now stays set, a
                                           # tick running in the simulation thread may still read it
         log.info(f"[clock] business time now runs at ×{speed:g}")
-        return r.json()
+        return body
 
     def start(self):
         if self.running:
@@ -244,10 +244,10 @@ class Simulator(Actors):
             for _ in range(5):
                 name = vn.shop_name(existing + i + 1)
                 try:
-                    shop = self.api.command("/sellers", {
+                    shop = self.api.tokens.register("/v1/auth/register/seller", {     # sign-up through identity
                         "legal_name": f"Công ty TNHH {name}", "email": f"seller.{uuid.uuid4().hex[:10]}@shop.vn",
                         "shop": {"name": name, "tier": tier, "province": vn.shop_province()},
-                    })
+                    })["shop"]
                     break
                 except ApiError as e:
                     if e.code != "seller_exists":
@@ -257,13 +257,13 @@ class Simulator(Actors):
             listed = 0
             while listed < skus_per_shop:
                 product = catalog.make_product(random.choice(leaves), f"S{uuid.uuid4().hex[:10].upper()}")
-                listed += len(self.api.command(f"/shops/{shop['id']}/products", product)["skus"])
+                listed += len(self.api.command(f"/shops/{shop['id']}/products", product, as_=f"shop:{shop['id']}")["skus"])
             if chance(self.cfg["scale"]["shop_voucher_ratio"]):
                 value = random.choice([10_000, 20_000, 30_000, 50_000])
                 self.api.command(f"/shops/{shop['id']}/vouchers", {
                     "code": f"SHOP{uuid.uuid4().hex[:8].upper()}", "kind": "FIXED", "value": value,
                     "min_spend": value * random.choice([8, 10, 15]), "usage_limit": random.choice([100, 200, 500]),
-                    "duration_s": 60 * 86400})
+                    "duration_s": 60 * 86400}, as_=f"shop:{shop['id']}")
             self._done()
 
         with ThreadPoolExecutor(max_workers=self.cfg["seed"]["concurrency"]) as pool:

@@ -67,7 +67,9 @@ queries=[
  ('Disk free','node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"}','bytes'),
  ('Source API requests/s','sum by(handler)(rate(http_requests_total{job="source-api"}[5m]))','reqps'),
  ('Source API p95 latency','histogram_quantile(0.95,sum by(le)(rate(http_request_duration_highr_seconds_bucket{job="source-api"}[5m])))','s'),
- ('Checkout p99 latency · SLO 300 ms','histogram_quantile(0.99,sum by(le)(rate(http_request_duration_seconds_bucket{job="source-api",handler="/checkouts",method="POST"}[5m])))','s'),
+ ('Checkout p99 latency · SLO 300 ms','histogram_quantile(0.99,sum by(le)(rate(http_request_duration_seconds_bucket{job="source-api",handler=~"(/v1)?/checkouts",method="POST"}[5m])))','s'),
+ ('Authorization decisions/s','sum by(outcome)(rate(auth_decisions_total[5m]))','ops'),
+ ('Logins/s by outcome · tokens issued/s by grant','sum by(outcome)(rate(identity_logins_total[5m])) or sum by(grant)(rate(identity_tokens_total[5m]))','ops'),
  ('Source API 5xx/s','sum(rate(http_requests_total{job="source-api",status=~"5.."}[5m]))','reqps'),
  ('Kafka topic ingress/s','sum by(topic)(rate(kafka_topic_partition_current_offset[5m]))','ops'),
  ('Kafka consumer backlog','sum by(consumergroup)(kafka_consumergroup_lag)','short'),
@@ -100,6 +102,6 @@ queries=[
  ('Google Chat deliveries / 5m','increase(chat_webhook_deliveries_total[5m])','short'),
  ('Active alerts','ALERTS{alertstate="firing"}','short')]
 for title,expr,unit in queries:
- panel(platform,title,prom,dict(expr=expr,legendFormat='{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}}'),unit=unit)
+ panel(platform,title,prom,dict(expr=expr,legendFormat='{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}'),unit=unit)
 for d in [business,platform]:
  (ROOT/(d['uid']+'.json')).write_text(json.dumps(d,indent=2)+'\n')
