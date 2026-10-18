@@ -15,8 +15,8 @@ docker compose up -d --wait postgres kafka clickhouse debezium
 # Init scripts only run on a fresh volume
 docker compose exec -T postgres psql -U admin -d enterprise_db -v ON_ERROR_STOP=1 -q < observability/setup-postgres.sql
 docker compose exec -T postgres psql -U admin -d enterprise_db -v ON_ERROR_STOP=1 -q < source/postgres/roles.sql
-docker compose exec -T postgres sh /docker-entrypoint-initdb.d/03-passwords.sh
-docker compose exec -T postgres sh /docker-entrypoint-initdb.d/04-identity.sh
+docker compose exec -T postgres sh /docker-entrypoint-initdb.d/04-passwords.sh
+docker compose exec -T postgres sh /docker-entrypoint-initdb.d/05-identity.sh
 docker compose exec -T clickhouse bash /docker-entrypoint-initdb.d/06-monitoring.sh
 for sql in 07-snapshots.sql 08-cold-storage.sql; do
   docker compose exec -T clickhouse bash -c 'clickhouse-client --user admin --password "$(cat /run/secrets/clickhouse_password)" --multiquery' \
