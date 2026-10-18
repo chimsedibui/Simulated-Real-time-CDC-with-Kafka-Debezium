@@ -1,6 +1,8 @@
 #!/bin/sh
 # SeaweedFS in one process (master, volume, filer, S3 on 8333) with one S3 identity from the secret files, and the
 # bronze-cold bucket created once; the healthcheck waits for the marker file.
+# Volumes are 1 GB with a fixed count: the defaults (30 GB each, count sized from free disk) leave none writable on a
+# small disk such as a CI runner.
 set -eu
 COLD_STORAGE_ACCESS_KEY=$(cat /run/secrets/cold_storage_access_key)
 COLD_STORAGE_SECRET_KEY=$(cat /run/secrets/cold_storage_secret_key)
@@ -9,7 +11,7 @@ cat > /tmp/s3.json <<JSON
                  "credentials": [{"accessKey": "$COLD_STORAGE_ACCESS_KEY", "secretKey": "$COLD_STORAGE_SECRET_KEY"}],
                  "actions": ["Admin", "Read", "Write", "List", "Tagging"]}]}
 JSON
-weed server -dir=/data -ip=seaweedfs -ip.bind=0.0.0.0 -volume.max=0 -s3 -s3.port=8333 -s3.config=/tmp/s3.json &
+weed server -dir=/data -ip=seaweedfs -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=1024 -volume.max=50 -s3 -s3.port=8333 -s3.config=/tmp/s3.json &
 server=$!
 until echo "s3.bucket.list" | weed shell -master=seaweedfs:9333 >/dev/null 2>&1; do sleep 1; done
 echo "s3.bucket.create -name bronze-cold" | weed shell -master=seaweedfs:9333 >/dev/null 2>&1 || true

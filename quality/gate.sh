@@ -57,7 +57,7 @@ seed() {
       "import json,sys;s=json.load(sys.stdin)['seeding'];print(s['running'],s['done'],s['target'])" 2>/dev/null || true)
     [[ "$r" == False* ]] && break; sleep 2
   done
-  echo "seeding done: $r · $(curl -s localhost:8100/stats)"
+  echo "seeding done: $r · $(pg "SELECT (SELECT count(*) FROM ecommerce.shops) || ' shops, ' || (SELECT count(*) FROM ecommerce.customers) || ' customers'")"
 }
 
 tests() {
