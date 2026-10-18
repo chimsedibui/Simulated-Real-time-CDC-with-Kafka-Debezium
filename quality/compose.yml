@@ -6,10 +6,12 @@ services:
     environment:
       SOURCE_API_URL: http://source-api:8100
       PG_HOST: postgres
-      PG_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
+      PG_PASSWORD_FILE: /run/secrets/postgres_password
       CLICKHOUSE_HOST: clickhouse
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set it in .env, see .env.example}
+      CLICKHOUSE_PASSWORD_FILE: /run/secrets/clickhouse_password
       IDENTITY_URL: http://identity:8300
     volumes:
       - ../secrets/clients/quality:/run/secrets/clients/quality:ro
       - ../secrets/webhooks:/run/secrets/webhooks:ro
+      - ../secrets/postgres_password:/run/secrets/postgres_password:ro
+      - ../secrets/clickhouse_password:/run/secrets/clickhouse_password:ro

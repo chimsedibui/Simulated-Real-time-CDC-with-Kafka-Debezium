@@ -3,7 +3,7 @@
 # belongs to one database, so credentials kept here can never reach CDC. Runs at init on a fresh volume and from
 # observability/start.sh on an existing one (idempotent).
 set -eu
-psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v pw="$IDENTITY_DB_PASSWORD" <<'SQL'
+psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v pw="$(cat /run/secrets/identity_db_password)" <<'SQL'
 SELECT 'CREATE ROLE identity_app LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'identity_app')\gexec
 ALTER ROLE identity_app PASSWORD :'pw';
 SELECT 'CREATE DATABASE identity_db OWNER identity_app'

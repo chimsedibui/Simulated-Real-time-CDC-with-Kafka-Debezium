@@ -23,5 +23,5 @@ datasources:
       defaultDatabase: mart
       tlsSkipVerify: false
     secureJsonData:
-      password: $GRAFANA_READER_PASSWORD
+      password: $__file{/run/secrets/grafana_reader_password}
     editable: false

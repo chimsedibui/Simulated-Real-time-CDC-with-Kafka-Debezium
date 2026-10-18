@@ -4,7 +4,7 @@ Control Center (`http://localhost:8000`) runs the simulator and live CDC feed. I
 
 - Business Analytics: http://localhost:3000/d/cdc-business
 - Platform Health: http://localhost:3000/d/cdc-platform
-- Grafana local login: `admin` / `GRAFANA_ADMIN_PASSWORD` from the root `.env`. Grafana, Prometheus and Alertmanager listen on localhost only; change the port binding and the password before exposing Grafana to other devices.
+- Grafana local login: `admin` / `secrets/grafana_admin_password`. Grafana, Prometheus and Alertmanager listen on localhost only; change the port binding and the password before exposing Grafana to other devices.
 - Prometheus: http://localhost:9090
 - Alertmanager: http://localhost:9093
 
@@ -21,7 +21,7 @@ Set `GRAFANA_PUBLIC_URL` to a reachable Grafana URL when Chat notifications are 
 
 The secret is gitignored, mounted only into the bridge, and excluded from Docker build contexts. Never put it in dashboard JSON, alert annotations, tracked YAML, or command output. The bridge has no published host port. It returns 503 on upstream failure so Alertmanager can retry. `chat_webhook_deliveries_total` tracks delivery outcomes without logging the URL or upstream response.
 
-`start.sh` applies the read-only database accounts and every password in the root `.env` to existing volumes; fresh volumes get the same through init scripts (`source/postgres/passwords.sh`, `warehouse/clickhouse/init/06-monitoring.sh`). `grafana_reader` can select marts and completed refresh metadata; `monitor_reader` reads monitoring data. No password is stored in tracked files.
+`start.sh` applies the read-only database accounts and every password in `secrets/` to existing volumes; fresh volumes get the same through init scripts (`source/postgres/passwords.sh`, `warehouse/clickhouse/init/06-monitoring.sh`). `grafana_reader` can select marts and completed refresh metadata; `monitor_reader` reads monitoring data. No password is stored in tracked files.
 
 All long-running services use `restart: unless-stopped`; the on-demand validator does not restart automatically. Docker must itself start at boot. A deliberately stopped container remains stopped.
 

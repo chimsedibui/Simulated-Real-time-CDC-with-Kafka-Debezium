@@ -9,6 +9,13 @@ import psycopg2.extras
 from fastapi import HTTPException
 from psycopg2.pool import ThreadedConnectionPool
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 psycopg2.extras.register_uuid()
 
 POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
@@ -27,7 +34,7 @@ def init_pool():
         host=os.getenv("PG_HOST", "localhost"),
         port=int(os.getenv("PG_PORT", "5432")),
         user=os.getenv("PG_USER", "admin"),
-        password=os.environ["PG_PASSWORD"],
+        password=secret("PG_PASSWORD"),
         dbname=os.getenv("PG_DB", "enterprise_db"),
         application_name="source-api",
     )

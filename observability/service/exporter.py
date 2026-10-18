@@ -9,6 +9,13 @@ import clickhouse_connect
 import psycopg2
 from prometheus_client import Gauge, start_http_server
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 UP = Gauge('cdc_dependency_up', 'Last dependency collection succeeded', ['dependency'])
 LAST = Gauge('cdc_dependency_last_success_timestamp_seconds', 'Last successful collection', ['dependency'])
 CH = Gauge('cdc_clickhouse_metric', 'ClickHouse system.metrics', ['metric'])
@@ -43,7 +50,7 @@ SERVICE = Gauge('cdc_service_up', 'HTTP health endpoint succeeds', ['service'])
 
 def collect_clickhouse():
     ch = clickhouse_connect.get_client(host=os.getenv('CLICKHOUSE_HOST', 'clickhouse'),
-        username='monitor_reader', password=os.environ['MONITOR_PASSWORD'], connect_timeout=3, send_receive_timeout=10)
+        username='monitor_reader', password=secret("MONITOR_PASSWORD"), connect_timeout=3, send_receive_timeout=10)
     try:
         def one(sql):
             return ch.query(sql).result_rows[0]
@@ -81,7 +88,7 @@ def collect_clickhouse():
 
 def collect_postgres():
     with psycopg2.connect(host=os.getenv('PG_HOST', 'postgres'), user='monitor_reader',
-                         password=os.environ['MONITOR_PASSWORD'], dbname='enterprise_db', connect_timeout=3,
+                         password=secret("MONITOR_PASSWORD"), dbname='enterprise_db', connect_timeout=3,
                          options='-c statement_timeout=5000') as conn:
         conn.set_session(readonly=True)
         with conn.cursor() as cur:

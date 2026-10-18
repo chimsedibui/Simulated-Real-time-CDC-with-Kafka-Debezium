@@ -19,11 +19,18 @@ from fastapi.staticfiles import StaticFiles
 from cdc_stream import CdcStream
 from warehouse import Warehouse
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 DB_CFG = {
     "host":     os.getenv("PG_HOST", "localhost"),
     "port":     int(os.getenv("PG_PORT", "5432")),
     "user":     os.getenv("PG_USER", "admin"),
-    "password": os.environ["PG_PASSWORD"],
+    "password": secret("PG_PASSWORD"),
     "dbname":   os.getenv("PG_DB", "enterprise_db"),
 }
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:29092")
@@ -41,7 +48,7 @@ warehouse = Warehouse(
     host=os.getenv("CLICKHOUSE_HOST", "localhost"),
     port=int(os.getenv("CLICKHOUSE_PORT", "8123")),
     user=os.getenv("CLICKHOUSE_USER", "admin"),
-    password=os.environ["CLICKHOUSE_PASSWORD"],
+    password=secret("CLICKHOUSE_PASSWORD"),
 )
 
 app = FastAPI(title="CDC Control Center")
@@ -121,7 +128,7 @@ def health():
 @app.post("/api/connector/register")
 def register_connector():
     # the PII salt is part of a config key, which Connect's config providers can't fill in
-    body = CONNECTOR_CONFIG.read_text().replace("${PII_SALT}", os.environ["PII_SALT"]).encode()
+    body = CONNECTOR_CONFIG.read_text().replace("${PII_SALT}", secret("PII_SALT")).encode()
     req = urllib.request.Request(
         f"{DEBEZIUM_URL}/connectors", data=body, method="POST",
         headers={"Content-Type": "application/json"},

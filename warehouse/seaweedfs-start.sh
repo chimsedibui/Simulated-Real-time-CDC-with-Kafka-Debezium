@@ -1,7 +1,9 @@
 #!/bin/sh
-# SeaweedFS in one process (master, volume, filer, S3 on 8333) with one S3 identity from the environment, and the
+# SeaweedFS in one process (master, volume, filer, S3 on 8333) with one S3 identity from the secret files, and the
 # bronze-cold bucket created once; the healthcheck waits for the marker file.
 set -eu
+COLD_STORAGE_ACCESS_KEY=$(cat /run/secrets/cold_storage_access_key)
+COLD_STORAGE_SECRET_KEY=$(cat /run/secrets/cold_storage_secret_key)
 cat > /tmp/s3.json <<JSON
 {"identities": [{"name": "clickhouse",
                  "credentials": [{"accessKey": "$COLD_STORAGE_ACCESS_KEY", "secretKey": "$COLD_STORAGE_SECRET_KEY"}],

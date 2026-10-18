@@ -23,6 +23,13 @@ import psycopg2
 sys.path.insert(0, str(Path(__file__).parent))
 from gen_silver import TABLES, render  # noqa: E402
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 ROOT = Path(__file__).resolve().parents[2]
 CONNECTOR = json.loads((ROOT / "debezium" / "postgres-connector.json").read_text())["config"]
 
@@ -49,7 +56,7 @@ def streamed(table: str) -> bool:
 
 def main():
     pg = psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=int(os.getenv("PG_PORT", "5432")),
-                          user=os.getenv("PG_USER", "admin"), password=os.environ["PG_PASSWORD"],
+                          user=os.getenv("PG_USER", "admin"), password=secret("PG_PASSWORD"),
                           dbname=os.getenv("PG_DB", "enterprise_db"))
     with pg.cursor() as cur:
         cur.execute("""SELECT table_name, column_name, data_type, is_nullable = 'YES'

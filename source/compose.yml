@@ -7,14 +7,15 @@ services:
       - 127.0.0.1:5432:5432
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_DB: enterprise_db
-      CDC_DB_PASSWORD: ${CDC_DB_PASSWORD:?set it in .env, see .env.example}
-      MONITOR_PASSWORD: ${MONITOR_PASSWORD:?set it in .env, see .env.example}
-      SOURCE_API_DB_PASSWORD: ${SOURCE_API_DB_PASSWORD:?set it in .env, see .env.example}
-      APP_READER_PASSWORD: ${APP_READER_PASSWORD:?set it in .env, see .env.example}
-      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?set it in .env, see .env.example}
     volumes:
+      - ../secrets/postgres_password:/run/secrets/postgres_password:ro
+      - ../secrets/cdc_db_password:/run/secrets/cdc_db_password:ro
+      - ../secrets/monitor_password:/run/secrets/monitor_password:ro
+      - ../secrets/source_api_db_password:/run/secrets/source_api_db_password:ro
+      - ../secrets/app_reader_password:/run/secrets/app_reader_password:ro
+      - ../secrets/identity_db_password:/run/secrets/identity_db_password:ro
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
       - ../observability/setup-postgres.sql:/docker-entrypoint-initdb.d/02-monitoring.sql:ro
       - ./postgres/roles.sql:/docker-entrypoint-initdb.d/02a-roles.sql:ro
@@ -43,7 +44,7 @@ services:
       PG_HOST: postgres
       PG_PORT: 5432
       PG_USER: source_api                      # DML only (source/postgres/roles.sql)
-      PG_PASSWORD: ${SOURCE_API_DB_PASSWORD:?set it in .env, see .env.example}
+      PG_PASSWORD_FILE: /run/secrets/source_api_db_password
       PG_DB: enterprise_db
       # Python runs one core per process: 2 workers capped the API at ~380 requests/s under load tests
       API_WORKERS: ${API_WORKERS:-6}
@@ -52,6 +53,7 @@ services:
       AUTH_ISSUER: http://identity:8300
     volumes:
       - ../secrets/webhooks:/run/secrets/webhooks:ro   # partner signing keys (payment gateways, carriers)
+      - ../secrets/source_api_db_password:/run/secrets/source_api_db_password:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,10 +74,11 @@ services:
       - 127.0.0.1:8300:8300
     environment:
       DB_HOST: postgres
-      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?set it in .env, see .env.example}
+      DB_PASSWORD_FILE: /run/secrets/identity_db_password
       SOURCE_API_URL: http://source-api:8100
     volumes:
       - identity_keys:/keys                      # Ed25519 signing key, generated on first start
+      - ../secrets/identity_db_password:/run/secrets/identity_db_password:ro
       - ../secrets/password_pepper:/run/secrets/password_pepper:ro
       - ../secrets/admin_password:/run/secrets/admin_password:ro
       - ../secrets/clients:/run/secrets/clients:ro

@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 EXTRA=${1:-5}; SECS=${2:-600}; SPEED=${3:-1440}
 DC="docker compose --profile load"
 TICK='{"interval":1,"orders_per_tick":50,"new_customers_per_tick":6}'
-ch() { $DC exec -T clickhouse bash -c 'clickhouse-client --user admin --password "$CLICKHOUSE_PASSWORD" --query "$0"' "$1"; }
+ch() { $DC exec -T clickhouse bash -c 'clickhouse-client --user admin --password "$(cat /run/secrets/clickhouse_password)" --query "$0"' "$1"; }
 prom() { curl -s localhost:9090/api/v1/query --data-urlencode "query=$1" | python3 -c \
   'import json,sys;r=json.load(sys.stdin)["data"]["result"];print(round(float(r[0]["value"][1]),3) if r else "n/a")'; }
 sims() { $DC ps -q simulator-load; }

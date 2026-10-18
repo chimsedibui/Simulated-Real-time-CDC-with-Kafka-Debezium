@@ -21,7 +21,7 @@ OUT=${GATE_OUT:-/tmp/cdc-gate}
 mkdir -p "$OUT"
 
 pg() { $DC exec -T postgres psql -U admin -d enterprise_db -Atc "$1"; }
-ch() { $DC exec -T clickhouse bash -c 'clickhouse-client --user admin --password "$CLICKHOUSE_PASSWORD" --query "$0"' "$1"; }
+ch() { $DC exec -T clickhouse bash -c 'clickhouse-client --user admin --password "$(cat /run/secrets/clickhouse_password)" --query "$0"' "$1"; }
 api() { curl -s -m "${3:-10}" -X "$1" "localhost:8000/api/$2" -H 'Content-Type: application/json' -d "${4:-}"; }
 step() { echo; echo "== $*"; }
 deadlocks() { pg "SELECT deadlocks FROM pg_stat_database WHERE datname = 'enterprise_db'"; }

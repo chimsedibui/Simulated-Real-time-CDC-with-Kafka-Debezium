@@ -16,6 +16,13 @@ import time
 
 import clickhouse_connect
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 INVARIANTS = {
     "completed order without its SALE ledger entry": """
         SELECT count() FROM {orders} AS o
@@ -48,7 +55,7 @@ def main():
     ap.add_argument("--every", type=float, default=2.0)
     args = ap.parse_args()
     ch = clickhouse_connect.get_client(host=os.getenv("CLICKHOUSE_HOST", "clickhouse"), port=8123,
-                                       username="admin", password=os.environ["CLICKHOUSE_PASSWORD"])
+                                       username="admin", password=secret("CLICKHOUSE_PASSWORD"))
     worst = {(r, name): 0 for r in READERS for name in INVARIANTS}
     hits = {(r, name): 0 for r in READERS for name in INVARIANTS}
     polls, open_max = 0, 0

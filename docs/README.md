@@ -159,7 +159,7 @@ Real-time CDC/
 ├── observability/                # Prometheus (alerts.yml + tests), Alertmanager, Grafana (provisioning, dashboards,
 │   │                             #   generate_dashboards.py), service/ (platform-exporter, chat-webhook), start.sh
 │   └── compose.yml
-├── .env.example, setup-env.sh   # secrets template; setup-env.sh writes the gitignored .env with random values
+├── setup-env.sh, .env.example   # writes secrets/ (one file per secret, gitignored) and .env (non-secret settings)
 ├── docs/
 └── .github/workflows/            # CI: data contract; observability config, alert tests, dashboards; smoke gate
 ```
@@ -172,7 +172,7 @@ Monitoring setup, dashboards and alert runbooks are in [observability/README.md]
 
 ### 1. Start the stack
 
-Every password and the PII salt live in a gitignored `.env`, and the auth secrets (password pepper, admin login, service-client secrets, partner webhook keys) in the gitignored `secrets/` directory, one file each. `setup-env.sh` creates both with random values and only ever adds what is missing:
+Every secret is a file in the gitignored `secrets/` directory: database and Grafana passwords, the PII salt, the S3 keys, the identity service's pepper and admin login, service-client secrets, partner webhook keys and the gateway's TLS certificate. Each service mounts only the files it needs under `/run/secrets` and reads them through `*_FILE` settings (PostgreSQL, ClickHouse and Grafana natively, Debezium through `DirectoryConfigProvider`), so no password appears in the compose file, the environment or `docker inspect`. `.env` keeps non-secret settings such as `AUTH_MODE`. `setup-env.sh` creates everything with random values, only ever adds what is missing, and moves values from an older `.env` into files:
 
 ```bash
 ./setup-env.sh
@@ -185,7 +185,7 @@ touch observability/secrets/google-chat-webhook
 docker compose up -d
 ```
 
-On existing volumes (init scripts only run on fresh ones), or after changing `.env`, run `./observability/start.sh`: it applies the accounts and passwords, the Grafana admin password and the connector config. Wait ~30 seconds for all services to become healthy:
+On existing volumes (init scripts only run on fresh ones), or after changing a secret, run `./observability/start.sh`: it applies the accounts and passwords, the Grafana admin password and the connector config. Wait ~30 seconds for all services to become healthy:
 
 ```bash
 docker compose ps
@@ -199,7 +199,7 @@ This step is **required** — without it Kafka receives nothing.
 debezium/register.sh
 ```
 
-It creates or updates the connector from `debezium/postgres-connector.json`, filling in `PII_SALT` from `.env`. The database password is not in the config at all: `${env:CDC_DB_PASSWORD}` is resolved by the Connect worker from its environment.
+It creates or updates the connector from `debezium/postgres-connector.json`, filling in the PII salt from `secrets/pii_salt`. The database password is not in the config at all: `${dir:/run/secrets:cdc_db_password}` is resolved by the Connect worker from its mounted secret file.
 
 Verify it is running:
 
@@ -227,11 +227,11 @@ curl -X POST localhost:8200/stop
 | Source API (HTTPS) | https://api.cdc.localhost:8443/docs | Bearer token (`/v1`); trust `secrets/tls/ca.crt` |
 | Source API docs (direct) | http://localhost:8100/docs | Bearer token (`/v1`) |
 | Identity | http://localhost:8300/.well-known/openid-configuration | `admin@cdc.local` · password in `secrets/admin_password` |
-| ClickHouse Play (SQL) | http://localhost:8123/play | User: `admin` · Password: `CLICKHOUSE_PASSWORD` in `.env` |
+| ClickHouse Play (SQL) | http://localhost:8123/play | User: `admin` · Password: `secrets/clickhouse_password` |
 | Kafka UI | http://localhost:8080 | — |
-| Adminer (DB) | http://localhost:8081 | Server: `postgres` · User: `admin` · Password: `POSTGRES_PASSWORD` in `.env` · DB: `enterprise_db` |
+| Adminer (DB) | http://localhost:8081 | Server: `postgres` · User: `admin` · Password: `secrets/postgres_password` · DB: `enterprise_db` |
 | Debezium API | http://localhost:8083 | — |
-| **Grafana** | http://localhost:3000 (`/d/cdc-business`, `/d/cdc-platform`) | User: `admin` · Password: `GRAFANA_ADMIN_PASSWORD` in `.env` |
+| **Grafana** | http://localhost:3000 (`/d/cdc-business`, `/d/cdc-platform`) | User: `admin` · Password: `secrets/grafana_admin_password` |
 | Prometheus | http://localhost:9090 | — |
 | Alertmanager | http://localhost:9093 | — |
 
@@ -511,7 +511,7 @@ They are defined once, at the top of `warehouse/clickhouse/init/03-gold.sql`, an
 
 `gold.daily_sales(v)` is live and keeps moving as orders are cancelled or returned. `gold.daily_sales_closed` freezes each business day one business hour after it ends, as first reported (written by `warehouse-jobs` at a pinned watermark).
 
-Example queries (in http://localhost:8123/play or `docker exec -it cdc-clickhouse bash -c 'clickhouse-client -u admin --password "$CLICKHOUSE_PASSWORD"'`):
+Example queries (in http://localhost:8123/play or `docker exec -it cdc-clickhouse bash -c 'clickhouse-client -u admin --password "$(cat /run/secrets/clickhouse_password)"'`):
 
 ```sql
 SELECT v, held_back FROM consistent.watermark;           -- pin this v for the queries below
@@ -613,7 +613,7 @@ Past `max_slot_wal_keep_size` PostgreSQL drops WAL the connector has not read ye
 **Least privilege.** The Source API connects as `source_api` (row reads and writes, no DDL); warehouse-jobs and the Control Center as the read-only `app_reader` (`source/postgres/roles.sql`). Every published port is bound to 127.0.0.1. Debezium connects as `cdc_user`: the `REPLICATION` role attribute, `SELECT` on the schema (also on tables added later), and writes only to its heartbeat and signal tables. It is not a superuser and owns nothing, so the publication and replica identities are set by the table owner in `source/postgres/init.sql`.
 
 `FULL` replica identity puts the whole old row in `before` on UPDATE and DELETE. State tables need it: silver deletes and `consistent.*` read it. Append-only tables (status history, stock ledger, tracking events, price history, seller ledger) and the outbox use `DEFAULT`, which keeps only the key and writes less WAL.
-**Personal data** is hashed in the connector (`column.mask.hash.v2.SHA-256.with.salt…`): buyer names, emails and phones, recipient names, phones and streets, shipping names and addresses, seller emails. Kafka and the warehouse hold salted SHA-256 values, so buyers can still be joined and counted but never read. The salt is `PII_SALT` in `.env`; changing it changes every hash, so it is set once per environment. Domain events carry no personal data. `check_data.py` fails if an email, phone or address reaches ClickHouse in clear.
+**Personal data** is hashed in the connector (`column.mask.hash.v2.SHA-256.with.salt…`): buyer names, emails and phones, recipient names, phones and streets, shipping names and addresses, seller emails. Kafka and the warehouse hold salted SHA-256 values, so buyers can still be joined and counted but never read. The salt is `secrets/pii_salt`; changing it changes every hash, so it is set once per environment. Domain events carry no personal data. `check_data.py` fails if an email, phone or address reaches ClickHouse in clear.
 
 `errors.tolerance = none` stops the connector on a change it cannot convert instead of dropping it, and there are no tombstones. On the ClickHouse side, `kafka_handle_error_mode = 'stream'` sends any message it cannot read to `bronze.ingest_errors`, which `check_data.py` requires to be empty.
 `decimal.handling.mode = string` sends `DECIMAL` columns as exact strings (`"109.99"`), so money is never rounded through floating point on its way to ClickHouse's `Decimal` columns.
@@ -645,7 +645,7 @@ To rebuild only the warehouse, for example after editing `warehouse/clickhouse/i
 
 The platform review (requirements R1–R27, SLOs and the phased plan) lives in the document *Đánh giá Data Platform & Yêu cầu Scale*. Still open:
 
-- **Security:** database passwords as secret files instead of environment variables (P8), TLS for Kafka and the databases. Plan in the artifact *Source API auth & secrets plan*. The old development passwords and PII salt remain in git history: rotate them in `.env` for any shared environment.
+- **Security:** TLS/SASL for Kafka and the databases; SOPS + age to share `secrets/` with a team or CI. The old development passwords and PII salt remain in git history: rotate them (edit the file, run `./observability/start.sh`) for any shared environment.
 - **Marts at scale:** snapshots are incremental (R20), but each mart is still aggregated over the whole snapshot; at T1 volumes the heaviest marts (shop, product, category sales) would need per-day partial aggregates.
 - **Cold storage:** bronze moves to S3 after 30 days (R13/R19); Kafka itself still keeps the broker default retention, and silver is not rebuilt from the lake (R21).
 - **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9, needs bronze and silver rewritten from JSON to Avro); the T1 peak of 5,400 events/s (measured locally: ~1,800, limited by the write path: split the stock of best-selling SKUs into slots like voucher quota).

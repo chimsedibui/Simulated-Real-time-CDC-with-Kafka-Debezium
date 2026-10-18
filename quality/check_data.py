@@ -30,6 +30,13 @@ import clickhouse_connect
 import psycopg2
 import psycopg2.extras
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 TIERS = [(50_000_000, "PLATINUM"), (20_000_000, "GOLD"), (5_000_000, "SILVER"), (0, "BRONZE")]
 TRANSITIONS = {
     ("UNPAID", "TO_SHIP"): {"PAYMENT"}, ("UNPAID", "CANCELLED"): {"BUYER", "SYSTEM"},
@@ -46,7 +53,7 @@ DISPUTE_WINDOW_S = float(os.getenv("DISPUTE_WINDOW_S", 86400))
 JOB_GRACE_REAL_S = 60                                    # scheduler runs every couple of wall-clock seconds
 SETTLE_TIMEOUT_S = int(os.getenv("SETTLE_TIMEOUT_S", "180"))
 
-PG = dict(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password=os.environ["PG_PASSWORD"], dbname="enterprise_db",
+PG = dict(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password=secret("PG_PASSWORD"), dbname="enterprise_db",
           cursor_factory=psycopg2.extras.RealDictCursor)
 # Background jobs keep changing data after the simulator stops: every check reads ONE consistent snapshot ...
 pg = psycopg2.connect(**PG)
@@ -55,7 +62,7 @@ pg.set_session(isolation_level="REPEATABLE READ", readonly=True)
 pg_live = psycopg2.connect(**PG)
 pg_live.set_session(readonly=True, autocommit=True)
 ch = clickhouse_connect.get_client(host=os.getenv("CLICKHOUSE_HOST", "clickhouse"), port=8123,
-                                   username="admin", password=os.environ["CLICKHOUSE_PASSWORD"])
+                                   username="admin", password=secret("CLICKHOUSE_PASSWORD"))
 results = []
 
 

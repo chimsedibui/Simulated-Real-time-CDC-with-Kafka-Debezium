@@ -22,6 +22,13 @@ import clickhouse_connect
 import psycopg2
 from prometheus_client import Counter, Gauge, start_http_server
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 JOB_ERRORS = Counter("warehouse_job_errors_total", "Failed warehouse loop executions")
 SNAP_SECONDS = Gauge("warehouse_snapshot_duration_seconds", "Duration of the last snapshot run", ["mode"])
 SNAP_KEYS = Gauge("warehouse_snapshot_keys", "Keys re-read by the last delta snapshot run")
@@ -54,12 +61,12 @@ RECONCILED = {
 def clickhouse():
     return clickhouse_connect.get_client(host=os.getenv("CLICKHOUSE_HOST", "clickhouse"), port=8123,
                                          username=os.getenv("CLICKHOUSE_USER", "admin"),
-                                         password=os.environ["CLICKHOUSE_PASSWORD"])
+                                         password=secret("CLICKHOUSE_PASSWORD"))
 
 
 def postgres():
     conn = psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=int(os.getenv("PG_PORT", "5432")),
-                            user=os.getenv("PG_USER", "admin"), password=os.environ["PG_PASSWORD"],
+                            user=os.getenv("PG_USER", "admin"), password=secret("PG_PASSWORD"),
                             dbname=os.getenv("PG_DB", "enterprise_db"))
     conn.set_session(readonly=True, autocommit=True)
     return conn

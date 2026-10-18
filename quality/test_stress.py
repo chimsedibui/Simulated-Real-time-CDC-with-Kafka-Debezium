@@ -18,13 +18,20 @@ import pytest
 
 from test_source_api import add, api, buyer, checkout, listing, ok, pay, shop, tag
 
+
+def secret(name: str) -> str:
+    """NAME from the environment, or else the file NAME_FILE points to (a secret mounted under /run/secrets)."""
+    value = os.getenv(name)
+    return value if value is not None else open(os.environ[f"{name}_FILE"]).read().strip()
+
+
 SECONDS = float(os.getenv("STRESS_SECONDS", "20"))
 WORKERS = int(os.getenv("STRESS_WORKERS", "24"))
 OPEN = ("UNPAID", "TO_SHIP", "READY_TO_SHIP")
 
 
 def pg():
-    return psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password=os.environ["PG_PASSWORD"],
+    return psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=5432, user="admin", password=secret("PG_PASSWORD"),
                             dbname="enterprise_db")
 
 
