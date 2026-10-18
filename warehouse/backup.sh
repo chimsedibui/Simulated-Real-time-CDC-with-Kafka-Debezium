@@ -11,10 +11,13 @@
 #
 # Consistency: during a backup the Kafka engine tables are detached and warehouse-jobs is stopped (seconds to a
 # minute), so every table is captured at the same Kafka position. Kafka keeps the new events meanwhile.
-# Restore: the databases are restored, each ClickHouse consumer group is moved to the first Kafka offset NOT in the
-# backup (computed from the offsets stored in bronze), and the Kafka tables are recreated: everything after the
-# backup is read again from Kafka, with replay from the saved offsets. This needs the same Kafka (checked by topic IDs)
-# and Kafka must still hold those events (retention 7 days); otherwise the restore stops.
+# Replay offsets are computed AT BACKUP TIME, right after BACKUP and while the Kafka tables are still detached: for
+# each partition, the first offset not in bronze (or the earliest offset Kafka still holds, if bronze has no row for
+# it). They are saved in <name>.offsets, the topic IDs in <name>.topics.
+# Restore: reads <name>.offsets (nothing is recomputed from the restored bronze), checks the topic IDs and that Kafka
+# still holds those offsets (retention 7 days), restores the databases, moves each ClickHouse consumer group to the
+# saved offsets and recreates the Kafka tables, so everything after the backup is read again from Kafka. If a check
+# fails, the restore stops before replacing any database.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

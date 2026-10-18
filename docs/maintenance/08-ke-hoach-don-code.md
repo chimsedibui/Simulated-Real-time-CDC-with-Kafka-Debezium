@@ -38,7 +38,7 @@ Lặp không tự động là lỗi. Validator có lý do tính độc lập v�
 
 **Cách làm:** chỉ hợp nhất metadata thuần túy khi có nguồn chuẩn rõ ràng. Giữ logic kiểm chứng độc lập. Kiểm tra script vận hành có còn gọi đúng init SQL, tên service và tài khoản; không bỏ script chỉ vì compose không gọi trực tiếp, vì người vận hành có thể gọi từ terminal.
 
-**Xác nhận:** contract schema, generator diff, backup full/incremental, restore drill, reconcile 31 bảng và so sánh mart với gold tại cùng watermark.
+**Xác nhận:** contract schema, generator diff, backup full/incremental, restore drill, reconcile 28 bảng của warehouse-jobs (`RECONCILED` trong `jobs.py`), `check_data` so PostgreSQL với silver cho 31 bảng, và so sánh mart với gold tại cùng watermark.
 
 ## Đợt 4: metric, alert và dashboard
 

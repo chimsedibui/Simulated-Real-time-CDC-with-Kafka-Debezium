@@ -1,4 +1,4 @@
-# Q&A 07 · Q&A 07 · Triển khai, DevOps và khôi phục
+# Q&A 07 · Triển khai, DevOps và khôi phục
 
 [Tài liệu dự án](../README.md) / [Phỏng vấn](README.md)
 

@@ -26,7 +26,7 @@
     "value.converter.schema.registry.url": "http://schema-registry:8081",
     "value.converter.auto.register.schemas": "true",
 
-    "_comment_pii": "Personal data is hashed (salted SHA-256) before it leaves PostgreSQL: Kafka and the warehouse can still join and count buyers but never see names, emails, phones or street addresses. The salt is PII_SALT from .env, filled in by debezium/register.sh or the Control Center on register",
+    "_comment_pii": "Personal data is hashed (salted SHA-256) before it leaves PostgreSQL: Kafka and the warehouse can still join and count buyers but never see names, emails, phones or street addresses. The salt is read from secrets/pii_salt and substituted for ${PII_SALT} when the connector is registered, by debezium/register.sh or by the Control Center (which reads the same secret file)",
     "column.mask.hash.v2.SHA-256.with.salt.${PII_SALT}": "ecommerce.customers.full_name,ecommerce.customers.email,ecommerce.customers.phone,ecommerce.customer_addresses.recipient_name,ecommerce.customer_addresses.phone,ecommerce.customer_addresses.street,ecommerce.orders.ship_to_name,ecommerce.orders.ship_to_address,ecommerce.sellers.email",
 
     "_comment_outbox": "Outbox rows become domain events on events.<aggregatetype>; other tables pass through untouched",

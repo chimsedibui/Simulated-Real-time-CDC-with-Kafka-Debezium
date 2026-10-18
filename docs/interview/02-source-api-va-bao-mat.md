@@ -35,7 +35,7 @@ Command biểu diễn một **ý định nghiệp vụ** thay vì sửa một tr
 Version trong URL cho phép thay đổi hợp đồng API sau này (ra /v2) mà không phá client cũ. Trong dự án, khi bật xác thực, các route được chuyển sang /v1; route không version chỉ còn khi `AUTH_MODE` khác `enforce` (để client cũ chạy trong giai đoạn chuyển đổi) và bị ẩn khỏi OpenAPI. Ở `enforce` chúng biến mất, có test kiểm tra.
 
 ### Q5. Route `/v1/internal/customers` và `/v1/internal/sellers` dùng để làm gì? [Trung bình]
-Đây là route **provisioning**: identity service gọi chúng khi một người đăng ký, để tạo bản ghi khách hàng hoặc seller + shop + ví trong database nghiệp vụ. Chúng đòi scope `customers:provision` / `sellers:provision`, chỉ client `identity` có. Người mua không gọi được, kể cả qua gateway (gateway có định tuyến /v1/ nhưng API sẽ trả 403 vì thiếu scope).
+Đây là route **provisioning**: identity service gọi chúng khi một người đăng ký, để tạo bản ghi khách hàng hoặc seller + shop + ví trong database nghiệp vụ. Chúng đòi scope `customers:provision` / `sellers:provision`: client `identity` có hai scope này, và mọi principal có scope `admin` cũng qua được vì kiểm tra scope luôn cho admin đi qua (ví dụ client `sim-orchestrator` và `quality`, hay tài khoản admin). Người mua không gọi được, kể cả qua gateway (gateway có định tuyến /v1/ nhưng API sẽ trả 403 vì thiếu scope).
 
 ### Q6. Lỗi của API trả về dạng gì? [Cơ bản]
 Mọi lỗi có cùng hình dạng: trường `detail` chứa `code` máy đọc được (như `out_of_stock`, `order_not_found`), `message` cho người đọc, và có thể thêm chi tiết (ví dụ danh sách SKU thiếu cùng số lượng còn). Client nên rẽ nhánh theo `code`, không theo message. 401 có header `WWW-Authenticate`, 503 có `Retry-After`.
@@ -44,7 +44,7 @@ Mọi lỗi có cùng hình dạng: trường `detail` chứa `code` máy đọc
 401: không chứng minh được danh tính (thiếu/sai token, chữ ký webhook sai hoặc cũ). 403: có danh tính nhưng thiếu quyền chung (thiếu scope) hoặc đối tác báo về giao dịch không phải của mình. 404: không tồn tại hoặc thuộc về người khác. 409: vi phạm quy tắc nghiệp vụ (hết hàng, chuyển trạng thái sai, voucher hết). 422: dữ liệu vào sai, hoặc dùng lại Idempotency-Key cho request khác. 503: deadlock/serialization (`retry`) hoặc chờ connection DB quá 10 giây (`db_busy`) — được phép thử lại.
 
 ### Q8. Client nên xử lý retry thế nào? [Trung bình]
-4xx là lỗi của client, gửi lại nguyên xi sẽ nhận lại lỗi cũ. 5xx, 503 và lỗi mạng thì thử lại với backoff, **giữ nguyên Idempotency-Key**, để nếu lần đầu thực ra đã commit thì lần sau chỉ replay phản hồi. Simulator làm đúng như vậy: tối đa 3 lần, backoff lũy thừa, cùng khóa. Riêng 401 thì lấy token mới một lần rồi thử lại.
+4xx là lỗi của client, gửi lại nguyên xi sẽ nhận lại lỗi cũ. 5xx, 503 và lỗi mạng thì thử lại với backoff, **giữ nguyên Idempotency-Key**, để nếu lần đầu thực ra đã commit thì lần sau chỉ replay phản hồi. Simulator làm đúng như vậy: thử lại tối đa 3 lần (tức tối đa 4 lần gọi tính cả lần đầu), backoff lũy thừa, cùng khóa. Riêng 401 thì lấy token mới một lần rồi thử lại.
 
 ### Q9. API chạy bao nhiêu worker và vì sao? [Trung bình]
 6 worker uvicorn (image mặc định 2, compose đặt 6). Python chỉ dùng một core mỗi process do GIL; với 2 worker, load test chạm trần khoảng 380 request/giây vì CPU hai process bão hòa chứ không phải PostgreSQL. Tăng lên 6 giúp dùng nhiều core hơn. Mỗi worker là một process riêng, có pool, scheduler và cache JWKS riêng.

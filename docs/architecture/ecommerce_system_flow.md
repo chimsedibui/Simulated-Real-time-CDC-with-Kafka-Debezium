@@ -322,7 +322,7 @@ Backup tại cùng host bảo vệ một số thao tác reset, không bảo vệ
 | Mart | Các kết quả cùng một refresh_id công bố hoàn tất | Ghép bảng ở các refresh khác nhau |
 | Phục hồi | Đọc bù xong khớp số dòng, checksum và số liệu nghiệp vụ | Chỉ nhìn RESTORE thành công mà không kiểm tra lag/reconcile |
 
-Các lần kiểm tra local gần nhất đã qua smoke, auth, kiểm tra dữ liệu sau restore và query Grafana. Bằng chứng nằm trong [nhật ký bàn giao](../handoff/2026-10-18-codex.md); đây không phải cam kết hiệu năng trên mọi máy hoặc chứng minh toàn bộ tình huống source replay/HA đã được thử.
+Các lần kiểm tra local gần nhất đã qua smoke, auth, kiểm tra dữ liệu sau restore và query Grafana. Đây không phải cam kết hiệu năng trên mọi máy hoặc chứng minh toàn bộ tình huống source replay/HA đã được thử.
 
 ## 12. Bản đồ đọc tiếp
 

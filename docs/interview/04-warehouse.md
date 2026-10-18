@@ -224,7 +224,7 @@ tx_id của PostgreSQL được cấp khi giao dịch bắt đầu, nên giao d�
 Lấy các END nạp trong 60 phút qua (gom theo tx_id), đếm số cặp (bảng, LSN) khác nhau của mỗi giao dịch trong bronze (3 giờ qua), so với `expected`. Nếu có giao dịch thiếu, v = offset nhỏ nhất trong các giao dịch thiếu; nếu không, v = offset lớn nhất + 1. Kèm `held_back` và `oldest_held_back_commit` để chẩn đoán.
 
 ### Q61. Tại sao đếm (bảng, LSN) duy nhất thay vì count()? [Trung bình]
-Kafka giao at-least-once nên bronze có thể có bản trùng. count() sẽ đếm dư và có thể cho rằng giao dịch đủ khi thực ra đang thiếu một sự kiện khác. Đếm cặp duy nhất khiến bản trùng không ảnh hưởng.
+Kafka giao at-least-once nên bronze có thể có bản trùng; kết quả chỉ effectively-once khi lớp đọc khử trùng. count() sẽ đếm dư và có thể cho rằng giao dịch đủ khi thực ra đang thiếu một sự kiện khác. Đếm cặp duy nhất khiến bản trùng không ảnh hưởng.
 
 ### Q62. Kể ví dụ về giao dịch rách (torn transaction). [Cơ bản]
 Một giao dịch tạo order và 3 order_items. Event order ở topic orders, item ở topic order_items, đến ClickHouse ở thời điểm khác nhau. Trong khoảng đó silver thấy order mà chưa đủ item; một dashboard tính "giá trị trung bình mỗi order" từ item sẽ sai. Với consistent, cả order và 3 item chỉ hiện ra cùng lúc khi đủ 4/4 sự kiện.
@@ -418,7 +418,7 @@ readonly = 1 cấm ghi và cấm đổi setting. Plugin Grafana gửi setting `m
 ## 10. Sự cố và edge case
 
 ### Q119. Cùng một sự kiện CDC đến hai lần thì sao? [Trung bình]
-Bronze lưu hai dòng (không khử trùng, `check_data` chỉ cảnh báo). Silver: cùng LSN, cùng nội dung nên FINAL giữ một. Watermark đếm cặp (bảng, LSN) duy nhất nên không đếm dư. Snapshot: changed_keys DISTINCT, FINAL khử bản trùng. Số đếm đọc thẳng bronze như `cdc_freshness` bị thổi phồng.
+Đây là hệ quả của giao at-least-once; hệ thống đạt effectively-once nhờ mọi lớp đọc khử trùng. Bronze lưu hai dòng (không khử trùng, `check_data` chỉ cảnh báo). Silver: cùng LSN, cùng nội dung nên FINAL giữ một. Watermark đếm cặp (bảng, LSN) duy nhất nên không đếm dư. Snapshot: changed_keys DISTINCT, FINAL khử bản trùng. Số đếm đọc thẳng bronze như `cdc_freshness` bị thổi phồng.
 
 ### Q120. ClickHouse restart giữa lúc đang nạp một batch? [Trung bình]
 Kafka engine commit offset sau khi ghi; nếu chết trước khi commit, block được giao lại khi khởi động lại → bản trùng ở bronze, xử lý như Q119. warehouse-jobs mất kết nối → lần sau full rebuild snapshot; refresh mart dở bị xoá và ghi lại. Gate full restart ClickHouse giữa tải và probe vẫn phải PASS.
@@ -470,7 +470,7 @@ Commit → ClickHouse p95 khoảng 1.57 s ở ~990 event/s sau tuning Debezium (
 Refresh 18 mart từ ~4.6 s (35k order, tính từ consistent) xuống ~0.9 s cho snapshot delta dưới tải ~250 request/s cộng 0.3–1 s cho mart. Chi phí tỉ lệ số key bị đụng, không tỉ lệ lịch sử.
 
 ### Q135. Dashboard nhanh tới đâu và vì sao? [Trung bình]
-p95 truy vấn dashboard khoảng 35 ms với 50–100 người xem, refresh 30 s; SLO là 500 ms. Mỗi panel chỉ đọc một bảng mart nhỏ tại một refresh_id; việc tính toán làm một lần mỗi 15 s ở job, không nhân theo số viewer.
+p95 truy vấn dashboard khoảng 35 ms với 50–100 người xem, đo khi dashboard còn tự làm mới 30 s; hiện các dashboard nghiệp vụ làm mới 1 phút và con số này chưa được đo lại. SLO là 500 ms. Mỗi panel chỉ đọc một bảng mart nhỏ tại một refresh_id; việc tính toán làm một lần mỗi 15 s ở job, không nhân theo số viewer.
 
 ### Q136. Tại sao Grafana dùng native protocol với maxOpenConns 100? [Trung bình]
 Native protocol (cổng 9000) gọn và nhanh hơn HTTP cho nhiều truy vấn nhỏ. Mặc định plugin là 50 connection mở / 25 idle, khiến dashboard bị xếp hàng khi nhiều người mở cùng lúc; tăng lên 100 bỏ được nút thắt đó.
@@ -501,7 +501,7 @@ Vì MV không backfill, cách đơn giản là tạo bảng silver mới, chạy
 Nhiều tầng: contract check trong CI (schema), probe tính nhất quán dưới tải, `check_data` so từng lớp với PostgreSQL lúc nghỉ (silver, consistent, snapshot, mart, metric), đối soát định kỳ trong production, và gate có chaos (restart Debezium, ClickHouse). Mỗi tầng bắt một loại lỗi khác nhau: sai schema, giao dịch rách, sai logic, trôi dữ liệu.
 
 ### Q144. Exactly-once trong pipeline này đạt được ở đâu? [Nâng cao]
-Không có exactly-once end-to-end: Debezium và Kafka engine là at-least-once. Dự án đạt "hiệu quả exactly-once" ở lớp đọc bằng idempotency: version = LSN ở silver, đếm duy nhất ở watermark, ReplacingMergeTree ở snap, event_id duy nhất ở domain event. Bronze cố ý giữ bản trùng.
+Không ở đâu cả: không có exactly-once end-to-end, Debezium và Kafka engine giao at-least-once. Bảo đảm của dự án là **effectively-once**: giao at-least-once cộng lớp đọc khử trùng/idempotent (version = LSN ở silver, đếm duy nhất ở watermark, ReplacingMergeTree ở snap, event_id duy nhất ở domain event). Bronze cố ý giữ bản trùng.
 
 ### Q145. Nếu business muốn báo cáo "tại thời điểm 9:00 sáng qua" thì sao? [Nâng cao]
 consistent chỉ nhìn được các trạng thái gần (dựa trên silver mới nhất và bronze 35 phút). Muốn time travel tuỳ ý cần dựng từ bronze: lấy phiên bản có LSN lớn nhất trước mốc đó cho mỗi key, tốn kém nhưng làm được vì bronze giữ mọi thay đổi. Với số đã chốt theo ngày thì dùng `daily_sales_closed`. Nếu nhu cầu thường xuyên, nên có bảng lịch sử (SCD type 2) hoặc lakehouse.

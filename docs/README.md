@@ -23,7 +23,6 @@ Marketplace nhiều shop, mô phỏng giao dịch từ Source API qua PostgreSQL
 | [deployment/](deployment/README.md) | Tách môi trường, server, domain/TLS, secret và CI/CD |
 | [interview/](interview/README.md) | 850 câu Q&A theo bảy chủ đề |
 | [maintenance/](maintenance/README.md) | Kế hoạch dọn code và cấu hình cũ |
-| [handoff/](handoff/README.md) | Nhật ký bàn giao, kết quả kiểm thử và log bằng chứng |
 
 ## Lộ trình đọc
 
@@ -50,6 +49,5 @@ flowchart LR
 
 - [Hướng dẫn giám sát](../observability/README.md).
 - [Năm dashboard nghiệp vụ và cách đọc metric](../observability/grafana/README.md).
-- [Nhật ký kiểm thử và bàn giao](handoff/README.md).
 
-Các chương giải thích thiết kế hiện tại; tài liệu triển khai phân biệt phần đề xuất với phần đã chạy. Nhật ký ghi lại từng lần kiểm chứng, không thay thế hướng dẫn đang được duy trì.
+Các chương giải thích thiết kế hiện tại; tài liệu triển khai phân biệt phần đề xuất với phần đã chạy.

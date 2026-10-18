@@ -1,4 +1,4 @@
-# Q&A 05 · Q&A 05 · Mart và metric
+# Q&A 05 · Mart và metric
 
 [Tài liệu dự án](../README.md) / [Phỏng vấn](README.md)
 
@@ -128,10 +128,10 @@ Mỗi bảng nguồn có topic riêng, ClickHouse tiêu thụ độc lập, nên
 ## C. Từng mart
 
 ### Q35. overview_kpis có những gì và panel nào dùng? [Cơ bản]
-Một dòng toàn lịch sử: orders, GMV, NMV, completed revenue, AOV, buyers, cancelled, active customers, số shop. Dashboard chỉ dùng bốn ô: Confirmed GMV, NMV, Orders, Buyers. Mart này còn được dùng để quyết định có bỏ qua lần refresh hay không.
+Một dòng toàn lịch sử: orders, GMV, NMV, completed revenue, AOV, buyers, cancelled, active customers, số shop. Trên dashboard chỉ ô "Người mua · toàn lịch sử" của trang Điều hành sàn đọc buyers từ mart này; các ô GMV xác nhận, NMV giữ lại, Đơn đã đặt, AOV đọc daily_sales trong cửa sổ 7/14/30 ngày đang chọn. Mart này còn được dùng để quyết định có bỏ qua lần refresh hay không.
 
 ### Q36. daily_sales có cột nào? [Cơ bản]
-Mỗi ngày nghiệp vụ một dòng: orders, confirmed orders, buyers, placed GMV, GMV, NMV, completed revenue, cancelled orders, unpaid cancelled, AOV. Panel vẽ placed GMV, GMV, NMV theo ngày. Đây là số sống; số đã chốt ở `daily_sales_closed`.
+Mỗi ngày nghiệp vụ một dòng: orders, confirmed orders, buyers, placed GMV, GMV, NMV, completed revenue, cancelled orders, unpaid cancelled, AOV. Biểu đồ "Giá trị qua các ngày · GMV vs NMV" chỉ vẽ GMV và NMV; phần placed GMV − GMV và GMV − NMV nằm ở biểu đồ cột chồng riêng "Cơ hội chưa xác nhận & giá trị chưa giữ lại". Đây là số sống; số đã chốt ở `daily_sales_closed`.
 
 ### Q37. Tính GMV theo ngày như thế nào nếu viết lại từ đầu? [Trung bình]
 Lấy mọi đơn tại một watermark, đổi thời điểm đặt sang giờ Việt Nam để lấy ngày, giữ đơn đã thanh toán online hoặc là COD, cộng subtotal theo ngày. Không lọc trạng thái hiện tại (đơn đã trả tiền rồi huỷ vẫn tính). Cẩn thận dùng thời điểm nghiệp vụ, không dùng thời điểm ingest; và đọc mọi bảng ở cùng một watermark.
@@ -140,10 +140,10 @@ Lấy mọi đơn tại một watermark, đổi thời điểm đặt sang giờ
 Lấy các đơn của shop đã confirmed và kept, lấy subtotal của mỗi đơn trừ giá trị hàng của các đơn vị đã hoàn tiền (số lượng trả × đơn giá trên dòng, chỉ return REFUNDED), rồi cộng lại. Đây chính là cột nmv trong shop_performance. Nếu muốn theo ngày thì nhóm thêm theo ngày đặt giờ VN.
 
 ### Q39. traffic_by_hour dùng để làm gì và có bẫy gì? [Trung bình]
-Thấy cao điểm trong ngày, hiệu ứng flash sale, ngày đôi như 11.11: mỗi giờ trong 48 giờ gần nhất có số đơn, placed GMV và số đơn có dùng voucher. Dùng placed GMV vì đơn của giờ mới nhất còn trong cửa sổ thanh toán. Bẫy: giờ được nhóm trên mốc UTC, ranh giới trùng giờ VN (lệch tròn 7 giờ) nhưng nhãn hiển thị là giờ UTC.
+Thấy cao điểm trong ngày, hiệu ứng flash sale, ngày đôi như 11.11: mỗi giờ trong 48 giờ gần nhất có số đơn, placed GMV và số đơn có dùng voucher. Dùng placed GMV vì đơn của giờ mới nhất còn trong cửa sổ thanh toán. Bẫy: giờ được nhóm trên mốc UTC; ranh giới trùng giờ VN (lệch tròn 7 giờ), và panel phải tự đổi nhãn sang Asia/Ho_Chi_Minh, nếu không người xem sẽ đọc nhầm giờ UTC thành giờ VN.
 
 ### Q40. Funnel có 5 bước nào và vì sao không chia thẳng ra tỷ lệ chuyển đổi? [Trung bình]
-Giỏ tạo → checkout → checkout đã trả hoặc COD đã xác nhận → đơn đã giao cho vận chuyển → đơn hoàn tất. Ba bước đầu đếm giỏ/checkout, hai bước cuối đếm đơn, và một checkout nhiều shop sinh nhiều đơn. Vì vậy bước 4 có thể lớn hơn bước 3; tiêu đề panel ghi "counts have different grains".
+Giỏ tạo → checkout → checkout đã trả hoặc COD đã xác nhận → đơn đã giao cho vận chuyển → đơn hoàn tất. Ba bước đầu đếm giỏ/checkout, hai bước cuối đếm đơn, và một checkout nhiều shop sinh nhiều đơn. Vì vậy bước 4 có thể lớn hơn bước 3. Dashboard Thu phí & dòng tiền chỉ vẽ hai bước cùng đơn vị checkout (Checkouts và Checkouts paid / COD), không vẽ cả phễu.
 
 ### Q41. payment_summary tính success rate thế nào? [Cơ bản]
 Success rate = lượt thành công / lượt đã có kết quả (bỏ PENDING). Bỏ PENDING vì lượt đang chờ chưa thể nói thành hay bại, đặc biệt COD ở PENDING tới khi giao. Mart còn có collected (tổng tiền lượt thành công) và refunded (mọi hoàn tiền trên lượt của phương thức đó).
@@ -161,7 +161,7 @@ Tên sản phẩm × ngành lá × shop, sắp theo net revenue giảm dần. Me
 Cancel rate = đơn CANCELLED / mọi đơn của shop, gồm cả đơn khách không trả tiền và hết hạn — lỗi không phải của shop. Muốn đánh giá shop công bằng hơn nên dùng sla_breaches (đơn bị huỷ vì shop không đóng gói kịp SLA 2 ngày) hoặc tính cancel rate trên đơn confirmed. Bảng điểm còn có pack time, điểm phạt, rating trung bình và số đánh giá.
 
 ### Q46. inventory_risk liệt kê những SKU nào? [Cơ bản]
-Mọi dòng tồn kho (SKU tại shop), kèm available, reserved, reorder point và cờ needs_reorder (available ≤ reorder point), sắp theo available − reorder point tăng dần. Chú thích SQL nói chỉ SKU dưới ngưỡng nhưng view thực tế trả mọi SKU; panel lấy 200 dòng đầu nên hiển thị nhóm rủi ro nhất.
+Mọi dòng tồn kho (SKU tại shop), kèm available, reserved, reorder point và cờ needs_reorder (available ≤ reorder point), sắp theo available − reorder point tăng dần. Chú thích SQL nói chỉ SKU dưới ngưỡng nhưng view thực tế trả mọi SKU. Panel "SKU cần làm việc với shop" tự lọc needs_reorder, xếp theo lượng thiếu để vượt ngưỡng và lấy tối đa 30 dòng.
 
 ### Q47. platform_pnl có grain gì và có những cột nào? [Cơ bản]
 Một dòng cho toàn lịch sử: GMV, NMV, take, platform promo cost, seller promo cost, ba loại hoàn tiền, tổng đã chi cho người bán, take rate. Không có chiều thời gian; muốn P&L theo tháng phải thêm grain ngày vào order_facts và các nguồn khác.
@@ -190,10 +190,10 @@ Lần sau thử lại cùng watermark: với mỗi mart, nếu đã có dòng ma
 Phần incremental nằm ở snapshot: mỗi lượt chỉ đọc lại các key bị transaction mới chạm vào, rebuild toàn bộ mỗi giờ hoặc sau lỗi. Bản thân mart được tính lại toàn bộ mỗi lần, nhưng từ bảng typed nên chỉ mất 0,3–1 giây cho 18 mart. Cách này đơn giản và đúng hơn so với cập nhật tăng dần từng mart, vì nhiều mart có tỷ lệ, distinct count, cửa sổ thời gian rất khó cập nhật tăng dần chính xác. Chi tiết snapshot ở doc 04.
 
 ### Q55. Vì sao vật chất hoá mart thay vì để Grafana gọi view gold? [Trung bình]
-Tính gold trực tiếp từ consistent.* mất khoảng 4,6 giây cho 18 mart ở 35 nghìn đơn và tăng theo lịch sử; nhân với số người xem, số panel và mỗi 30 giây thì không chịu nổi. Mart biến mỗi panel thành đọc một bảng nhỏ (SLO p95 dashboard 500 ms). Thêm nữa mọi panel đọc cùng refresh_id nên nhất quán, và kết quả đã xuất bản vẫn còn khi job hoặc ClickHouse gặp sự cố.
+Tính gold trực tiếp từ consistent.* mất khoảng 4,6 giây cho 18 mart ở 35 nghìn đơn và tăng theo lịch sử; nhân với số người xem, số panel và mỗi lần dashboard tự làm mới (1 phút với dashboard nghiệp vụ) thì không chịu nổi. Mart biến mỗi panel thành đọc một bảng nhỏ (SLO p95 dashboard 500 ms). Thêm nữa mọi panel đọc cùng refresh_id nên nhất quán, và kết quả đã xuất bản vẫn còn khi job hoặc ClickHouse gặp sự cố.
 
 ### Q56. Đánh đổi của mart vật chất hoá là gì? [Trung bình]
-Độ tươi: dashboard chậm hơn nguồn cỡ chu kỳ refresh (15 giây) cộng độ trễ CDC. Thêm một service phải vận hành, cần alert khi refresh dừng (MartRefreshStale). Và tốn chỗ cho các bản refresh cũ trong tối đa khoảng một giờ.
+Độ tươi: dashboard chậm hơn nguồn cỡ chu kỳ refresh mart (15 giây) cộng độ trễ CDC, cộng tối đa một chu kỳ tự làm mới của dashboard (1 phút). Thêm một service phải vận hành, cần alert khi refresh dừng (MartRefreshStale). Và tốn chỗ cho các bản refresh cũ trong tối đa khoảng một giờ.
 
 ### Q57. Vì sao chỉ chạy một replica warehouse-jobs? [Trung bình]
 Hai replica sẽ cùng refresh một watermark, cùng phát hiện "dòng sót" của nhau và xoá lẫn nhau, cùng chốt ngày. Logic không có khoá phân tán. Một replica đủ vì một lượt chỉ mất khoảng 1–2 giây; muốn HA thì cần leader election.
@@ -243,7 +243,7 @@ Chốt phải đọc tại một watermark đã chốt và truyền nó xuống 
 Tra bảng `gold.daily_sales_closed` theo ngày: có dòng là đã chốt, cột closed_at là thời điểm chốt (giờ máy, UTC). Mỗi ngày chỉ được có một dòng; check_data báo lỗi nếu có ngày bị chốt hai lần.
 
 ### Q72. Dashboard có hiển thị ngày đã chốt không? [Cơ bản]
-Không. Dashboard Business Analytics chỉ đọc mart sống; mô tả dashboard ghi rõ NMV thay đổi theo trả hàng và đây không phải snapshot ngày đã chốt. Muốn xem số đã báo cáo thì truy vấn bảng closed.
+Không. Năm dashboard nghiệp vụ chỉ đọc mart sống; mô tả dashboard ghi rõ NMV thay đổi theo trả hàng và đây không phải snapshot ngày đã chốt. Muốn xem số đã báo cáo thì truy vấn bảng closed.
 
 ### Q73. Nếu simulator dừng thì ngày cuối có được chốt không? [Trung bình]
 Không, cho tới khi có đơn mới. Điều kiện thời gian đo theo thời điểm đặt đơn mới nhất, không theo giờ máy; khi không có đơn mới, "bây giờ" của warehouse đứng yên. Đây là thiết kế có chủ ý để tốc độ đồng hồ mô phỏng không ảnh hưởng tới kết quả.
@@ -310,7 +310,7 @@ Bảng không có created_at (inventory, shop_wallets) vì không có cutoff đ�
 Bằng user chỉ đọc `app_reader`, phiên read-only và autocommit. Job phân tích không có quyền ghi vào database nghiệp vụ, nên lỗi ở job không thể làm hỏng dữ liệu nguồn, và có thể cấp quyền tối thiểu.
 
 ### Q93. Khi reconciliation lệch thì ai được báo? [Trung bình]
-Job ghi log error tên các bảng lệch hai lần liên tiếp. Exporter đưa số bảng failing lên Prometheus, alert WarehouseDataDrift (critical) bắn khi còn bảng failing sau 2 phút. Có thêm ReconciliationStale nếu reconciliation không chạy thành công trong 3 phút, và panel trên dashboard Platform Health.
+Job ghi log error tên các bảng lệch hai lần liên tiếp. Exporter đưa số bảng failing lên Prometheus, alert WarehouseDataDrift (critical) bắn khi còn bảng failing sau 2 phút. Có thêm ReconciliationStale khi lần chạy thành công gần nhất đã quá 180 giây và kéo dài thêm 3 phút (`for: 3m`, khoảng 6 phút mới báo), và panel trên dashboard `cdc-platform` "CDC · Platform Health".
 
 ### Q94. Xem kết quả reconciliation ở đâu? [Cơ bản]
 `ops.reconciliation_status` cho kết quả mới nhất mỗi bảng trong 1 ngày qua: ok, failing, số dòng và tổng hai bên. `ops.reconciliation` giữ lịch sử từng lần chạy trong 7 ngày.
@@ -352,17 +352,17 @@ check_contract là hợp đồng **schema**: chạy trong CI, fail khi nguồn c
 
 ## I. Dashboard
 
-### Q106. Dashboard Business Analytics đọc dữ liệu thế nào? [Cơ bản]
-Có một biến "Completed refresh" lấy refresh_id mới nhất trong `ops.mart_refreshes`; mọi panel đọc mart của đúng refresh_id đó. Bốn ô số đọc overview_kpis, bốn biểu đồ cột đọc daily_sales, traffic_by_hour, order_status_summary, funnel, còn lại là bảng cho 13 mart khác và một bảng thông tin lần xuất bản.
+### Q106. Các dashboard nghiệp vụ đọc dữ liệu thế nào? [Cơ bản]
+Có năm dashboard theo vai trò: 01 · Điều hành sàn (`cdc-business`), 02 · Đơn hàng & trải nghiệm (`cdc-operations`), 03 · Danh mục & chiến dịch (`cdc-growth`), 04 · Nhà bán & tồn kho (`cdc-sellers`), 05 · Thu phí & dòng tiền (`cdc-finance`); sức khoẻ hệ thống nằm riêng ở `cdc-platform` "CDC · Platform Health" đọc Prometheus. Mỗi trang nghiệp vụ có biến ẩn `refresh_id` (nhãn "Bản dữ liệu") lấy refresh_id lớn nhất trong `ops.mart_refreshes` và biến ẩn `business_day` là ngày đặt đơn mới nhất của bản đó; mọi panel trên trang chỉ đọc mart tại đúng refresh_id ấy. Trang điều hành có thêm biến `period_days` (7/14/30): các ô GMV, NMV, số đơn, AOV, tỷ lệ và biểu đồ theo ngày đọc daily_sales trong cửa sổ đó, còn overview_kpis chỉ cấp ô "Người mua · toàn lịch sử". Trang tự làm mới mỗi 1 phút, múi giờ Asia/Ho_Chi_Minh, bộ chọn thời gian bị ẩn; cuối mỗi trang có panel "Độ mới của dữ liệu" cho biết lần xuất bản.
 
 ### Q107. Vì sao mọi panel dùng chung một refresh_id? [Trung bình]
 Để mọi con số trên trang là cùng một trạng thái dữ liệu: tổng GMV ở ô số khớp tổng theo ngày, số đơn ở pipeline khớp tổng đơn. Nếu mỗi panel tự lấy bản mới nhất ở thời điểm riêng, hai panel có thể lệch một lần refresh và người xem tưởng số sai.
 
 ### Q108. Bộ chọn thời gian của Grafana có tác dụng không? [Cơ bản]
-Không với mart nghiệp vụ. Mart đã có grain riêng (ngày, giờ, tích luỹ), và ngày là ngày nghiệp vụ theo đồng hồ mô phỏng, không phải giờ máy. Mô tả dashboard ghi rõ ngày không bị lọc theo bộ chọn thời gian.
+Không, và nó bị ẩn trên các dashboard nghiệp vụ. Mart đã có grain riêng (ngày, giờ, tích luỹ), và ngày là ngày nghiệp vụ theo đồng hồ mô phỏng, không phải giờ máy. Điều khiển ngày thật sự là biến `period_days` (7/14/30 ngày) ở trang điều hành, tính lùi từ biến `business_day` (ngày nghiệp vụ mới nhất của bản dữ liệu).
 
 ### Q109. Panel daily sales có giới hạn gì? [Trung bình]
-Panel sắp ngày tăng dần và lấy tối đa 200 dòng, nên nếu dữ liệu vượt 200 ngày nghiệp vụ (dễ xảy ra với đồng hồ nhanh) thì chỉ hiện 200 ngày cũ nhất. Cách sửa là lấy 200 ngày mới nhất rồi sắp lại tăng dần. Panel cũng là số sống, không phải ngày đã chốt.
+Panel không giới hạn số dòng mà lọc đúng cửa sổ `period_days` ngày kết thúc ngay trước ngày nghiệp vụ mới nhất, nên luôn hiện các ngày gần nhất dù lịch sử dài bao nhiêu. Ngày mới nhất đang chạy bị loại khỏi kỳ để không so ngày dở dang với ngày đầy đủ; nó chỉ hiện ở các ô "… hôm nay". Giới hạn còn lại: đây là số sống, không phải ngày đã chốt, và NMV của các ngày gần còn có thể giảm khi trả hàng phát sinh.
 
 ## J. Câu hỏi mở khi phỏng vấn
 
@@ -385,4 +385,4 @@ Gold ở đây là view có tham số watermark, đọc consistent.* và phải 
 GMV thường bị hiểu là "doanh thu" — thực ra nó gồm đơn đã huỷ sau thanh toán và hàng bị trả, và chưa trừ voucher. Completed revenue không trừ hoàn tiền trả một phần, discount cost của voucher khác promo cost của P&L. Cách truyền đạt: từ điển metric một chỗ, mô tả trên panel, và một ví dụ số đi qua mọi mart như mục 5 của tài liệu.
 
 ### Q116. Nếu được làm lại, bạn sẽ thay đổi gì ở lớp mart? [Nâng cao]
-So mart và gold hai chiều trong check_data; thêm chiều thời gian cho P&L và payment_summary; nhóm product_sales theo id thay vì tên; tính cancel rate theo shop trên đơn confirmed; sửa panel daily sales lấy ngày mới nhất; đưa ngày đã chốt lên dashboard cạnh số sống. Về vận hành, thêm leader election nếu cần nhiều replica warehouse-jobs.
+So mart và gold hai chiều trong check_data; thêm chiều thời gian cho P&L và payment_summary; nhóm product_sales theo id thay vì tên; tính cancel rate theo shop trên đơn confirmed; đưa ngày đã chốt lên dashboard cạnh số sống. Về vận hành, thêm leader election nếu cần nhiều replica warehouse-jobs.

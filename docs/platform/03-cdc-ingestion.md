@@ -346,13 +346,13 @@ Chi tiết ở [mục 15](#15-bản-ghi-trùng-ai-xử-lý-ở-đâu).
 
 ### Vì sao không exactly-once
 
-Kafka Connect (từ 3.3) có exactly-once cho source connector bằng transaction Kafka, nhưng: (1) phần đọc của ClickHouse Kafka engine vẫn là at-least-once, nên đầu cuối vẫn phải idempotent; (2) thêm độ phức tạp và độ trễ (offset ghi trong transaction); (3) với LSN làm version, idempotent ở sink vừa rẻ vừa chắc chắn. Do đó dự án chọn **at-least-once + sink idempotent**, tương đương "effectively-once" ở các lớp đọc.
+Kafka Connect (từ 3.3) có exactly-once cho source connector bằng transaction Kafka, nhưng: (1) phần đọc của ClickHouse Kafka engine vẫn là at-least-once, nên đầu cuối vẫn phải idempotent; (2) thêm độ phức tạp và độ trễ (offset ghi trong transaction); (3) với LSN làm version, idempotent ở sink vừa rẻ vừa chắc chắn. Do đó dự án chọn **at-least-once + đọc idempotent/khử trùng**, gọi là **effectively-once** ở các lớp đọc; dự án không tuyên bố exactly-once đầu cuối.
 
 ---
 
 ## 8. Cấu hình connector theo từng nhóm
 
-File: `debezium/postgres-connector.json`. Các khóa bắt đầu bằng `_comment` hoặc `_transforms` là ghi chú/cấu hình tắt, Connect bỏ qua.
+File: `debezium/postgres-connector.json`. Các khóa bắt đầu bằng `_comment` chỉ là ghi chú, không có tác dụng; file không còn khóa `_transforms.*` nào.
 
 ### 8.1 Kết nối và nguồn
 
@@ -393,7 +393,7 @@ File: `debezium/postgres-connector.json`. Các khóa bắt đầu bằng `_comme
 | `tombstones.on.delete` | false | Không phát message null sau DELETE | Không topic nào dùng log compaction; message null sẽ làm hỏng ingest ở ClickHouse |
 | `decimal.handling.mode` | string | DECIMAL thành chuỗi chính xác | Không làm tròn qua số thực |
 | `time.precision.mode` | connect | Kiểu thời gian theo kiểu chuẩn của Kafka Connect | Đơn giản cho consumer |
-| SMT unwrap | **tắt** | | Giữ `before` cho silver và consistent |
+| SMT unwrap | **không dùng** (không có trong file) | | Giữ `before` cho silver và consistent |
 
 Tiền trong dự án là BIGINT (VND), nên phần lớn không bị ảnh hưởng bởi decimal; setting này là lưới an toàn cho cột DECIMAL.
 
@@ -501,7 +501,7 @@ Một broker `confluentinc/cp-kafka:8.3.2` ở chế độ **KRaft**: cùng ti�
 
 | Topic | Key | Partition | Nội dung |
 |-------|-----|-----------|----------|
-| `cdc.ecommerce.<table>` (31 bảng) | Khóa chính dạng JSON | 1 | Envelope before/after/op/source |
+| `cdc.ecommerce.<table>` (Debezium capture 33 bảng: 31 bảng nghiệp vụ vào silver; `debezium_signals` là bảng điều khiển, topic chỉ xuất hiện khi dùng signal và không vào silver; bảng outbox thành `events.*` ở dòng dưới) | Khóa chính dạng JSON | 1 | Envelope before/after/op/source |
 | `events.<aggregate>` (13 topic: order, payment, checkout, cart, customer, shop, product, inventory, catalog, promotion, return, review, shipment) | aggregateId | 1 | Sự kiện domain |
 | `cdc.transaction` | id transaction | 1 | BEGIN/END |
 | `__debezium-heartbeat.cdc` | server | 1 | Heartbeat |

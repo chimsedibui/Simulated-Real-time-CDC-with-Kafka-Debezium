@@ -250,7 +250,7 @@ Người bán đăng ký tương tự qua `/v1/auth/register/seller` → API t�
 - Pepper nằm ngoài DB → kẻ trộm được bản dump `identity_db` vẫn **không thể** thử mật khẩu offline nếu không có thêm file pepper.
 - Khi đăng nhập thành công mà tham số băm đã cũ, hash được tính lại với tham số mới (rehash trong suốt).
 
-**Chống dò tài khoản:** email không tồn tại vẫn bị cho chạy qua một lần verify argon2 với một hash giả, nên thời gian phản hồi giống hệt email có thật; thông báo lỗi cũng giống hệt: 401 `invalid_credentials` "Email hoặc mật khẩu sai".
+**Chống dò tài khoản:** email không tồn tại vẫn bị cho chạy qua một lần verify argon2 với một hash giả, nên thời gian phản hồi giống hệt email có thật; thông báo lỗi cũng giống hệt: 401 `invalid_credentials` với message "Email or password is wrong" (nghĩa là "Email hoặc mật khẩu sai").
 
 **Khóa tài khoản:** user bị lock dòng (`FOR UPDATE`) khi đăng nhập. Mỗi lần sai, bộ đếm tăng nếu lần sai đầu tiên còn trong cửa sổ 15 phút (không thì đếm lại từ 1). Đủ **10 lần sai trong 15 phút → khóa 15 phút**; trong thời gian đó, kể cả mật khẩu đúng cũng nhận **423 `account_locked`**. Đăng nhập đúng sẽ xóa bộ đếm.
 
@@ -358,7 +358,7 @@ sequenceDiagram
 ### 3.6 Khóa ký EdDSA và JWKS
 
 - Khóa riêng Ed25519 được **sinh một lần** lúc identity khởi động lần đầu và lưu trong volume `identity_keys` (quyền file 600). Bốn worker khởi động cùng lúc nên việc sinh khóa được bảo vệ bằng file lock để chỉ một worker sinh.
-- `kid` (id khóa) là 16 ký tự đầu của SHA-256 khóa công khai.
+- `kid` (id khóa) là 16 ký tự đầu của chuỗi base64url (bỏ dấu `=`) mã hóa SHA-256 của khóa công khai.
 - Khóa công khai được công bố tại `/.well-known/jwks.json`; có cả `/.well-known/openid-configuration` (discovery).
 - **Vì sao EdDSA (bất đối xứng) thay vì HS256 (khóa chung)?** Với HS256, ai kiểm được token cũng **ký** được token — Source API, và mọi service sau này, sẽ phải giữ khóa bí mật. Với EdDSA, chỉ identity có khóa riêng; các bên khác chỉ cần khóa công khai. Ed25519 còn nhanh, chữ ký ngắn, không có bẫy tham số như ECDSA.
 
@@ -394,9 +394,9 @@ Có một principal đặc biệt "system" (dùng khi `AUTH_MODE=off` và cho jo
 |---|---|---|
 | `off` | Không kiểm gì, mọi request là "system" | Chế độ cũ, trước khi có identity |
 | `permissive` | Mọi quyết định vẫn được tính và đếm vào `auth_decisions_total{outcome="would_deny"}`, nhưng chỉ **ghi log**, không chặn | Giai đoạn chuyển đổi: bật lên, quan sát xem client nào sẽ bị chặn |
-| `enforce` | Từ chối thật bằng 401/403/404 | Mặc định hiện tại |
+| `enforce` | Từ chối thật bằng 401/403/404 | Mặc định khi chạy bằng compose (`.env` và `source/compose.yml` đặt `enforce`) |
 
-Đây là cách triển khai phân quyền an toàn cho hệ thống đang chạy: bật `permissive`, chạy simulator, xác nhận **0 would-deny**, rồi mới chuyển `enforce`. Thực tế dự án: simulator gây 0 lượt từ chối và bộ test auth 11/11 + test API đều qua ở `enforce`. Lưu ý: token **sai chữ ký** luôn bị 401 kể cả ở permissive (chỉ các quyết định phân quyền mới "mềm").
+Đây là cách triển khai phân quyền an toàn cho hệ thống đang chạy: bật `permissive`, chạy simulator, xác nhận **0 would-deny**, rồi mới chuyển `enforce`. Thực tế dự án: simulator gây 0 lượt từ chối và bộ test auth 11/11 + test API đều qua ở `enforce`. Lưu ý: nếu biến `AUTH_MODE` không được đặt, chính code của API rơi về `off`; `enforce` chỉ là mặc định do `.env` và `source/compose.yml` cung cấp. Với **JWT Bearer**, token sai chữ ký luôn bị 401 ở cả permissive lẫn enforce. **Chữ ký HMAC của webhook** thì khác: chữ ký sai đi qua cùng cơ chế từ chối như phân quyền, nên ở permissive nó chỉ được đếm và ghi log rồi request vẫn chạy tiếp; ở off, webhook hoàn toàn không được kiểm.
 
 ### 4.3 Các loại kiểm tra
 
@@ -537,7 +537,7 @@ Nếu truyền mật khẩu qua biến môi trường, nó hiện trong `docker 
 
 ### 7.5 Cổng chỉ bind 127.0.0.1
 
-Mọi cổng publish ra host (PostgreSQL 5432, API 8100, identity 8300, simulator 8200, Adminer 8081, Kafka 29092, Schema Registry 8085, Kafka UI 8080, Connect 8083, Control Center 8000, ClickHouse 8123/9000, Grafana 3000, gateway 8443) đều bind **127.0.0.1**. Máy khác trong cùng mạng LAN/Wi-Fi không truy cập được, kể cả các UI không có đăng nhập. Mặc định của Docker (`0.0.0.0`) còn **vượt qua firewall của host** trên Linux, nên đây là thay đổi quan trọng.
+Mọi cổng publish ra host (PostgreSQL 5432, API 8100, identity 8300, simulator 8200, Adminer 8081, Kafka 29092, Schema Registry 8085, Kafka UI 8080, Connect 8083, Control Center 8000, ClickHouse 8123/9000, Grafana 3000, Prometheus 9090, Alertmanager 9093, gateway 8443) đều bind **127.0.0.1**. Máy khác trong cùng mạng LAN/Wi-Fi không truy cập được, kể cả các UI không có đăng nhập. Mặc định của Docker (`0.0.0.0`) còn **vượt qua firewall của host** trên Linux, nên đây là thay đổi quan trọng.
 
 ---
 
@@ -659,7 +659,7 @@ Sự cố từng gặp: tên cũ là `02a-roles` và `02-monitoring`. Entrypoint
 | Thứ | Giá trị |
 |---|---|
 | Tiền tố API | `/v1` |
-| AUTH_MODE mặc định | `enforce` |
+| AUTH_MODE mặc định | `enforce` qua compose/`.env`; code rơi về `off` nếu biến không được đặt |
 | Thuật toán ký | EdDSA (Ed25519), JWKS ở `/.well-known/jwks.json` |
 | TTL access token | 10 phút (user), 15 phút (client, exchange) |
 | TTL refresh token | 30 ngày, xoay vòng |

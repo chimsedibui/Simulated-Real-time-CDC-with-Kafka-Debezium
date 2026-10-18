@@ -1,4 +1,4 @@
-# Q&A 06 · Q&A 06 · Vận hành, giám sát và chất lượng
+# Q&A 06 · Vận hành, giám sát và chất lượng
 
 [Tài liệu dự án](../README.md) / [Phỏng vấn](README.md)
 
@@ -289,7 +289,7 @@ Có, nếu Docker tự khởi động: mọi service chạy lâu có `restart: u
 
 ### Q64. Debezium restart giữa chừng thì có mất hay trùng dữ liệu không? [Nâng cao]
 
-Không mất: slot giữ WAL và Debezium đọc tiếp từ offset đã commit. Có thể trùng một ít sự kiện đã gửi mà chưa kịp commit offset, nhưng silver dùng LSN làm version nên bản trùng không đổi kết quả. Gate `full` restart Debezium và ClickHouse giữa lúc có tải và vẫn yêu cầu probe và `check_data` PASS. Tuy vậy, chưa có test bơm sự kiện trùng có chủ đích.
+Không mất: slot giữ WAL và Debezium đọc tiếp từ offset đã commit. Có thể trùng một ít sự kiện đã gửi mà chưa kịp commit offset, nhưng silver dùng LSN làm version nên bản trùng không đổi kết quả. Chỉ gate `full` restart Debezium (và ClickHouse) giữa lúc có tải rồi vẫn yêu cầu probe và `check_data` PASS; `quick` và `smoke` không restart gì nên không chứng minh được việc đọc lại sau restart là an toàn. Ngay cả `full` cũng chỉ là một lần restart trong một lần chạy, và chưa có test bơm sự kiện trùng có chủ đích.
 
 ---
 
@@ -325,7 +325,7 @@ Source API tự retry khi gặp deadlock và chỉ trả 503 khi hết số lầ
 
 ### Q72. `test_auth.py` kiểm tra gì? Nó có trong gate không? [Trung bình]
 
-Nó kiểm tra xác thực và phân quyền: gọi ẩn danh cần token, token giả bị từ chối, buyer chỉ hành động cho mình, seller chỉ quản lý shop mình, webhook phải được đúng đối tác ký, idempotency key theo từng caller, xoay refresh token và phát hiện tái sử dụng, khóa tài khoản sau nhiều lần sai, service client không vượt quyền. Hiện gate chỉ chạy `test_source_api.py` và `test_stress.py`, nên `test_auth.py` phải chạy tay.
+Nó kiểm tra xác thực và phân quyền: gọi ẩn danh cần token, token giả bị từ chối, buyer chỉ hành động cho mình, seller chỉ quản lý shop mình, webhook phải được đúng đối tác ký, idempotency key theo từng caller, xoay refresh token và phát hiện tái sử dụng, khóa tài khoản sau nhiều lần sai, service client không vượt quyền. Hiện gate (mọi mức) chạy `test_source_api.py`, `test_stress.py` và `test_validation_wait.py`; CI chỉ chạy gate `smoke` nên cũng không gọi `test_auth.py`. Vì vậy `test_auth.py` phải chạy tay.
 
 ### Q73. Torn read là gì và probe phát hiện nó thế nào? [Nâng cao]
 
@@ -497,7 +497,7 @@ Kafka và database chưa có TLS/SASL, chỉ gateway có HTTPS. Control Center c
 
 ### Q110. Đổi PII salt có vấn đề gì? [Trung bình]
 
-Salt dùng để băm dữ liệu cá nhân trong connector; đổi salt làm thay đổi mọi giá trị băm, nên các bản ghi cũ và mới của cùng một người không còn join được. Vì vậy salt chỉ đặt một lần cho mỗi môi trường. Đổi mật khẩu thì dễ hơn: sửa file trong `secrets/` rồi chạy `observability/start.sh`. `setup-env.sh --rotate` sinh lại toàn bộ secret nhưng chỉ chạy khi stack đã dừng và đi kèm reset dữ liệu, vì database chỉ đặt mật khẩu lần đầu.
+Salt dùng để băm dữ liệu cá nhân trong connector; đổi salt làm thay đổi mọi giá trị băm, nên các bản ghi cũ và mới của cùng một người không còn join được. Vì vậy salt chỉ đặt một lần cho mỗi môi trường. Đổi mật khẩu thì dễ hơn: sửa file trong `secrets/` rồi chạy `observability/start.sh`. `setup-env.sh --rotate` sinh lại toàn bộ secret nhưng chỉ chạy khi stack đã dừng, mọi volume của project đã bị xóa và thư mục `source/postgres/data` không còn, tức đi kèm reset dữ liệu, vì database chỉ đặt mật khẩu lần đầu.
 
 ### Q111. Phần giám sát còn thiếu gì? [Trung bình]
 

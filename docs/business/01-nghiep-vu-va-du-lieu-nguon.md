@@ -494,7 +494,7 @@ REFUNDED và CLOSED là trạng thái cuối và có `resolved_at`.
 
 Database chạy ở mức cô lập mặc định READ COMMITTED. Tính đúng đắn đến từ **khóa dòng có thứ tự** và **UPDATE có điều kiện**, không phải từ SERIALIZABLE.
 
-**Một thứ tự khóa toàn cục.** Mọi transaction lấy khóa theo cùng thứ tự: slot quota voucher → tồn kho (theo mã SKU tăng dần) → mục flash sale; webhook thanh toán khóa checkout → payment → đơn. Hai transaction không bao giờ chờ nhau theo vòng, nên không deadlock giữa checkout với hủy đơn hay hết hạn thanh toán (những luồng trả lại voucher và kho). Khi đóng checkout, hệ thống khóa trước mọi SKU và mục flash sale liên quan đúng theo thứ tự đó, ở chế độ "NO KEY UPDATE" — chế độ yếu hơn FOR UPDATE, không đụng với khóa KEY SHARE mà khóa ngoại của một checkout khác đang giữ trên mục flash sale (FOR UPDATE ở đây từng gây deadlock). Nếu deadlock vẫn xảy ra, API trả 503 "hãy thử lại" và retry cùng Idempotency-Key là an toàn.
+**Một thứ tự khóa toàn cục.** Mọi transaction lấy khóa theo cùng thứ tự: slot quota voucher → tồn kho (theo `sku_id`, tức UUID của SKU, tăng dần; không phải theo mã `sku_code`) → mục flash sale; webhook thanh toán khóa checkout → payment → đơn. Hai transaction không bao giờ chờ nhau theo vòng, nên không deadlock giữa checkout với hủy đơn hay hết hạn thanh toán (những luồng trả lại voucher và kho). Khi đóng checkout, hệ thống khóa trước mọi SKU và mục flash sale liên quan đúng theo thứ tự đó, ở chế độ "NO KEY UPDATE" — chế độ yếu hơn FOR UPDATE, không đụng với khóa KEY SHARE mà khóa ngoại của một checkout khác đang giữ trên mục flash sale (FOR UPDATE ở đây từng gây deadlock). Nếu deadlock vẫn xảy ra, API trả 503 "hãy thử lại" và retry cùng Idempotency-Key là an toàn.
 
 **Hot row và cách tránh:**
 

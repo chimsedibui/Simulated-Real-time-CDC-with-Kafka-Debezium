@@ -9,7 +9,7 @@
 - **Từ điển metric**: placed GMV, GMV, NMV, net revenue, take rate, return rate… và cách voucher, phí ship, hoàn tiền, múi giờ được xử lý.
 - **Chốt ngày nghiệp vụ** (business-day close): chốt là gì, điều kiện chốt, vì sao phải đóng băng số liệu, và bài học "15 ngày bị chốt sai".
 - **Reconciliation** PostgreSQL ↔ ClickHouse và **data contract** (`quality/check_data.py`): mỗi kiểm tra khẳng định điều gì, vì sao.
-- Mart được refresh thế nào (ở mức đủ hiểu), dashboard Business Analytics đọc mart nào.
+- Mart được refresh thế nào (ở mức đủ hiểu), năm dashboard nghiệp vụ theo vai trò đọc mart nào.
 
 Không lặp lại ở đây: luồng nghiệp vụ nguồn ([01](../business/01-nghiep-vu-va-du-lieu-nguon.md)), CDC/ingestion ([03](03-cdc-ingestion.md)), các lớp warehouse, watermark và snapshot ([04](04-warehouse.md)), vận hành ([06](../operations/06-van-hanh.md)). Câu hỏi ôn tập: [Q&A · 05-mart-va-metric.md](../interview/05-mart-va-metric.md).
 
@@ -42,7 +42,7 @@ gold.*  (view có tham số v)   định nghĩa nghiệp vụ: order_facts + 18 
 mart.<tên>                 bảng vật lý, mỗi lần refresh gắn refresh_id = v
         │
         ▼
-Grafana "Marketplace · Business Analytics"  — mọi panel đọc cùng một refresh_id
+Grafana: 5 dashboard nghiệp vụ (cdc-business … cdc-finance) — mọi panel của một trang đọc cùng một refresh_id
 ```
 
 Ba ý cần nhớ:
@@ -200,34 +200,34 @@ Phí ship 30.000, voucher freeship trợ 15.000 → `total` = 500.000 − 50.000
 
 Tất cả mart có cùng cơ chế refresh: tính lại toàn bộ từ snapshot tăng dần mỗi ~15 giây, gắn `refresh_id` = watermark (mục 7). "Tích luỹ" = toàn bộ lịch sử, không theo khoảng thời gian.
 
-| # | Mart | Câu hỏi | Grain (một dòng là) | Phạm vi thời gian | Panel Grafana |
+| # | Mart | Câu hỏi | Grain (một dòng là) | Phạm vi thời gian | Dashboard · panel Grafana |
 |---|---|---|---|---|---|
-| 1 | overview_kpis | Toàn sàn đang lớn cỡ nào? | 1 dòng duy nhất | Tích luỹ | 4 ô số: Confirmed GMV, NMV, Orders, Buyers |
-| 2 | daily_sales | Mỗi ngày bán được bao nhiêu? | ngày nghiệp vụ | Theo ngày đặt | Daily sales · business dates (cột) |
-| 3 | traffic_by_hour | Cao điểm trong ngày, flash sale ra sao? | giờ | 48 giờ gần nhất | Orders by business hour (cột) |
-| 4 | order_status_summary | Pipeline đơn đang kẹt ở đâu? | trạng thái đơn | Trạng thái hiện tại | Order pipeline (cột) |
-| 5 | funnel | Giỏ → checkout → trả tiền → giao → hoàn tất | bước phễu | Tích luỹ | Purchase funnel (cột) |
-| 6 | payment_summary | Phương thức nào thanh toán thành công, thu/hoàn bao nhiêu? | phương thức thanh toán | Tích luỹ | Payment attempts and refunds |
-| 7 | category_sales | Ngành hàng gốc nào mang doanh thu? | ngành hàng gốc | Tích luỹ | Category sales |
-| 8 | product_sales | Sản phẩm nào bán chạy? | sản phẩm × ngành lá × shop | Tích luỹ | Product sales |
-| 9 | shop_performance | Người bán nào tốt/kém? | shop | Tích luỹ | Shop scorecard |
-| 10 | inventory_risk | SKU nào sắp hết hàng? | SKU tại một shop | Hiện tại | Inventory risk |
-| 11 | customer_tiers | Cơ cấu khách theo hạng thành viên | hạng | Hiện tại | Customer loyalty |
-| 12 | platform_pnl | Sàn thu, chi, hoàn bao nhiêu? | 1 dòng duy nhất | Tích luỹ | Platform economics |
-| 13 | delivery_performance | Hãng vận chuyển nào tốt? | hãng vận chuyển | Tích luỹ | Carrier performance |
-| 14 | returns_summary | Vì sao khách trả hàng? | lý do trả | Tích luỹ | Returns by reason |
-| 15 | return_rate_by_cohort | Tỷ lệ trả theo ngày giao | ngày giao (giờ VN) | Theo ngày giao | Return rate by delivery cohort |
-| 16 | voucher_performance | Voucher nào được dùng, tốn bao nhiêu? | voucher (code, phạm vi, loại) | Tích luỹ | Voucher performance |
-| 17 | flash_sale_performance | Chiến dịch flash sale bán hết bao nhiêu? | chiến dịch | Tích luỹ | Flash-sale performance |
-| 18 | seller_settlement | Mỗi shop được bao nhiêu, đã chi bao nhiêu? | shop | Tích luỹ | Seller settlement |
+| 1 | overview_kpis | Toàn sàn đang lớn cỡ nào? | 1 dòng duy nhất | Tích luỹ | `cdc-business`: ô "Người mua · toàn lịch sử" |
+| 2 | daily_sales | Mỗi ngày bán được bao nhiêu? | ngày nghiệp vụ | Theo ngày đặt | `cdc-business`: 6 ô số của kỳ (GMV xác nhận, NMV giữ lại, Đơn đã đặt, AOV, NMV / GMV, Đơn bị hủy), "Giá trị qua các ngày · GMV vs NMV", "So với ${period_days} ngày liền trước", "Cơ hội chưa xác nhận & giá trị chưa giữ lại", "Tỷ lệ xác nhận & tỷ lệ giữ lại theo ngày", 3 ô "… hôm nay"; mọi trang dùng nó cho biến `business_day` |
+| 3 | traffic_by_hour | Cao điểm trong ngày, flash sale ra sao? | giờ | 48 giờ gần nhất | `cdc-business`: "48 giờ nghiệp vụ gần nhất · chuẩn bị năng lực theo nhịp đơn"; `cdc-growth`: mốc giờ tham chiếu của hai panel flash sale |
+| 4 | order_status_summary | Pipeline đơn đang kẹt ở đâu? | trạng thái đơn | Trạng thái hiện tại | `cdc-operations`: ô Chờ thanh toán, Chờ shop / bàn giao, Đang vận chuyển, "Hàng chờ ở khâu nào? · loại đơn đã kết thúc"; `cdc-business`: dòng Fulfillment của "Từ số liệu đến người chịu trách nhiệm" |
+| 5 | funnel | Giỏ → checkout → trả tiền → giao → hoàn tất | bước phễu | Tích luỹ | `cdc-finance`: "Checkout tạo mới & đã xác nhận · cùng đơn vị checkout", "Cần rà tiếp điều gì?" (chỉ hai bước checkout) |
+| 6 | payment_summary | Phương thức nào thanh toán thành công, thu/hoàn bao nhiêu? | phương thức thanh toán | Tích luỹ | `cdc-finance`: ô Thành công / lượt đã kết thúc, Lượt đang chờ, Đã thu thành công, Đã hoàn tiền, "Cơ cấu kết quả từng phương thức", "Đối chiếu tỷ lệ và số tiền theo phương thức" |
+| 7 | category_sales | Ngành hàng gốc nào mang doanh thu? | ngành hàng gốc | Tích luỹ | `cdc-growth`: "Ngành gốc nào đóng góp giá trị hàng ròng?", "Tỷ trọng tiền hàng theo ngành gốc" |
+| 8 | product_sales | Sản phẩm nào bán chạy? | sản phẩm × ngành lá × shop | Tích luỹ | `cdc-growth`: ô Giá trị hàng · nhóm chọn, Số lượng giữ lại, Nhóm sản phẩm có doanh số, "Top ${top_n} sản phẩm · ưu tiên merchandising", "Danh sách sản phẩm để làm việc với shop" |
+| 9 | shop_performance | Người bán nào tốt/kém? | shop | Tích luỹ | `cdc-sellers`: ô Shop có đơn, NMV của nhóm shop, Lần vi phạm SLA đóng gói, "Nhà bán đóng góp lớn · GMV và phần giữ lại", "Đóng gói chậm · chỉ shop đủ số mẫu đơn", "Shop cần rà soát SLA / hủy · tối thiểu ${min_orders} đơn"; `cdc-business`: dòng Seller success |
+| 10 | inventory_risk | SKU nào sắp hết hàng? | SKU tại một shop | Hiện tại | `cdc-sellers`: ô SKU chạm ngưỡng bổ sung, "SKU cần làm việc với shop"; `cdc-business`: dòng Kho vận |
+| 11 | customer_tiers | Cơ cấu khách theo hạng thành viên | hạng | Hiện tại | `cdc-growth`: "Cơ cấu khách hàng theo hạng", "Nền khách để lập kế hoạch chăm sóc" |
+| 12 | platform_pnl | Sàn thu, chi, hoàn bao nhiêu? | 1 dòng duy nhất | Tích luỹ | `cdc-finance`: ô Hoa hồng + phí thanh toán, Take rate · GMV hoàn tất, Ưu đãi sàn đã gánh, Đã chi trả người bán, "Quy mô các khoản tiền · đọc riêng từng cơ sở ghi nhận", "Hoàn tiền theo nguyên nhân" |
+| 13 | delivery_performance | Hãng vận chuyển nào tốt? | hãng vận chuyển | Tích luỹ | `cdc-operations`: "Kết quả giao hàng · chỉ kiện kết thúc", "Thời gian vận chuyển trung bình · giờ nghiệp vụ", "Scorecard hãng vận chuyển" |
+| 14 | returns_summary | Vì sao khách trả hàng? | lý do trả | Tích luỹ | `cdc-operations`: ô Trả hàng đang mở, Đã hoàn theo yêu cầu trả, Đã đóng / từ chối, "Vì sao khách yêu cầu trả hàng?"; `cdc-business`: dòng Chăm sóc khách hàng |
+| 15 | return_rate_by_cohort | Tỷ lệ trả theo ngày giao | ngày giao (giờ VN) | Theo ngày giao | `cdc-operations`: ô Tỷ lệ yêu cầu trả · cohort chín, Cohort chưa hết cửa sổ, "Cohort giao hàng · theo dõi 21 ngày gần nhất" |
+| 16 | voucher_performance | Voucher nào được dùng, tốn bao nhiêu? | voucher (code, phạm vi, loại) | Tích luỹ | `cdc-growth`: ô Lượt dùng đang hiệu lực, Ưu đãi đã áp dụng, Ưu đãi / lượt dùng, "Voucher nào đang hấp thụ ngân sách?", "Quota & hiệu quả sử dụng voucher" |
+| 17 | flash_sale_performance | Chiến dịch flash sale bán hết bao nhiêu? | chiến dịch | Tích luỹ | `cdc-growth`: "Sell-through · ${top_n} chiến dịch mới nhất đã tới giờ", "Lịch chiến dịch & cơ hội kiểm tra quota" |
+| 18 | seller_settlement | Mỗi shop được bao nhiêu, đã chi bao nhiêu? | shop | Tích luỹ | `cdc-finance`: "Top 10 số dư ví lớn nhất", "Đối chiếu doanh số, phí và payout" |
 
 ### 6.2. overview_kpis
 
-- **Câu hỏi**: các con số đầu trang của dashboard.
+- **Câu hỏi**: các con số tổng của toàn sàn trên toàn lịch sử.
 - **Grain**: một dòng cho toàn bộ lịch sử.
 - **Measure**: `orders` (mọi đơn đã đặt), `gmv`, `nmv`, `completed_revenue`, `avg_order_value`, `buyers`, `cancelled` (đơn đang CANCELLED), `active_customers` (khách đang active), `shops` (tổng số shop). Định nghĩa đúng như từ điển.
 - **Nguồn**: order_facts, customers, shops.
-- **Dashboard**: chỉ 4 ô số dùng `gmv`, `nmv`, `orders`, `buyers`; các cột còn lại có trong mart nhưng không lên panel.
+- **Dashboard**: chỉ ô "Người mua · toàn lịch sử" trên `cdc-business` đọc `buyers` từ mart này. Các ô GMV, NMV, số đơn, AOV ở đầu trang đọc `daily_sales` trong cửa sổ 7/14/30 ngày đang chọn, không đọc overview_kpis; các cột còn lại có trong mart nhưng không lên panel.
 - **Lưu ý**: refresh có bị bỏ qua hay không cũng dựa trên mart này — nếu đã có dòng `overview_kpis` ở watermark hiện tại thì lần refresh coi như đã làm (mục 7).
 
 ### 6.3. daily_sales
@@ -236,8 +236,8 @@ Tất cả mart có cùng cơ chế refresh: tính lại toàn bộ từ snapsho
 - **Grain**: một dòng mỗi ngày (giờ VN của `created_at`), mới nhất trước.
 - **Measure**: `orders`, `confirmed_orders`, `buyers` (khách khác nhau có đơn confirmed trong ngày), `placed_gmv`, `gmv`, `nmv`, `completed_revenue`, `cancelled_orders`, `unpaid_cancelled`, `avg_order_value`.
 - **Nguồn**: order_facts.
-- **Dashboard**: biểu đồ cột với `placed_gmv`, `gmv`, `nmv` theo ngày.
-- **Lưu ý**: số của một ngày cũ vẫn đổi khi có huỷ/trả hàng (NMV giảm, cancelled tăng, completed_revenue tăng dần khi đơn hoàn tất). Muốn "số đã báo cáo" thì đọc `gold.daily_sales_closed` (mục 8) — bảng này không có trên dashboard. Panel sắp ngày tăng dần và giới hạn 200 dòng, nên nếu dữ liệu vượt 200 ngày thì panel chỉ hiện 200 ngày **cũ nhất**.
+- **Dashboard** (`cdc-business`): "Giá trị qua các ngày · GMV vs NMV" chỉ vẽ `gmv` và `nmv`; phần `placed_gmv − gmv` (Chưa xác nhận) và `gmv − nmv` (Hủy / trả sau xác nhận) là biểu đồ cột chồng riêng "Cơ hội chưa xác nhận & giá trị chưa giữ lại". Mart này còn cấp ô số của kỳ, bảng so với kỳ liền trước, tỷ lệ xác nhận/giữ lại theo ngày và các ô "… hôm nay".
+- **Lưu ý**: số của một ngày cũ vẫn đổi khi có huỷ/trả hàng (NMV giảm, cancelled tăng, completed_revenue tăng dần khi đơn hoàn tất). Muốn "số đã báo cáo" thì đọc `gold.daily_sales_closed` (mục 8) — bảng này không có trên dashboard. Panel theo ngày không còn giới hạn số dòng: nó lọc đúng cửa sổ `period_days` (7/14/30) ngày kết thúc ngay trước ngày nghiệp vụ mới nhất của bản dữ liệu (ngày mới nhất đang chạy nên bị loại khỏi kỳ, chỉ hiện ở các ô "… hôm nay").
 
 ### 6.4. traffic_by_hour
 
@@ -245,15 +245,15 @@ Tất cả mart có cùng cơ chế refresh: tính lại toàn bộ từ snapsho
 - **Grain**: một dòng mỗi giờ, trong 48 giờ trước đơn mới nhất.
 - **Measure**: `orders`, `placed_gmv` (dùng placed vì đơn của giờ gần nhất có thể còn trong cửa sổ thanh toán), `orders_with_voucher` (đơn có bất kỳ voucher shop, voucher sàn hoặc trợ giá ship nào).
 - **Nguồn**: orders.
-- **Dashboard**: cột `orders` theo giờ.
-- **Lưu ý**: nhóm giờ trên mốc UTC; vì UTC+7 lệch tròn giờ nên ranh giới giờ trùng với giờ VN, nhưng nhãn giờ hiển thị là giờ UTC.
+- **Dashboard** (`cdc-business`): cột "Đơn đặt" và "Đơn có ưu đãi" theo giờ; `cdc-growth` dùng giờ mới nhất làm mốc tham chiếu cho flash sale.
+- **Lưu ý**: nhóm giờ trên mốc UTC; vì UTC+7 lệch tròn giờ nên ranh giới giờ trùng với giờ VN. Panel tự đổi nhãn sang giờ Asia/Ho_Chi_Minh khi hiển thị.
 
 ### 6.5. order_status_summary
 
 - **Câu hỏi**: hiện có bao nhiêu đơn ở mỗi trạng thái (UNPAID, TO_SHIP, READY_TO_SHIP, SHIPPED, DELIVERY_FAILED, DELIVERED, COMPLETED, CANCELLED, RETURNED_TO_SELLER, RETURN_REFUND).
 - **Grain**: trạng thái hiện tại.
 - **Measure**: `orders`, `amount` = Σ total.
-- **Nguồn**: orders. **Dashboard**: Order pipeline.
+- **Nguồn**: orders. **Dashboard**: `cdc-operations` (ô số mục 01 và "Hàng chờ ở khâu nào? · loại đơn đã kết thúc"), `cdc-business` (dòng Fulfillment).
 
 ### 6.6. funnel
 
@@ -261,7 +261,7 @@ Tất cả mart có cùng cơ chế refresh: tính lại toàn bộ từ snapsho
 - **Grain**: 5 bước: giỏ hàng đã tạo → checkout → checkout đã trả tiền hoặc COD đã xác nhận → đơn đã giao cho vận chuyển (có `shipped_at`) → đơn COMPLETED.
 - **Measure**: `n` mỗi bước.
 - **Nguồn**: carts, checkouts, orders.
-- **Lưu ý**: hai bước cuối đếm **đơn**, ba bước đầu đếm **giỏ/checkout**; một checkout nhiều shop sinh nhiều đơn, nên tỷ lệ giữa bước 3 và 4 không phải tỷ lệ chuyển đổi thuần (panel ghi rõ "counts have different grains").
+- **Lưu ý**: hai bước cuối đếm **đơn**, ba bước đầu đếm **giỏ/checkout**; một checkout nhiều shop sinh nhiều đơn, nên tỷ lệ giữa bước 3 và 4 không phải tỷ lệ chuyển đổi thuần. Vì vậy panel trên `cdc-finance` chỉ vẽ hai bước cùng đơn vị checkout (Checkouts và Checkouts paid / COD), không vẽ cả phễu.
 
 ### 6.7. payment_summary
 
@@ -298,7 +298,7 @@ Tất cả mart có cùng cơ chế refresh: tính lại toàn bộ từ snapsho
 - **Grain**: một dòng tồn kho (SKU tại shop), sắp theo `available − reorder_point` tăng dần (rủi ro nhất trước).
 - **Measure**: `available`, `reserved` (đang giữ cho đơn chưa giao), `reorder_point`, `needs_reorder` = available ≤ reorder point.
 - **Nguồn**: inventory, product_skus, products, shops.
-- **Lưu ý**: view liệt kê **mọi** SKU kèm cờ, không chỉ SKU dưới ngưỡng (khác với chú thích trong SQL); panel lấy 200 dòng đầu nên thực tế hiển thị nhóm rủi ro nhất.
+- **Lưu ý**: view liệt kê **mọi** SKU kèm cờ, không chỉ SKU dưới ngưỡng (khác với chú thích trong SQL). Panel "SKU cần làm việc với shop" trên `cdc-sellers` tự lọc `needs_reorder`, xếp theo lượng thiếu để vượt ngưỡng giảm dần và lấy tối đa 30 dòng.
 
 ### 6.12. customer_tiers
 
@@ -375,7 +375,7 @@ Service `warehouse-jobs` chạy vòng lặp 5 giây; cứ mỗi **15 giây** (`M
 
 Vì sao vật chất hoá thay vì để Grafana gọi view gold:
 
-- Mỗi người xem, mỗi panel, mỗi 30 giây sẽ tính lại gold → tải nhân theo số người xem; mart biến dashboard thành đọc bảng nhỏ (SLO p95 truy vấn dashboard 500 ms).
+- Mỗi người xem, mỗi panel, mỗi lần dashboard tự làm mới (1 phút với dashboard nghiệp vụ) sẽ tính lại gold → tải nhân theo số người xem; mart biến dashboard thành đọc bảng nhỏ (SLO p95 truy vấn dashboard 500 ms).
 - Mọi panel đọc cùng `refresh_id` → nhất quán chéo panel.
 - Kết quả đã xuất bản không mất khi ClickHouse bận hoặc job lỗi; dashboard chỉ "cũ đi" và alert `MartRefreshStale` báo.
 
@@ -427,7 +427,7 @@ Một ngày D được chốt khi **đồng thời**:
 - Kết nối PostgreSQL bằng user **chỉ đọc** `app_reader`, phiên read-only.
 - **Cutoff** = thời điểm đặt đơn mới nhất trong warehouse **trừ 1 giờ nghiệp vụ**. Chỉ so các dòng có `created_at` ≤ cutoff — đã commit đủ lâu để cả hai bên chắc chắn phải có.
 - Với **28 bảng**: so số dòng; và với bảng có một cột **không bao giờ đổi sau khi chèn**, so thêm tổng cột đó (ví dụ: tổng `total` của orders, `net_amount` của order_items, `amount` của payments/refunds/ledger/payouts, `on_hand_delta` của inventory_movements, `new_price` của price_history, `quantity` của return_items, `rating` của reviews…). Cột thay đổi được (như status) không dùng vì hai bên đọc ở hai thời điểm khác nhau.
-- Phía ClickHouse đọc bảng snapshot tại `v` (bằng `consistent.<table>(v)`).
+- Phía ClickHouse đọc `snap.<table> FINAL` tại `v` (tương đương `consistent.<table>(v)`).
 - **Bỏ qua**: bảng không có `created_at` (inventory, shop_wallets) và cart_items (bị xoá cứng liên tục; để check_data so lúc hệ thống nghỉ).
 
 **Dung sai**: số phải **khớp tuyệt đối**; sự "khoan dung" nằm ở chỗ khác:
@@ -445,11 +445,11 @@ Một ngày D được chốt khi **đồng thời**:
 | Alert | Khi nào |
 |---|---|
 | WarehouseDataDrift (critical) | Có bảng failing kéo dài 2 phút; job cũng ghi log error tên bảng. |
-| ReconciliationStale | Không có lần reconciliation nào thành công trong 3 phút. |
-| MartRefreshStale | Mart không được refresh quá 2 phút trong khi CDC vẫn có sự kiện. |
+| ReconciliationStale | Lần reconciliation thành công gần nhất đã quá 180 giây và kéo dài thêm `for: 3m`, tức khoảng 6 phút không đối soát mới báo. |
+| MartRefreshStale | Lần refresh mart thành công gần nhất đã quá 120 giây trong khi CDC vẫn có sự kiện và kéo dài thêm `for: 2m`, tức khoảng 4 phút mới báo. |
 | WarehouseJobsFailing | warehouse-jobs lỗi ≥ 3 lần trong 5 phút. |
 
-Panel tương ứng ở dashboard Platform Health: Reconciliation execution age, Reconciliation failing tables, Mart refresh age/duration, Snapshot run duration, Keys re-read per delta snapshot.
+Panel tương ứng ở dashboard `cdc-platform` "CDC · Platform Health": Reconciliation execution age, Reconciliation failing tables, Mart refresh age/duration, Snapshot run duration, Keys re-read per delta snapshot.
 
 ## 10. Data contract và kiểm tra chất lượng
 
@@ -506,17 +506,19 @@ Lưu ý trung thực: kiểm tra "marts = gold" là so **một chiều** (dòng 
 
 ## 11. Dashboard theo vai trò nghiệp vụ
 
-Grafana hiện có **năm dashboard nghiệp vụ**, ngoài dashboard Platform Health dùng Prometheus. Các trang nghiệp vụ được sinh từ `business_dashboards.py` qua `generate_dashboards.py`, dùng múi giờ Asia/Ho_Chi_Minh và tự làm mới mỗi phút. Chúng chỉ đọc các mart đã tính sẵn, không chạy lại gold hoặc truy vấn trực tiếp PostgreSQL.
+Grafana hiện có **năm dashboard nghiệp vụ** đọc ClickHouse, ngoài dashboard `cdc-platform` "CDC · Platform Health" dùng Prometheus (sinh trong `generate_dashboards.py`, tự làm mới 30 giây). Các trang nghiệp vụ được sinh từ `business_dashboards.py` qua `generate_dashboards.py`, dùng múi giờ Asia/Ho_Chi_Minh, tự làm mới mỗi 1 phút và ẩn bộ chọn thời gian. Chúng chỉ đọc các mart đã tính sẵn và `ops.mart_refreshes`, không chạy lại gold hoặc truy vấn trực tiếp PostgreSQL. Các trang nối với nhau bằng thanh liên kết 01–05 ở đầu trang.
 
-| Dashboard | Câu hỏi vận hành | Mart chính |
+| Dashboard | Câu hỏi vận hành | Mart đọc (đầy đủ) |
 |---|---|---|
-| Điều hành sàn (`cdc-business`) | GMV/NMV đổi thế nào, mất giá trị ở giai đoạn nào, đội nào cần xử lý? | daily_sales, overview_kpis, traffic_by_hour, order_status_summary |
-| Đơn hàng & trải nghiệm (`cdc-operations`) | Backlog ở đâu, vận chuyển và trả hàng có vấn đề gì? | order_status_summary, delivery_performance, returns_summary, return_rate_by_cohort |
-| Danh mục & chiến dịch (`cdc-growth`) | Danh mục/sản phẩm nào đóng góp, voucher và flash sale dùng quota ra sao? | category_sales, product_sales, voucher_performance, flash_sale_performance, customer_tiers |
-| Nhà bán & tồn kho (`cdc-sellers`) | Shop nào cần hỗ trợ, SKU nào thiếu tồn khả dụng? | shop_performance, inventory_risk |
-| Thu phí & dòng tiền (`cdc-finance`) | Thu phí, tài trợ khuyến mại, hoàn tiền và ví seller đang ở trạng thái nào? | platform_pnl, payment_summary, seller_settlement |
+| 01 · Điều hành sàn (`cdc-business`) | GMV/NMV đổi thế nào, mất giá trị ở giai đoạn nào, đội nào cần xử lý? | daily_sales, overview_kpis, traffic_by_hour, order_status_summary, shop_performance, inventory_risk, returns_summary |
+| 02 · Đơn hàng & trải nghiệm (`cdc-operations`) | Backlog ở đâu, vận chuyển và trả hàng có vấn đề gì? | order_status_summary, delivery_performance, returns_summary, return_rate_by_cohort |
+| 03 · Danh mục & chiến dịch (`cdc-growth`) | Danh mục/sản phẩm nào đóng góp, voucher và flash sale dùng quota ra sao? | category_sales, product_sales, voucher_performance, flash_sale_performance, traffic_by_hour, customer_tiers |
+| 04 · Nhà bán & tồn kho (`cdc-sellers`) | Shop nào cần hỗ trợ, SKU nào thiếu tồn khả dụng? | shop_performance, inventory_risk |
+| 05 · Thu phí & dòng tiền (`cdc-finance`) | Thu phí, tài trợ khuyến mại, hoàn tiền và ví seller đang ở trạng thái nào? | platform_pnl, payment_summary, funnel, seller_settlement |
 
-Mỗi trang ghim một `refresh_id` đã hoàn tất từ `ops.mart_refreshes`, nên các panel trên trang dùng cùng một bản dữ liệu. Hai trang mở ở hai thời điểm khác nhau có thể chọn hai refresh khác nhau. Ngày nghiệp vụ chạy theo đồng hồ mô phỏng; bộ chọn thời gian wall-clock được ẩn. Chọn 7/14/30 ngày ở trang điều hành chỉ lọc phần so sánh doanh số theo ngày, không tự đổi tất cả bảng lũy kế thành số của cùng kỳ.
+Ngoài bảng trên, mọi trang đều đọc `daily_sales` để tính biến `business_day` và `ops.mart_refreshes` cho biến `refresh_id` và panel cuối "Độ mới của dữ liệu".
+
+Mỗi trang có hai biến ẩn: `refresh_id` (nhãn "Bản dữ liệu") lấy `refresh_id` lớn nhất trong `ops.mart_refreshes`, và `business_day` (nhãn "Ngày nghiệp vụ") là ngày đặt đơn mới nhất trong `daily_sales` của bản đó. Mọi panel lọc theo cùng `refresh_id`, nên các panel trên trang dùng cùng một bản dữ liệu; hai trang mở ở hai thời điểm khác nhau có thể chọn hai refresh khác nhau. Ngày nghiệp vụ chạy theo đồng hồ mô phỏng nên bộ chọn thời gian wall-clock bị ẩn; điều khiển ngày thật sự là biến `period_days` (7/14/30, mặc định 7) ở trang điều hành. Nó chỉ lọc phần 01 của trang này (ô số và biểu đồ theo ngày từ `daily_sales`), không tự đổi các bảng lũy kế hay các trang khác thành số của cùng kỳ. Các trang khác có bộ lọc riêng theo chiều (top N, ngành lá, bên tài trợ voucher, hạng/tỉnh/shop, số đơn tối thiểu, phương thức thanh toán), không lọc theo ngày.
 
 So sánh kỳ loại ngày nghiệp vụ mới nhất vì ngày đó có thể chưa kết thúc. Số quá khứ vẫn là giá trị sống, có thể đổi khi hoàn/hủy, không phải báo cáo ngày đã đóng băng. Không cộng daily distinct buyers thành số khách duy nhất của một kỳ; không lấy trung bình tỷ lệ cohort thay cho tổng numerator chia tổng denominator. Kỳ NMV mới cũng có thể chưa hết cửa sổ trả hàng.
 

@@ -59,14 +59,14 @@ Chạy một lần trước khi khởi động. Script này idempotent: chạy l
 | `secrets/clients/` | Secret của các service client: `sim-orchestrator`, `quality`, `identity` | simulator, validator, identity |
 | `secrets/webhooks/` | Khóa ký webhook của từng đối tác: MOMO, VNPAY, NAPAS, GHN, GHTK, SPX, JT, VTP | Source API (kiểm chữ ký), simulator (đóng vai đối tác) |
 | `secrets/tls/` | Một CA local (10 năm) và chứng chỉ server (825 ngày) cho `api.cdc.localhost`, `auth.cdc.localhost`, `app.cdc.localhost`, `localhost` | gateway (Traefik) |
-| `.env` | Cấu hình không bí mật, lấy từ `.env.example` (hiện chỉ có `AUTH_MODE=enforce`) | docker compose |
+| `.env` | Cấu hình không bí mật, lấy từ `.env.example` (hiện có `AUTH_MODE=enforce` và `ALERT_ENVIRONMENT=local`) | docker compose |
 
 Vài chi tiết đáng nhớ:
 
 - Giá trị ngẫu nhiên là 24 byte hex. File secret không có ký tự xuống dòng cuối vì Debezium đọc file nguyên văn.
 - Nếu một `.env` cũ còn chứa mật khẩu (trước khi chuyển sang "secret là file"), script chuyển giá trị đó sang file và xóa khỏi `.env`, để stack đang chạy giữ nguyên mật khẩu.
 - Quyền file được nới thành 644 để user trong container đọc được; riêng `ca.key` giữ riêng tư. Lý do chấp nhận được: `secrets/` chỉ nằm trên máy này và bị gitignore.
-- `./setup-env.sh --rotate` xóa và sinh lại mọi secret (giữ CA và chứng chỉ TLS). Nó chỉ chạy khi stack đã dừng, vì database chỉ đặt mật khẩu ở lần khởi động đầu trên volume mới; PII salt mới cũng làm đổi mọi giá trị băm.
+- `./setup-env.sh --rotate` xóa và sinh lại mọi secret (giữ CA và chứng chỉ TLS). Nó chỉ chạy khi stack đã dừng, mọi volume của project đã bị xóa và thư mục `source/postgres/data` không còn (tức một lần reset dữ liệu), vì database chỉ đặt mật khẩu ở lần khởi động đầu trên volume mới; PII salt mới cũng làm đổi mọi giá trị băm.
 - Lý do dùng file thay vì biến môi trường: mật khẩu không xuất hiện trong `docker inspect`, trong file compose hay trong cấu hình connector lưu trên Kafka.
 
 Webhook Google Chat là secret riêng của phần giám sát, nằm ở `observability/secrets/google-chat-webhook` (cũng gitignored). `setup-env.sh` không tạo file này.
@@ -178,7 +178,7 @@ Mọi cổng publish đều bind vào `127.0.0.1`, nên máy khác trong mạng 
 | debezium | 8083 | 8083 | Kafka Connect REST API |
 | clickhouse | 8123 | 8123 | HTTP, Play UI ở `/play` |
 | clickhouse | 9000 | 9000 | Native protocol (`clickhouse-client`, Grafana) |
-| grafana | 3000 | 3000 | Dashboard Business Analytics và Platform Health |
+| grafana | 3000 | 3000 | Năm dashboard nghiệp vụ (`cdc-business` … `cdc-finance`) và `cdc-platform` (Platform Health) |
 | prometheus | 9090 | 9090 | Prometheus UI và API |
 | alertmanager | 9093 | 9093 | Alertmanager UI và API |
 
@@ -251,8 +251,8 @@ docker compose up -d clickhouse
 
 Cách backup và replay phối hợp (hướng dẫn đầy đủ ở [bài thực hành](09-thuc-hanh-backup-clickhouse.md)):
 
-1. **Khi backup:** dừng warehouse-jobs và detach các bảng Kafka engine (vài giây tới một phút), nên mọi bảng được chụp ở cùng một vị trí Kafka. Trong lúc đó Kafka vẫn giữ sự kiện mới. Mỗi bản có một file manifest ghi loại, bản gốc, thời điểm, danh sách database và **topic ID và vị trí replay của Kafka**.
-2. **Khi restore:** kiểm tra topic IDs và offset replay của Kafka còn hợp lệ (không hợp lệ thì dừng trước khi xóa database; `--force` chỉ restore offline), xóa và khôi phục các database, tính từ offset lưu trong bronze offset đầu tiên **chưa** có trong backup cho từng partition, dời từng consumer group của ClickHouse tới đó, rồi tạo lại các bảng Kafka. Các sự kiện sau thời điểm backup được đọc bù; không coi đó là bảo đảm exactly-once của toàn pipeline.
+1. **Khi backup:** dừng warehouse-jobs và detach các bảng Kafka engine (vài giây tới một phút), nên mọi bảng được chụp ở cùng một vị trí Kafka. Trong lúc đó Kafka vẫn giữ sự kiện mới. Mỗi bản có một file manifest ghi loại, bản gốc, thời điểm, danh sách database. Ngay sau lệnh BACKUP, khi các bảng Kafka vẫn đang detach, script tính **offset replay** (offset đầu tiên chưa có trong bronze cho từng partition; partition chưa có dòng nào thì lấy offset sớm nhất hiện có) và lưu vào file `<tên>.offsets`, cùng topic ID vào `<tên>.topics`, rồi mới cho ingest chạy lại.
+2. **Khi restore:** kiểm tra topic IDs và offset replay của Kafka còn hợp lệ (không hợp lệ thì dừng trước khi xóa database; `--force` chỉ restore offline), xóa và khôi phục các database, đọc offset replay từ file `<tên>.offsets` đã lưu lúc backup (không tính lại sau khi restore), dời từng consumer group của ClickHouse tới đó, rồi tạo lại các bảng Kafka. Các sự kiện sau thời điểm backup được đọc bù; không coi đó là bảo đảm exactly-once của toàn pipeline.
 3. Nếu Kafka đã xóa những sự kiện cần đọc bù (retention mặc định 7 ngày) hoặc backup "đi trước" Kafka, restore dừng và báo rõ partition nào.
 
 ```bash
@@ -482,7 +482,7 @@ Kiểm thử end-to-end: POST một alert giả có nhãn rõ ràng, thời hạ
 
 ## 4. Runbook
 
-Các runbook dưới đây gom từ `docs/README.md`, `observability/README.md` và annotation của alert, viết lại thành bước.
+Các runbook dưới đây gom từ `observability/README.md`, annotation của alert và các chương vận hành trong `docs/`, viết lại thành bước.
 
 ### 4.1. Connector hoặc task không RUNNING (`ConnectorNotRunning`)
 
@@ -599,7 +599,7 @@ Cách gate chạy:
 1. Nếu là `smoke` hoặc `full`: reset toàn bộ (xóa volume và thư mục dữ liệu PostgreSQL).
 2. Bật dịch vụ lõi, chờ Kafka Connect, đăng ký connector nếu chưa có, in trạng thái.
 3. Bật simulator và Control Center, chờ seed xong.
-4. Chạy `test_source_api.py` và `test_stress.py` trong container validator; lỗi thì in 30 dòng cuối và log deadlock rồi dừng.
+4. Chạy `test_source_api.py`, `test_stress.py` và `test_validation_wait.py` trong container validator (`test_auth.py` không nằm trong danh sách này); lỗi thì in 30 dòng cuối và log deadlock rồi dừng.
 5. Đặt tốc độ đồng hồ, bật generator qua Control Center API (40 phiên mua mỗi tick, 6 khách mới mỗi tick), chạy probe song song.
 6. Mỗi 5 giây kiểm tra bộ đếm deadlock: **có deadlock là dừng ngay** và in đoạn log PostgreSQL liên quan, không chờ hết giờ.
 7. Bắn 11.11 và chaos (restart) đúng thời điểm của mức đó.
@@ -620,7 +620,8 @@ Vì sao có ba mức: nếu chỉ có một gate 25 phút, người ta sẽ khô
 |---|---|---|
 | `test_source_api.py` | 25 test chức năng cho luật marketplace: tách đơn theo shop, phí ship theo rate card, COD, chống trùng callback thanh toán, thanh toán lại, refund thanh toán trễ, không oversell khi checkout đồng thời, ai được đổi trạng thái đơn, sự kiện vận chuyển trễ / sai thứ tự / trùng, flash sale, voucher (phân bổ xuống dòng, trả lại, giới hạn dưới tải, quota chia slot), đổi giá chỉ áp cho đơn mới, trả hàng một phần / toàn phần, tranh chấp, review, đồng hồ nghiệp vụ. Mỗi test tự tạo shop, sản phẩm, người mua nên chạy song song với simulator được | Mọi gate |
 | `test_stress.py` | 24 luồng bắn checkout, hủy và thanh toán vào cùng vài SKU, flash item, voucher trong 20 s; yêu cầu **không deadlock** (đọc bộ đếm của PostgreSQL, vì API tự retry deadlock nên client không thấy) và không lệch tồn kho, quota flash, quota voucher | Mọi gate |
-| `test_auth.py` | Gọi ẩn danh cần token; token giả hoặc của issuer khác bị từ chối; buyer chỉ hành động cho chính mình; đơn chỉ hiện cho buyer và shop của nó; seller chỉ quản lý shop của mình; webhook phải được đúng đối tác ký; idempotency key theo từng caller; route không có `/v1` đã bỏ; xoay refresh token và phát hiện tái sử dụng; khóa tài khoản sau nhiều lần sai mật khẩu; service client không vượt quyền | Chạy tay (chưa nằm trong gate) |
+| `test_auth.py` | Gọi ẩn danh cần token; token giả hoặc của issuer khác bị từ chối; buyer chỉ hành động cho chính mình; đơn chỉ hiện cho buyer và shop của nó; seller chỉ quản lý shop của mình; webhook phải được đúng đối tác ký; idempotency key theo từng caller; route không có `/v1` trả 404 khi `AUTH_MODE=enforce` (chúng chỉ được mount khi mode khác `enforce`, chưa bị xóa); xoay refresh token và phát hiện tái sử dụng; khóa tài khoản sau nhiều lần sai mật khẩu; service client không vượt quyền | Chạy tay; không nằm trong gate lẫn CI |
+| `test_validation_wait.py` | Unit test (không cần database) cho bước chờ job định kỳ của `check_data`: backlog rỗng thì không chờ, có backlog thì poll lại tới khi job bắt kịp, quá hạn thì vẫn giữ lỗi để `check_data` báo | Mọi gate |
 | `probe_consistency.py` | Probe torn-read, xem 5.4 | Mọi gate, song song với traffic |
 | `check_data.py` | Hơn chục nhóm kiểm tra tiền, trạng thái, tồn kho, vận chuyển, khuyến mãi, trả hàng, settlement, write path, pipeline (PostgreSQL so với silver cho 31 bảng), metric gold tính lại trong PostgreSQL, mart, snapshot, reconcile, PII không lọt vào ClickHouse. Chạy khi simulator đã dừng; exit khác 0 nếu có lỗi. Chi tiết ở [05-mart-va-metric.md](../platform/05-mart-va-metric.md) | Cuối mọi gate |
 
@@ -809,7 +810,7 @@ Mỗi sự cố: chuyện gì xảy ra, vì sao, xử lý thế nào, bài học
 - **Thông lượng T1.** Đo được khoảng 1.800 sự kiện/s so với 5.400 cần cho cao điểm T1, bị chặn ở write path (tồn kho hot row). Ở quy mô T1 còn cần nhiều broker, partition theo order, nhiều Connect worker, replica cho PostgreSQL và ClickHouse, và aggregate từng ngày cho các mart nặng.
 - **Kafka và database chưa có TLS/SASL.** Chỉ gateway có HTTPS; trong mạng compose mọi thứ là plaintext.
 - **Control Center không có xác thực.** Nó chỉ bind localhost; dự định đặt sau oauth2-proxy. Nó cũng kết nối ClickHouse bằng user `admin` dù chỉ cần đọc.
-- **Secret cũ trong lịch sử git.** Mật khẩu dev và PII salt cũ từng nằm trong repo trước khi chuyển sang `secrets/`; với mọi môi trường dùng chung phải đổi. Có hai cách: sửa từng file rồi chạy `./observability/start.sh` để áp lên volume đang có, hoặc `./setup-env.sh --rotate` để sinh lại toàn bộ secret (giữ CA và chứng chỉ TLS). Cách thứ hai từ chối chạy khi stack còn container, vì database chỉ đặt mật khẩu ở lần khởi động đầu, nên nó đi kèm một lần reset dữ liệu. Đổi PII salt làm thay đổi mọi giá trị băm, nên chỉ đặt một lần cho mỗi môi trường.
+- **Secret cũ trong lịch sử git.** Mật khẩu dev và PII salt cũ từng nằm trong repo trước khi chuyển sang `secrets/`; với mọi môi trường dùng chung phải đổi. Có hai cách: sửa từng file rồi chạy `./observability/start.sh` để áp lên volume đang có, hoặc `./setup-env.sh --rotate` để sinh lại toàn bộ secret (giữ CA và chứng chỉ TLS). Cách thứ hai từ chối chạy khi stack còn container, khi còn volume nào của project hoặc thư mục `source/postgres/data` còn tồn tại, vì database chỉ đặt mật khẩu ở lần khởi động đầu, nên nó đi kèm một lần reset dữ liệu. Đổi PII salt làm thay đổi mọi giá trị băm, nên chỉ đặt một lần cho mỗi môi trường.
 - **Chưa chia sẻ secret an toàn cho nhóm.** Dự định SOPS + age.
 - **Retention Kafka** vẫn là mặc định của broker.
 - **Thiếu giám sát gateway và per-container.** Metric Traefik được scrape nhưng chưa có panel hay alert; không có metric theo container và không có distributed tracing.

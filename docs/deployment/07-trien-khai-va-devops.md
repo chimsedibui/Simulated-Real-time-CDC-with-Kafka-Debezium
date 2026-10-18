@@ -635,7 +635,7 @@ flowchart LR
 
 ### 8.3. Từng job
 
-**CI (đã có phần lớn).** Trên mỗi PR: lint (ví dụ `ruff` cho Python, `shellcheck` cho các script bash như `gate.sh`, `backup.sh`, `setup-env.sh`), unit test, `observability` (kiểm tra cấu hình Prometheus, unit test alert bằng `promtool`, `amtool`, dashboard sinh ra khớp nguồn), `data-contract` (schema ↔ silver spec ↔ connector), và `gate-smoke` (stack sạch, 4 phút traffic ×1440, probe torn-read, `check_data`). Thêm `gitleaks` để chặn secret, và kiểm tra `docker compose config` với file server để bắt lỗi cú pháp override. Mục tiêu của CI: **không có gì hỏng đi được tới `main`**.
+**CI.** *Đã có* trong `.github/workflows`: `data-contract` (schema ↔ silver spec ↔ connector), `observability` (`docker compose config` của compose local, kiểm tra cấu hình Prometheus, unit test alert bằng `promtool`, `amtool`, unit test `test_bridge.py` của chat-webhook, dashboard sinh ra khớp nguồn) và `gate-smoke` (stack sạch, 4 phút traffic ×1440, test API và stress, probe torn-read, `check_data`). *Đề xuất thêm*: lint (`ruff` cho Python, `shellcheck` cho các script bash như `gate.sh`, `backup.sh`, `setup-env.sh`), `gitleaks` để chặn secret, unit test cho các service ngoài `test_bridge.py`, và kiểm tra `docker compose config` với file compose của server để bắt lỗi cú pháp override. Mục tiêu của CI: **không có gì hỏng đi được tới `main`**.
 
 **Build & push.** Chạy khi có commit trên `main`. Build từng image, gắn tag SHA, đẩy lên GHCR. Dùng cache của buildx để nhanh. Quét lỗ hổng và dừng nếu có lỗi nghiêm trọng (CRITICAL) chưa có lý do chấp nhận. Kết quả của job là một danh sách "SHA này có đủ image" để các job sau dùng. Có thể bỏ qua build lại image không đổi, nhưng **vẫn gắn tag SHA mới** cho chúng để mọi image của một lần deploy có cùng tag.
 
@@ -737,7 +737,7 @@ flowchart LR
 
 ### 9.1. Metrics
 
-Đã có nền rất tốt: Prometheus (retention 15 ngày), 10 job scrape (prometheus, alertmanager, platform, kafka, node, source-api, identity, gateway, chat-webhook, warehouse-jobs), 32 alert có unit test, dashboard Platform Health và Business Analytics. Trên server bổ sung:
+Đã có nền rất tốt: Prometheus (retention 15 ngày), 10 job scrape (prometheus, alertmanager, platform, kafka, node, source-api, identity, gateway, chat-webhook, warehouse-jobs), 32 alert có unit test, dashboard `cdc-platform` (Platform Health) và năm dashboard nghiệp vụ (`cdc-business`, `cdc-operations`, `cdc-growth`, `cdc-sellers`, `cdc-finance`). Trên server bổ sung:
 
 - **cAdvisor** (hoặc Docker metrics) để thấy RAM/CPU *theo container*; node-exporter chỉ thấy cả máy. Khi bị OOM, bạn cần biết container nào.
 - **Nhãn môi trường**: `external_labels: {env: staging}` trong cấu hình Prometheus, để alert và dashboard luôn ghi rõ môi trường.
@@ -883,8 +883,8 @@ Câu hỏi đầu tiên không phải "backup thế nào" mà là **"nếu mất
 
 Script xử lý bài toán: **backup nhất quán một warehouse đang nhận dữ liệu liên tục**.
 
-- `backup` dùng `BACKUP … TO Disk('backups', …)` của chính ClickHouse, hỗ trợ `--incremental` (chỉ các part thay đổi so với bản full gần nhất). Trong lúc backup, nó **detach các Kafka engine table** và dừng `warehouse-jobs` (vài giây tới một phút), nên mọi bảng được chụp ở cùng một vị trí Kafka; Kafka giữ các sự kiện mới trong lúc đó. Mỗi bản có file manifest ghi `kafka_id`, kèm `.topics` và `.offsets` lưu danh tính topic và vị trí replay.
-- `restore` khôi phục database, rồi **dời consumer group của ClickHouse tới offset đầu tiên chưa có trong backup** (tính từ offset lưu trong bronze), tạo lại Kafka table; ClickHouse đọc lại phần sau backup từ Kafka, theo vị trí replay đã lưu. Nó từ chối khôi phục nếu topic Kafka đã được tạo lại (dữ liệu đã reset) hoặc các offset cần thiết đã bị retention xoá.
+- `backup` dùng `BACKUP … TO Disk('backups', …)` của chính ClickHouse, hỗ trợ `--incremental` (chỉ các part thay đổi so với bản full gần nhất). Trong lúc backup, nó **detach các Kafka engine table** và dừng `warehouse-jobs` (vài giây tới một phút), nên mọi bảng được chụp ở cùng một vị trí Kafka; Kafka giữ các sự kiện mới trong lúc đó. Ngay sau lệnh BACKUP, khi các Kafka table vẫn đang detach, script **tính vị trí replay ngay lúc backup** (offset đầu tiên chưa có trong bronze cho từng partition; partition chưa có dòng nào thì lấy offset sớm nhất lúc đó) và lưu vào `<tên>.offsets`, cùng danh tính topic vào `<tên>.topics`, rồi mới cho ingest chạy lại. File manifest `<tên>.json` ghi `kafka_id`.
+- `restore` khôi phục database, rồi **dời consumer group của ClickHouse tới các offset đọc từ file `<tên>.offsets`** (không tính lại lúc restore), tạo lại Kafka table; ClickHouse đọc lại phần sau backup từ Kafka. Bản backup cũ không có file `.offsets` chỉ restore được với `--force` (offline). Nó từ chối khôi phục nếu topic Kafka đã được tạo lại (dữ liệu đã reset) hoặc các offset cần thiết đã bị retention xoá.
 - `prune` giữ N bản full mới nhất cùng các incremental của chúng.
 
 Trên server cần bổ sung:
@@ -917,7 +917,7 @@ Trên server cần bổ sung:
 1. **Nguyên nhân thường gặp**: Debezium dừng (lỗi, bị pause, connector FAILED) → replication slot giữ WAL → WAL tăng tới `max_slot_wal_keep_size = 8GB` (giới hạn này repo đã đặt, rất đúng: không có nó, WAL tăng tới khi đầy đĩa và PostgreSQL ngừng nhận ghi). Hoặc: log container không giới hạn; backup local tích tụ; bronze tăng mãi không có cold tier thật; image cũ.
 2. **Hậu quả**: PostgreSQL không ghi được ⇒ API lỗi 5xx; Kafka không ghi được ⇒ broker dừng; ClickHouse không merge được ⇒ "too many parts" ⇒ từ chối insert.
 3. **Khi slot vượt 8 GB**, PostgreSQL **vô hiệu hoá slot** để tự cứu; Debezium không đọc tiếp được, phải snapshot lại (ClickHouse nhận lại toàn bộ trạng thái). Đây là đánh đổi có chủ đích: mất tính liên tục của CDC còn hơn mất database nguồn.
-4. **Phòng ngừa**: alert đĩa 75/90%, alert kích thước WAL giữ bởi slot (exporter đã có metric slot), alert connector không RUNNING, log rotation, retention theo dung lượng cho Prometheus/Loki, cold tier ra object storage thật, `prune` backup.
+4. **Phòng ngừa**: repo đã có alert `DiskSpaceLow` (critical khi còn dưới 15% dung lượng trống, tức khoảng 85% đã dùng, kéo dài 5 phút); đề xuất thay bằng hai mức cảnh báo 75% và 90% đã dùng để có thời gian phản ứng sớm hơn. Thêm alert kích thước WAL giữ bởi slot (exporter đã có metric slot), alert connector không RUNNING, log rotation, retention theo dung lượng cho Prometheus/Loki, cold tier ra object storage thật, `prune` backup.
 5. **Xử lý khi đã đầy**: giải phóng chỗ an toàn trước (xoá image cũ, log cũ, backup local đã có bản off-site), **không** xoá file trong thư mục dữ liệu PostgreSQL/Kafka bằng tay; sau đó tìm nguyên nhân gốc (thường là Debezium) và sửa; mở rộng đĩa nếu nhà cung cấp cho phép.
 
 ### 11.6. Kafka retention và HA
@@ -1050,7 +1050,7 @@ Tổng hợp những gì đã nêu rải rác ở trên, để làm checklist k�
 | `setup-env.sh` | Sinh secret ngẫu nhiên, file `0644` | Server dùng SOPS; thư mục secret `0700` | Nguồn secret có kiểm soát |
 | PostgreSQL / ClickHouse init | Chỉ chạy trên volume rỗng | Thêm migration tool | Môi trường sống lâu |
 | `observability/alertmanager.yml` | Một receiver | Receiver theo môi trường và mức độ | Staging không làm ồn kênh chính |
-| `observability/prometheus/prometheus.yml` | Không có `external_labels` | `env: <môi trường>` | Biết alert từ đâu |
+| `observability/prometheus/prometheus.yml` | `external_labels` chỉ có `project: realtime-cdc`, chưa có nhãn môi trường | Thêm `env: <môi trường>` | Biết alert từ đâu |
 | Service Python | Log văn bản, không request ID | Log JSON, request ID, OTel | Debug xuyên pipeline |
 
 ---

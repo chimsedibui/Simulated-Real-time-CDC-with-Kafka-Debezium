@@ -522,7 +522,7 @@ flowchart LR
 
 ClickHouse được backup bằng `warehouse/backup.sh`, dùng BACKUP/RESTORE gốc của database. Script tạm dừng warehouse-jobs và ingestion, lưu dữ liệu cùng metadata replay, rồi bật lại ingestion. Bản full có thể làm base cho incremental; khi sao chép phải giữ cả base và các file manifest, `.topics`, `.offsets`.
 
-Restore thông thường chỉ tiếp tục được khi topic IDs còn khớp và Kafka còn các offset cần replay; preflight diễn ra trước khi thay database. `--force` chỉ restore offline, không bật consumers/jobs. Kafka engine và Connect vẫn có thể replay khi lỗi; không dùng cụm từ exactly-once để mô tả bảo đảm của toàn hệ thống.
+Restore thông thường chỉ tiếp tục được khi topic IDs còn khớp và Kafka còn các offset cần replay; preflight diễn ra trước khi thay database. `--force` chỉ restore offline, không bật consumers/jobs. Kafka engine và Connect vẫn có thể replay khi lỗi; bảo đảm của toàn hệ thống là **effectively-once** (giao at-least-once, lớp đọc khử trùng/idempotent), không phải exactly-once.
 
 Đọc [bài thực hành backup](../operations/09-thuc-hanh-backup-clickhouse.md) cho lệnh, thứ tự phục hồi, cách kiểm chứng và giới hạn. Không backup PostgreSQL trong phạm vi local theo lựa chọn của người dùng. Backup trên cùng host chưa bảo vệ mất ổ đĩa; chưa cài lịch hoặc bản sao off-site.
 
@@ -531,7 +531,7 @@ Restore thông thường chỉ tiếp tục được khi topic IDs còn khớp v
 | User | Tạo bởi | Quyền | Ai dùng |
 |------|---------|-------|---------|
 | `admin` | Biến môi trường của image (`CLICKHOUSE_USER`, mật khẩu từ file, có access management) | Toàn quyền | Init script, `warehouse-jobs`, Control Center backend (HTTP 8123), validator (`check_data.py`, `probe_consistency.py`) |
-| `grafana_reader` | `init/06-monitoring.sh` | SELECT trên `mart.*` và `ops.mart_refreshes`; `readonly = 1` (chỉ được đổi `max_execution_time`) | Grafana dashboard Business Analytics |
+| `grafana_reader` | `init/06-monitoring.sh` | SELECT trên `mart.*` và `ops.mart_refreshes`; `readonly = 1` (chỉ được đổi `max_execution_time`) | Năm dashboard nghiệp vụ Grafana (`cdc-business`, `cdc-operations`, `cdc-growth`, `cdc-sellers`, `cdc-finance`) |
 | `monitor_reader` | `init/06-monitoring.sh` | SELECT trên `system.*`, `bronze.*`, `silver.*`, `consistent.*`, `ops.*`; `readonly = 1` | `platform-exporter` (metric cho Prometheus) |
 
 - Mật khẩu đều là file trong `secrets/`, mount read-only. Script 06 vừa tạo vừa cập nhật mật khẩu (chạy lại được sau khi đổi secret).
@@ -562,7 +562,7 @@ Restore thông thường chỉ tiếp tục được khi topic IDs còn khớp v
 | Consistent so với silver | thường chậm dưới 1 s |
 | Refresh 18 mart, trước R20 | ~4.6 s ở 35k order |
 | Sau R20 | ~0.9 s snapshot delta + 0.3–1 s mart |
-| Dashboard query p95 | ~35 ms với 50–100 người xem, refresh 30 s |
+| Dashboard query p95 | ~35 ms với 50–100 người xem, đo khi dashboard còn tự làm mới 30 s; hiện các dashboard nghiệp vụ làm mới 1 phút (chưa đo lại) |
 | SLO dashboard | p95 ≤ 500 ms (alert trên p95 SELECT của `grafana_reader`) |
 
 Vì sao dashboard nhanh và không phụ thuộc số người xem: mỗi panel chỉ đọc một bảng mart nhỏ đã tính sẵn tại một refresh_id; chi phí tính toán nằm ở job (một lần mỗi 15 s), không nhân theo số viewer. Datasource Grafana dùng **native protocol** (cổng 9000) với `maxOpenConns` 100 (mặc định plugin 50 open / 25 idle làm dashboard bị xếp hàng khi nhiều người mở cùng lúc).
@@ -573,7 +573,7 @@ Vì sao dashboard nhanh và không phụ thuộc số người xem: mỗi panel 
 
 | Tình huống | Điều gì xảy ra |
 |-----------|----------------|
-| **Sự kiện trùng** (at-least-once) | Bronze lưu cả hai. Silver: cùng LSN, cùng nội dung → FINAL giữ một. Watermark đếm cặp (bảng, LSN) duy nhất. Snapshot: key đã DISTINCT, FINAL khử bản trùng. Các số đếm đọc thẳng bronze (ví dụ `cdc_freshness`) có thể bị thổi phồng. |
+| **Sự kiện trùng** (giao at-least-once; kết quả effectively-once nhờ đọc idempotent) | Bronze lưu cả hai. Silver: cùng LSN, cùng nội dung → FINAL giữ một. Watermark đếm cặp (bảng, LSN) duy nhất. Snapshot: key đã DISTINCT, FINAL khử bản trùng. Các số đếm đọc thẳng bronze (ví dụ `cdc_freshness`) có thể bị thổi phồng. |
 | **Đến lệch thứ tự** giữa các bảng | Watermark giữ lại tới khi đủ. Trong cùng một dòng: LSN quyết định. |
 | **Sự kiện đến muộn** (một topic trễ) | Watermark đứng, `held_back` tăng; consistent vẫn đúng nhưng cũ hơn. Quá 30–60 phút thì quy tắc tuổi và cửa sổ END gỡ chặn. |
 | **Delete** | Silver: dòng `_is_deleted = 1`. Consistent: nếu delete chưa visible thì khôi phục dòng cũ. Snapshot: dòng gỡ bỏ `_gone = 1`. |

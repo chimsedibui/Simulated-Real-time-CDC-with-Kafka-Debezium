@@ -13,4 +13,4 @@ Hướng dẫn dùng stack hiện tại, kiểm tra dữ liệu và phục hồi
 
 `quality/gate.sh smoke` và `full` xóa dữ liệu. Đọc phạm vi từng gate trước khi chạy; không dùng chúng như deploy script trên server có dữ liệu cần giữ.
 
-Muốn dựng môi trường mới trên server, chuyển sang [triển khai và DevOps](../deployment/README.md). Kết quả từng lần chạy được lưu riêng trong [bàn giao](../handoff/README.md).
+Muốn dựng môi trường mới trên server, chuyển sang [triển khai và DevOps](../deployment/README.md).

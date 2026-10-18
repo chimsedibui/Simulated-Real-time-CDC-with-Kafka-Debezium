@@ -1,4 +1,4 @@
-# Q&A 03 · Q&A · Luồng CDC: PostgreSQL → Debezium → Kafka
+# Q&A 03 · Luồng CDC: PostgreSQL → Debezium → Kafka
 
 [Tài liệu dự án](../README.md) / [Phỏng vấn](README.md)
 
@@ -71,7 +71,7 @@ Incremental snapshot đọc lại bảng theo từng khúc (chunk) trong khi v�
 Đó là envelope gồm `before`, `after`, `op` (c/u/d/r), `ts_ms` (lúc Debezium xử lý), `source` (bảng, LSN, txId, `ts_ms` lúc commit) và khối `transaction` (id transaction và thứ tự). Insert có before null, delete có after null. Dự án giữ nguyên envelope này, không unwrap, và lưu before/after thô trong bronze.
 
 ### Q16. Vì sao dự án không dùng SMT ExtractNewRecordState (unwrap)? [Trung bình]
-Unwrap làm phẳng envelope chỉ còn trạng thái mới, mất `before`. Warehouse cần before: silver ghi bản "đã xóa" từ before khi có DELETE, và `consistent.*` dùng before để hiển thị dòng như trước một transaction chưa đến đủ. Cấu hình unwrap vẫn có trong file nhưng bị tắt (khóa bắt đầu bằng dấu gạch dưới).
+Unwrap làm phẳng envelope chỉ còn trạng thái mới, mất `before`. Warehouse cần before: silver ghi bản "đã xóa" từ before khi có DELETE, và `consistent.*` dùng before để hiển thị dòng như trước một transaction chưa đến đủ. File connector không có cấu hình unwrap nào, kể cả dạng tắt.
 
 ---
 
@@ -148,7 +148,7 @@ Converter chuyển record nội bộ của Connect (có schema) thành byte gử
 Single Message Transform là biến đổi nhẹ từng record trong Connect trước converter: đổi topic, thêm/bỏ field, lọc. Dự án dùng EventRouter cho outbox, áp có điều kiện bằng predicate. Không nên dùng SMT cho logic nặng, join, aggregate hay gọi dịch vụ ngoài; những việc đó thuộc stream processor hoặc warehouse.
 
 ### Q39. Predicate trong Connect dùng để làm gì? [Trung bình]
-Predicate cho phép áp SMT chỉ cho một số record. Dự án dùng TopicNameMatches với mẫu `cdc.ecommerce.outbox_events`, nên chỉ record của bảng outbox đi qua EventRouter; record của 31 bảng khác đi nguyên vẹn. Thiếu predicate, EventRouter sẽ cố xử lý mọi record và lỗi vì thiếu cột outbox.
+Predicate cho phép áp SMT chỉ cho một số record. Dự án dùng TopicNameMatches với mẫu `cdc.ecommerce.outbox_events`, nên chỉ record của bảng outbox đi qua EventRouter; record của 32 bảng còn lại được capture (31 bảng nghiệp vụ và bảng điều khiển debezium_signals) đi nguyên vẹn. Thiếu predicate, EventRouter sẽ cố xử lý mọi record và lỗi vì thiếu cột outbox.
 
 ### Q40. Bên trong task Debezium có những luồng nào? [Nâng cao]
 Một luồng streaming đọc slot qua kết nối replication, dựng sự kiện và đẩy vào hàng đợi nội bộ có giới hạn. Luồng poll của Connect lấy batch từ hàng đợi (tối đa max.batch.size, chờ tối đa poll.interval.ms khi rỗng), chạy SMT và converter rồi giao cho producer. Khi hàng đợi đầy, luồng streaming bị chặn, tạo backpressure tự nhiên về phía PostgreSQL (WAL được slot giữ).
@@ -182,7 +182,7 @@ Không phải offset Kafka mà là vị trí ở nguồn: LSN đã xử lý, LSN
 Debezium đọc sự kiện từ slot, Connect gửi vào Kafka và producer nhận ack với acks=all. Mỗi 60 giây (offset.flush.interval.ms), Connect chờ mọi record đã gửi được ack rồi ghi offset mới vào debezium-offsets. Sau đó Connect gọi commit của task, Debezium gửi flush LSN cho PostgreSQL và confirmed_flush_lsn tiến lên. Thứ tự này đảm bảo PostgreSQL không bao giờ xóa WAL của thay đổi mà Kafka chưa có.
 
 ### Q49. Delivery guarantee của pipeline là gì? [Cơ bản]
-At-least-once: mọi thay đổi đã commit đều đến Kafka ít nhất một lần, có thể nhiều hơn. Không mất nhờ slot và thứ tự xác nhận; có thể trùng sau crash hay restart. Downstream thiết kế idempotent nên kết quả cuối cùng như exactly-once.
+At-least-once: mọi thay đổi đã commit đều đến Kafka ít nhất một lần, có thể nhiều hơn. Không mất nhờ slot và thứ tự xác nhận; có thể trùng sau crash hay restart. Downstream đọc idempotent và khử trùng, nên kết quả nhìn thấy là effectively-once; pipeline không đảm bảo exactly-once đầu cuối.
 
 ### Q50. Khi nào xuất hiện bản ghi trùng? [Trung bình]
 Khi task dừng không sạch giữa hai lần flush offset: worker crash, container bị kill, task FAILED (ví dụ Schema Registry chặn), rebalance. Lúc khởi động lại, task đọc offset cũ và gửi lại mọi sự kiện sau đó, tối đa cỡ 60 giây sự kiện. Ngoài ra ClickHouse có thể đọc lại block cuối nếu chết sau khi ghi nhưng trước khi commit offset Kafka.
@@ -275,8 +275,8 @@ Kênh source nghĩa là Debezium đọc tín hiệu từ một bảng trong chí
 ### Q78. time.precision.mode = connect ảnh hưởng gì? [Nâng cao]
 Các kiểu date/time/timestamp không múi giờ dùng kiểu logic chuẩn của Kafka Connect, độ chính xác mili giây. Cột TIMESTAMPTZ thì Debezium luôn gửi dạng chuỗi ISO có múi giờ, giữ micro giây. Silver parse theo spec từng cột. Nên kiểm tra mode này khi cần độ chính xác micro giây cho cột không múi giờ.
 
-### Q79. Vì sao các khóa _comment và _transforms.unwrap vẫn có trong file? [Cơ bản]
-Connect lưu mọi khóa nhưng Debezium bỏ qua khóa nó không biết, nên dùng chúng làm ghi chú ngay trong JSON (JSON không có comment). Cấu hình unwrap được giữ ở dạng tắt để ghi lại một quyết định: đã cân nhắc và loại bỏ vì mất before. Đây là cách tài liệu hóa quyết định nằm ngay cạnh cấu hình.
+### Q79. Vì sao các khóa _comment vẫn có trong file? [Cơ bản]
+Connect lưu mọi khóa nhưng Debezium bỏ qua khóa nó không biết, nên các khóa bắt đầu bằng `_comment` được dùng làm ghi chú ngay trong JSON (JSON không có comment); chúng không có tác dụng gì. File không còn khóa `_transforms.*` nào: quyết định không dùng unwrap (vì mất before) được ghi trong tài liệu thay vì giữ cấu hình tắt. Các khóa `_comment` là cách để lý do của từng nhóm cấu hình nằm ngay cạnh cấu hình.
 
 ### Q80. Nếu thêm một cột PII mới vào bảng thì phải làm gì? [Trung bình]
 Thêm cột vào danh sách băm trong postgres-connector.json, chạy lại register.sh, cập nhật spec silver (cột hash khai báo là chuỗi) và chạy check_contract.py. Phải làm **trước** khi cột có dữ liệu thật, vì sự kiện đã gửi ở dạng rõ sẽ nằm vĩnh viễn trong Kafka (7 ngày) và bronze. check_data.py sẽ báo lỗi nếu email, điện thoại hay địa chỉ rõ xuất hiện trong ClickHouse.
@@ -323,7 +323,7 @@ KRaft là chế độ Kafka tự quản lý metadata bằng giao thức Raft n�
 kafka:9092 dành cho các container trong mạng compose (Debezium, ClickHouse, Control Center). localhost:29092 dành cho công cụ chạy trên máy host. Advertised listener phải khớp với địa chỉ client dùng được, nếu không client nhận metadata với địa chỉ không truy cập được.
 
 ### Q92. Các topic được đặt tên và tổ chức thế nào? [Cơ bản]
-cdc.ecommerce.<table> cho 31 bảng, events.<aggregate> cho 13 loại aggregate, cdc.transaction cho metadata transaction, __debezium-heartbeat.cdc cho heartbeat, debezium-config/offsets/status cho Connect, _schemas cho Schema Registry. Tên có cấu trúc giúp consumer đăng ký bằng regex: ClickHouse đọc ^cdc\.ecommerce\..* và ^events\..*, nên bảng và aggregate mới tự được đọc.
+cdc.ecommerce.<table> cho 31 bảng nghiệp vụ (đi vào silver) cùng cdc.ecommerce.debezium_signals của bảng điều khiển (chỉ xuất hiện khi có dùng signal, không vào silver); bảng outbox, bảng thứ 33 được capture, không có topic cdc riêng mà thành events.<aggregate> cho 13 loại aggregate, cdc.transaction cho metadata transaction, __debezium-heartbeat.cdc cho heartbeat, debezium-config/offsets/status cho Connect, _schemas cho Schema Registry. Tên có cấu trúc giúp consumer đăng ký bằng regex: ClickHouse đọc ^cdc\.ecommerce\..* và ^events\..*, nên bảng và aggregate mới tự được đọc.
 
 ### Q93. Mỗi topic có bao nhiêu partition và key là gì? [Trung bình]
 Topic được tự tạo với mặc định broker: 1 partition, RF 1. Key của table topic là khóa chính dạng JSON, của events.* là aggregateId. Một partition nghĩa là thứ tự toàn phần trong mỗi bảng, đủ cho tải hiện tại. Khi tăng partition, key theo khóa chính giữ thứ tự theo từng dòng.
@@ -436,7 +436,7 @@ Khi Debezium không trễ so với nguồn, phần trễ nằm sau Kafka: ClickH
 Kafka Connect không tự restart task đã FAILED; cần gọi REST restart (hoặc qua công cụ). Debezium có cơ chế thử lại cho lỗi tạm thời như mất kết nối DB, nhưng lỗi chuyển đổi hay schema bị từ chối làm task FAILED ngay. Alert ConnectorNotRunning bắn sau 2 phút khi Connect vẫn sống mà connector/task không RUNNING. Thêm consumer không sửa được connector dừng.
 
 ### Q127. Làm sao biết pipeline không mất dữ liệu sau một sự cố? [Nâng cao]
-Reconciliation chạy mỗi 30 giây so PostgreSQL với consistent.*(v) cho 28 bảng (số dòng theo khoảng thời gian và tổng một cột không đổi), bảng nào lệch hai lần liên tiếp thì WarehouseDataDrift bắn. check_data.py so toàn bộ 31 bảng giữa nguồn và silver, outbox với domain_events, và yêu cầu ingest_errors rỗng. Trạng thái slot (wal_status reserved hoặc extended) cho biết WAL cần thiết chưa bị xóa.
+Reconciliation chạy mỗi 30 giây so PostgreSQL với snap.<table> FINAL đã được đưa tới watermark v cho 28 bảng (số dòng theo khoảng thời gian và tổng một cột không đổi), bảng nào lệch hai lần liên tiếp thì WarehouseDataDrift bắn. check_data.py so toàn bộ 31 bảng giữa nguồn và silver, outbox với domain_events, và yêu cầu ingest_errors rỗng. Trạng thái slot (wal_status reserved hoặc extended) cho biết WAL cần thiết chưa bị xóa.
 
 ---
 

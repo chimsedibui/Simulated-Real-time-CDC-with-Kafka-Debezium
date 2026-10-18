@@ -6,7 +6,7 @@
 
 Đã dọn các phần xác nhận không còn người dùng ở Control Center frontend, helper auth của Source API và cấu hình Debezium vô hiệu hóa. Chưa có bằng chứng để xóa thêm dependency frontend. Có ba metric Debezium chưa tìm thấy consumer trong repo; vẫn giữ vì chúng được thu thập và công bố qua exporter.
 
-Mốc đối chiếu: commit `7c9d9ffbeb54fca55bfd9a801c762af8d8238446`. Working tree đã chứa thay đổi cải thiện Alert Webhook trước khi rà soát; lượt cleanup này giữ nguyên chúng. Xem [bàn giao cảnh báo](../handoff/2026-10-19-alert-webhook.md) để phân biệt phạm vi.
+Mốc đối chiếu: commit `7c9d9ffbeb54fca55bfd9a801c762af8d8238446`. Working tree đã chứa thay đổi cải thiện Alert Webhook trước khi rà soát; lượt cleanup này giữ nguyên chúng.
 
 Phạm vi Python gồm backend Control Center, Source API, identity, simulator, warehouse jobs, observability service/generator, quality và generator/contract checker ClickHouse. Frontend được phân tích từ entrypoint và dependency bằng Knip, rồi build bằng TypeScript/Vite. Các tham chiếu metric được tìm trong file runtime, cấu hình và test được Git quản lý, loại docs khỏi kết quả. Script vận hành, router và artifact provisioning được xem thêm theo cách đăng ký/gọi thực tế.
 
@@ -44,7 +44,7 @@ Các formatter tiền là phần còn sót sau khi WarehousePanel được bỏ 
 | `cdc_debezium_connected` | `Connected` | Giữ; cần xác định giá trị bổ sung so với trạng thái connector/task trước khi thêm alert mới. |
 | `cdc_debezium_events_seen_total` | `TotalNumberOfEventsSeen` | Giữ; giá trị reset theo task, không dùng làm tổng nghiệp vụ hay thay cho số event đã lưu. |
 
-Cả ba vẫn có lệnh `.set(...)` trong exporter. Chưa tìm thấy truy vấn chúng trong dashboard, alert hay code khác của repo; không thể suy ra không ai truy vấn trực tiếp bằng Prometheus hoặc từ bên ngoài. Nếu muốn bỏ, cần ghi quyết định deprecate và kiểm tra consumer ngoài repo trước. Chi tiết toàn bộ metric đã rà nằm trong [log metric](../handoff/logs/2026-10-19-dead-code-metrics.txt).
+Cả ba vẫn có lệnh `.set(...)` trong exporter. Chưa tìm thấy truy vấn chúng trong dashboard, alert hay code khác của repo; không thể suy ra không ai truy vấn trực tiếp bằng Prometheus hoặc từ bên ngoài. Nếu muốn bỏ, cần ghi quyết định deprecate và kiểm tra consumer ngoài repo trước.
 
 ## Kiểm chứng sau cleanup
 
@@ -71,5 +71,3 @@ Không chạy lại smoke ghi dữ liệu hoặc reset stack cho các thay đổ
 3. Với ba metric trên, chọn giữ như dữ liệu chẩn đoán, thêm consumer có mục đích, hoặc deprecate; không coi thiếu panel là lý do đủ để xóa.
 4. Tối ưu bundle frontend bằng phân tích kích thước và lazy loading khi cần; không gỡ Recharts khi LivePanel vẫn dùng.
 5. Hợp nhất metadata bảng chỉ khi xác định nguồn chuẩn và giữ validator độc lập; đây là refactor, không phải xóa dead code đơn thuần.
-
-Xem [bàn giao cho Claude](../handoff/2026-10-19-dead-code-audit.md) để có lệnh tái chạy, log và trạng thái working tree.

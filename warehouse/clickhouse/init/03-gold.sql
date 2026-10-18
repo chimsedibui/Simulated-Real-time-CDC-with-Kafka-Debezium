@@ -389,7 +389,7 @@ WHERE ingested_at >= now64(3) - INTERVAL 15 MINUTE
 GROUP BY source_table
 ORDER BY source_table;
 
--- Headline numbers for the Grafana Business Analytics dashboard (same definitions as above)
+-- All-history headline numbers (same definitions as above); dashboards read only buyers, on cdc-business
 CREATE OR REPLACE VIEW gold.overview_kpis AS
 SELECT
     count()                                                              AS orders,
