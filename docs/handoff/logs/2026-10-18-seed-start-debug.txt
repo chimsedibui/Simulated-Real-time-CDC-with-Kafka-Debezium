@@ -1,0 +1,283 @@
+ Image realtime-cdc-control-center Building
+ Image realtime-cdc-simulator Building
+ Image realtime-cdc-source-api Building
+ Image realtime-cdc-identity Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 2.23kB done
+#1 DONE 0.0s
+
+#2 [identity internal] load build definition from Dockerfile
+#2 transferring dockerfile: 532B done
+#2 DONE 0.0s
+
+#3 [simulator internal] load build definition from Dockerfile
+#3 transferring dockerfile: 359B done
+#3 DONE 0.0s
+
+#4 [control-center internal] load build definition from Dockerfile
+#4 transferring dockerfile: 869B done
+#4 DONE 0.0s
+
+#5 [source-api internal] load build definition from Dockerfile
+#5 transferring dockerfile: 286B done
+#5 DONE 0.1s
+
+#6 [identity internal] load metadata for docker.io/library/python:3.11-slim
+#6 DONE 0.0s
+
+#7 [identity internal] load .dockerignore
+#7 transferring context: 2B done
+#7 DONE 0.0s
+
+#8 [simulator internal] load .dockerignore
+#8 transferring context: 2B done
+#8 DONE 0.0s
+
+#9 [identity internal] load build context
+#9 DONE 0.0s
+
+#10 [source-api internal] load .dockerignore
+#10 transferring context: 2B done
+#10 DONE 0.0s
+
+#11 [identity 1/5] FROM docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+#11 resolve docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+#11 resolve docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce 0.0s done
+#11 DONE 0.0s
+
+#9 [identity internal] load build context
+#9 transferring context: 220B done
+#9 DONE 0.0s
+
+#12 [simulator internal] load build context
+#12 transferring context: 940B done
+#12 DONE 0.0s
+
+#13 [source-api internal] load build context
+#13 transferring context: 2.75kB done
+#13 DONE 0.1s
+
+#14 [identity 4/5] RUN pip install --no-cache-dir -r requirements.txt
+#14 CACHED
+
+#15 [identity 3/5] COPY requirements.txt .
+#15 CACHED
+
+#16 [simulator 3/6] COPY requirements.txt .
+#16 CACHED
+
+#17 [simulator 5/6] COPY config.yaml .
+#17 CACHED
+
+#18 [simulator 4/6] RUN pip install --no-cache-dir -r requirements.txt
+#18 CACHED
+
+#19 [source-api 3/6] COPY requirements.txt .
+#19 CACHED
+
+#20 [source-api 2/5] WORKDIR /srv
+#20 CACHED
+
+#21 [source-api 4/6] RUN pip install --no-cache-dir -r requirements.txt
+#21 CACHED
+
+#22 [source-api 5/6] COPY app ./app
+#22 CACHED
+
+#23 [identity 5/5] COPY app ./app
+#23 CACHED
+
+#24 [source-api 6/6] COPY entrypoint.sh ./entrypoint.sh
+#24 CACHED
+
+#25 [simulator 6/6] COPY sim ./sim
+#25 CACHED
+
+#26 [identity] exporting to image
+#26 exporting layers done
+#26 exporting manifest sha256:4f5a3fd46d2aefab86912b9aed412291e8ed728eb6f0945153692b4828c56c20 done
+#26 exporting config sha256:1b2cd258a3ca8373a5fb0695014fe8dd12399251870cd866ec899c6e48139400 done
+#26 exporting attestation manifest sha256:25b2362ad82da3de652699112159897de3ce9cac14e7754184f4ba52869cf606 0.1s done
+#26 exporting manifest list sha256:eb488ad811d461034d4598b89f7eee1593f22f0a8b4cfc30c5524d9454bd9f9c
+#26 exporting manifest list sha256:eb488ad811d461034d4598b89f7eee1593f22f0a8b4cfc30c5524d9454bd9f9c 0.1s done
+#26 naming to docker.io/library/realtime-cdc-identity:latest 0.0s done
+#26 unpacking to docker.io/library/realtime-cdc-identity:latest 0.0s done
+#26 DONE 0.3s
+
+#27 [simulator] exporting to image
+#27 exporting layers done
+#27 exporting manifest sha256:b8196aa3b365948e4423d99201ca4d3823fb67b131112161859a64f64a8c9a6f done
+#27 exporting config sha256:4464f86068095684c5641cbb5e8ae804a1ba84d91055a38797fc3322ffac71fa 0.0s done
+#27 exporting attestation manifest sha256:18435fdfe6db5bc584b0c4d32f26dc147d55f626880ba96551e09cc5e27f9069 0.1s done
+#27 exporting manifest list sha256:c6b63aa956b96024bf3a86f7c29a51493e86332b395a56d4a6e9e17127e1aca7 0.1s done
+#27 naming to docker.io/library/realtime-cdc-simulator:latest done
+#27 unpacking to docker.io/library/realtime-cdc-simulator:latest 0.0s done
+#27 DONE 0.3s
+
+#28 [source-api] exporting to image
+#28 exporting layers done
+#28 exporting manifest sha256:aee82921e3c2f1a34c9d0e1c35862aaddbadf519366a7f041f50c0ba0637d4c8 done
+#28 exporting config sha256:596c36a4e7e21eb5843a03a5e1c1c1104245be037ea1921e629dcd04b107d3ca done
+#28 exporting attestation manifest sha256:1bb8ae8a0f8d912c6b3c7da7a982ba8473fbbebecd73b0c3cbebb41133c1cae9 0.1s done
+#28 exporting manifest list sha256:9a527d105c5d32282a1d078ca5ee7985709c7bf2295df860eb5ca30f01e85d18 0.1s done
+#28 naming to docker.io/library/realtime-cdc-source-api:latest 0.0s done
+#28 unpacking to docker.io/library/realtime-cdc-source-api:latest 0.0s done
+#28 DONE 0.3s
+
+#29 [control-center internal] load metadata for docker.io/library/node:20-alpine
+#29 DONE 0.8s
+
+#11 [control-center 1/5] FROM docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+#11 resolve docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce 0.0s done
+#11 DONE 0.0s
+
+#30 [control-center internal] load .dockerignore
+#30 transferring context: 153B done
+#30 DONE 0.0s
+
+#31 [control-center internal] load build context
+#31 transferring context: 1.89kB done
+#31 ERROR: error from sender: open /home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/warehouse/backups/ch-20261018-155726: permission denied
+
+#32 [control-center ui 1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#32 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.1s done
+#32 DONE 0.1s
+
+#33 [identity] resolving provenance for metadata file
+#33 DONE 0.1s
+
+#34 [source-api] resolving provenance for metadata file
+#34 DONE 0.1s
+
+#35 [simulator] resolving provenance for metadata file
+#35 DONE 0.0s
+------
+ > [control-center internal] load build context:
+------
+target control-center: failed to solve: error from sender: open /home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/warehouse/backups/ch-20261018-155726: permission denied
+
+374  /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+
+github.com/moby/buildkit/session/filesync.recvDiffCopy
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/session/filesync/diffcopy.go:103
+
+github.com/moby/buildkit/session/filesync.FSSync
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/session/filesync/filesync.go:250
+
+github.com/moby/buildkit/source/local.(*localSourceHandler).snapshot
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/source/local/source.go:304
+
+github.com/moby/buildkit/source/local.(*localSourceHandler).Snapshot
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/source/local/source.go:180
+
+github.com/moby/buildkit/solver/llbsolver/ops.(*SourceOp).Exec
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/solver/llbsolver/ops/source.go:112
+
+github.com/moby/buildkit/solver.(*sharedOp).Exec.func2
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/solver/jobs.go:1248
+
+github.com/moby/buildkit/util/flightcontrol.(*call[...]).run
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/util/flightcontrol/flightcontrol.go:122
+
+sync.(*Once).doSlow
+
+	/usr/local/go/src/sync/once.go:78
+
+sync.(*Once).Do
+
+	/usr/local/go/src/sync/once.go:69
+
+runtime.goexit
+
+	/usr/local/go/src/runtime/asm_amd64.s:1771
+
+
+
+1600899 v0.37.0 /usr/libexec/docker/cli-plugins/docker-buildx bake --file - --progress rawjson --metadata-file /tmp/compose-build-metadataFile-8ae966cd-c779-461d-b1d1-954a186e2900.json --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/simulator --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/source-api --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/identity
+
+google.golang.org/grpc.(*ClientConn).Invoke
+
+	google.golang.org/grpc@v1.83.2/call.go:35
+
+github.com/moby/buildkit/api/services/control.(*controlClient).Solve
+
+	github.com/moby/buildkit@v0.33.0/api/services/control/control_grpc.pb.go:88
+
+github.com/moby/buildkit/client.(*Client).solve.func2
+
+	github.com/moby/buildkit@v0.33.0/client/solve.go:337
+
+golang.org/x/sync/errgroup.(*Group).Go.func1
+
+	golang.org/x/sync@v0.22.0/errgroup/errgroup.go:93
+
+runtime.goexit
+
+	runtime/asm_amd64.s:1771
+
+
+
+1600899 v0.37.0 /usr/libexec/docker/cli-plugins/docker-buildx bake --file - --progress rawjson --metadata-file /tmp/compose-build-metadataFile-8ae966cd-c779-461d-b1d1-954a186e2900.json --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/simulator --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/source-api --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/identity
+
+github.com/docker/buildx/build.BuildWithResultHandler.func2.5.2
+
+	github.com/docker/buildx/build/build.go:810
+
+github.com/docker/buildx/build.BuildWithResultHandler.func2.5
+
+	github.com/docker/buildx/build/build.go:816
+
+golang.org/x/sync/errgroup.(*Group).Go.func1
+
+	golang.org/x/sync@v0.22.0/errgroup/errgroup.go:93
+
+
+
+374  /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+
+github.com/tonistiigi/fsutil.(*receiver).run.func2
+
+	/root/build-deb/engine/vendor/github.com/tonistiigi/fsutil/receive.go:250
+
+golang.org/x/sync/errgroup.(*Group).Go.func1
+
+	/root/build-deb/engine/vendor/golang.org/x/sync/errgroup/errgroup.go:93
+
+runtime.goexit
+
+	/usr/local/go/src/runtime/asm_amd64.s:1771
+
+
+
+374  /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+
+github.com/moby/buildkit/solver.(*edge).execOp
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/solver/edge.go:979
+
+github.com/moby/buildkit/solver/internal/pipe.NewWithFunction[...].func2
+
+	/root/build-deb/engine/vendor/github.com/moby/buildkit/solver/internal/pipe/pipe.go:78
+
+runtime.goexit
+
+	/usr/local/go/src/runtime/asm_amd64.s:1771
+
+
+
+1600899 v0.37.0 /usr/libexec/docker/cli-plugins/docker-buildx bake --file - --progress rawjson --metadata-file /tmp/compose-build-metadataFile-8ae966cd-c779-461d-b1d1-954a186e2900.json --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/simulator --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/source-api --allow fs.read=/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium/source/identity
+
+github.com/moby/buildkit/client.(*Client).solve.func2
+
+	github.com/moby/buildkit@v0.33.0/client/solve.go:339
+
+golang.org/x/sync/errgroup.(*Group).Go.func1
+
+	golang.org/x/sync@v0.22.0/errgroup/errgroup.go:93

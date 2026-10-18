@@ -1,0 +1,2499 @@
+{
+  "uid": "cdc-finance",
+  "title": "05 \u00b7 Thu ph\u00ed & d\u00f2ng ti\u1ec1n",
+  "description": "Ti\u1ec1n \u0111\u1ebfn t\u1eeb \u0111\u00e2u, \u0111ang ho\u00e0n v\u00ec l\u00fd do g\u00ec v\u00e0 ph\u1ea7n n\u00e0o c\u00f2n \u1edf v\u00ed ng\u01b0\u1eddi b\u00e1n?",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "cdc",
+    "marketplace",
+    "business"
+  ],
+  "timezone": "Asia/Ho_Chi_Minh",
+  "refresh": "1m",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "MARKETPLACE / 05 \u00b7 Thu ph\u00ed & d\u00f2ng ti\u1ec1n",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Ti\u1ec1n \u0111\u1ebfn t\u1eeb \u0111\u00e2u, \u0111ang ho\u00e0n v\u00ec l\u00fd do g\u00ec v\u00e0 ph\u1ea7n n\u00e0o c\u00f2n \u1edf v\u00ed ng\u01b0\u1eddi b\u00e1n?\nNg\u00e0y nghi\u1ec7p v\u1ee5 **${business_day}** \u00b7 Ch\u1ecdn g\u00f3c nh\u00ecn qua c\u00e1c li\u00ean k\u1ebft ph\u00eda tr\u00ean. S\u1ed1 li\u1ec7u ph\u1ea3n \u00e1nh tr\u1ea1ng th\u00e1i hi\u1ec7n t\u1ea1i, c\u00f3 th\u1ec3 \u0111\u1ed5i khi \u0111\u01a1n b\u1ecb h\u1ee7y ho\u1eb7c ho\u00e0n tr\u1ea3."
+      }
+    },
+    {
+      "id": 2,
+      "title": "01 / THU PH\u00cd & NG\u00c2N S\u00c1CH S\u00c0N \u00b7 to\u00e0n l\u1ecbch s\u1eed, ch\u01b0a ph\u1ea3i b\u00e1o c\u00e1o l\u1ee3i nhu\u1eadn",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 3,
+      "title": "Hoa h\u1ed3ng + ph\u00ed thanh to\u00e1n",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Take t\u1eeb seller ledger, ph\u00e1t sinh khi \u0111\u01a1n ho\u00e0n t\u1ea5t; kh\u00f4ng ph\u1ea3i GMV.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT take FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Take rate \u00b7 GMV ho\u00e0n t\u1ea5t",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "M\u1eabu s\u1ed1 l\u00e0 GMV c\u1ee7a \u0111\u01a1n COMPLETED, kh\u00f4ng ph\u1ea3i GMV to\u00e0n s\u00e0n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT take_rate FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "\u01afu \u0111\u00e3i s\u00e0n \u0111\u00e3 g\u00e1nh",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Voucher s\u00e0n + tr\u1ee3 gi\u00e1 ship tr\u00ean confirmed v\u00e0 kept. Ch\u01b0a ph\u1ea3i to\u00e0n b\u1ed9 chi ph\u00ed v\u1eadn h\u00e0nh.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#FFB357"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT platform_promo_cost FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "\u0110\u00e3 chi tr\u1ea3 ng\u01b0\u1eddi b\u00e1n",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "T\u1ed5ng seller payouts; th\u1eddi \u0111i\u1ec3m ghi nh\u1eadn kh\u00e1c th\u1eddi \u0111i\u1ec3m GMV / take.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#B877D9"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT paid_to_sellers FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Quy m\u00f4 c\u00e1c kho\u1ea3n ti\u1ec1n \u00b7 \u0111\u1ecdc ri\u00eang t\u1eebng c\u01a1 s\u1edf ghi nh\u1eadn",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 14,
+        "h": 8
+      },
+      "description": "C\u00e1c kho\u1ea3n kh\u00e1c c\u01a1 s\u1edf th\u1eddi \u0111i\u1ec3m / tr\u1ea1ng th\u00e1i. Kh\u00f4ng c\u1ed9ng tr\u1eeb tr\u1ef1c ti\u1ebfp \u0111\u1ec3 g\u1ecdi l\u00e0 l\u1ee3i nhu\u1eadn; kh\u00f4ng ph\u1ea3i waterfall k\u1ebf to\u00e1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Kho\u1ea3n",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT 'Thu ph\u00ed s\u00e0n' AS \"Kho\u1ea3n\",take AS \"VND\" FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT '\u01afu \u0111\u00e3i s\u00e0n',platform_promo_cost FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT '\u01afu \u0111\u00e3i shop',seller_promo_cost FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'Ho\u00e0n do tr\u1ea3 h\u00e0ng',return_refunds FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Ho\u00e0n ti\u1ec1n theo nguy\u00ean nh\u00e2n",
+      "type": "piechart",
+      "gridPos": {
+        "x": 14,
+        "y": 9,
+        "w": 10,
+        "h": 8
+      },
+      "description": "Ho\u00e0n h\u1ee7y v\u00e0 thanh to\u00e1n tr\u1ec5 l\u00e0 tr\u1ea3 l\u1ea1i ti\u1ec1n, kh\u00f4ng \u0111\u1ed3ng ngh\u0129a chi ph\u00ed b\u00e1n h\u00e0ng. Ho\u00e0n tr\u1ec5 l\u1edbn n\u00ean r\u00e0 gateway / timeout tr\u01b0\u1edbc khi t\u0103ng khuy\u1ebfn m\u00e3i.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": [
+          "percent"
+        ],
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT 'Tr\u1ea3 h\u00e0ng' AS \"Nguy\u00ean nh\u00e2n\",return_refunds AS \"VND\" FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'H\u1ee7y / giao th\u1ea5t b\u1ea1i',cancellation_refunds FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'Thanh to\u00e1n tr\u1ec5',late_payment_refunds FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "02 / THANH TO\u00c1N \u00b7 \u00e1p d\u1ee5ng ph\u01b0\u01a1ng th\u1ee9c \u0111\u01b0\u1ee3c ch\u1ecdn",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 10,
+      "title": "Th\u00e0nh c\u00f4ng / l\u01b0\u1ee3t \u0111\u00e3 k\u1ebft th\u00fac",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "description": "\u0110\u1ebfm payment attempts, kh\u00f4ng ph\u1ea3i distinct checkout; retry l\u00e0m t\u0103ng s\u1ed1 l\u01b0\u1ee3t. COD \u0111\u01b0\u1ee3c thu theo \u0111\u01a1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(succeeded)/nullIf(sum(attempts-pending),0) FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} AND method IN (${payment_method:sqlstring})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "L\u01b0\u1ee3t \u0111ang ch\u1edd",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Tr\u1ea1ng th\u00e1i PENDING kh\u00f4ng \u0111\u1ed3ng ngh\u0129a \u0111\u00e3 l\u1ed7i ho\u1eb7c \u0111\u00e3 qu\u00e1 h\u1ea1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#FFB357"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(pending) FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} AND method IN (${payment_method:sqlstring})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "\u0110\u00e3 thu th\u00e0nh c\u00f4ng",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "description": "T\u1ed5ng payment SUCCEEDED; bao g\u1ed3m ti\u1ec1n v\u1ec1 r\u1ed3i \u0111\u01b0\u1ee3c ho\u00e0n, kh\u00f4ng ph\u1ea3i doanh thu thu\u1ea7n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(collected) FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} AND method IN (${payment_method:sqlstring})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "\u0110\u00e3 ho\u00e0n ti\u1ec1n",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 18,
+        "w": 6,
+        "h": 4
+      },
+      "description": "T\u1ed5ng ti\u1ec1n ho\u00e0n theo ph\u01b0\u01a1ng th\u1ee9c, g\u1ed3m tr\u1ea3 h\u00e0ng / h\u1ee7y / thanh to\u00e1n tr\u1ec5.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#B877D9"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(refunded) FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} AND method IN (${payment_method:sqlstring})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "C\u01a1 c\u1ea5u k\u1ebft qu\u1ea3 t\u1eebng ph\u01b0\u01a1ng th\u1ee9c",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "description": "C\u00e1c tr\u1ea1ng th\u00e1i r\u1eddi nhau, c\u00f9ng grain payment attempt. Kh\u00f4ng suy ra checkout conversion t\u1eeb s\u1ed1 l\u01b0\u1ee3t thanh to\u00e1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Ph\u01b0\u01a1ng th\u1ee9c",
+        "orientation": "vertical",
+        "xTickLabelRotation": -35,
+        "xTickLabelSpacing": 70,
+        "showValue": "never",
+        "stacking": "normal",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT method AS \"Ph\u01b0\u01a1ng th\u1ee9c\",succeeded AS \"Th\u00e0nh c\u00f4ng\",failed AS \"Th\u1ea5t b\u1ea1i\",expired AS \"H\u1ebft h\u1ea1n\",\n               cancelled AS \"H\u1ee7y\",pending AS \"\u0110ang ch\u1edd\" FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} AND method IN (${payment_method:sqlstring}) ORDER BY attempts DESC",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "\u0110\u1ed1i chi\u1ebfu t\u1ef7 l\u1ec7 v\u00e0 s\u1ed1 ti\u1ec1n theo ph\u01b0\u01a1ng th\u1ee9c",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "T\u1ef7 l\u1ec7 th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.8
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.95
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 thu"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT method AS \"Ph\u01b0\u01a1ng th\u1ee9c\",attempts AS \"L\u01b0\u1ee3t\",success_rate AS \"T\u1ef7 l\u1ec7 th\u00e0nh c\u00f4ng\",\n               pending AS \"\u0110ang ch\u1edd\",collected AS \"\u0110\u00e3 thu\",refunded AS \"\u0110\u00e3 ho\u00e0n\"\n        FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} AND method IN (${payment_method:sqlstring}) ORDER BY attempts DESC",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "03 / CHECKOUT \u00b7 to\u00e0n s\u00e0n, t\u00e1ch bi\u1ec7t v\u1edbi payment attempts",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 17,
+      "title": "Checkout t\u1ea1o m\u1edbi & \u0111\u00e3 x\u00e1c nh\u1eadn \u00b7 c\u00f9ng \u0111\u01a1n v\u1ecb checkout",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Hai t\u1eadp l\u1ed3ng nhau, kh\u00f4ng c\u1ed9ng ch\u1ed3ng. M\u1ed9t checkout c\u00f3 th\u1ec3 sinh nhi\u1ec1u order v\u00e0 nhi\u1ec1u payment attempts. B\u1ed9 l\u1ecdc ph\u01b0\u01a1ng th\u1ee9c kh\u00f4ng \u00e1p d\u1ee5ng ph\u1ea7n n\u00e0y.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Giai \u0111o\u1ea1n",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT stage AS \"Giai \u0111o\u1ea1n\", n AS \"Checkout\"\n        FROM mart.funnel WHERE refresh_id = ${refresh_id:raw} AND stage IN ('Checkouts','Checkouts paid / COD') ORDER BY _row",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "C\u1ea7n r\u00e0 ti\u1ebfp \u0111i\u1ec1u g\u00ec?",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      },
+      "description": "T\u1ef7 l\u1ec7 tr\u1ea1ng th\u00e1i t\u1ea1i snapshot, ch\u01b0a ph\u1ea3i conversion cohort \u0111\u00e3 tr\u01b0\u1edfng th\u00e0nh. Ch\u01b0a x\u00e1c nh\u1eadn c\u00f2n g\u1ed3m \u0111ang ch\u1edd, h\u1ebft h\u1ea1n v\u00e0 h\u1ee7y; kh\u00f4ng g\u1ecdi t\u1ea5t c\u1ea3 l\u00e0 b\u1ecf gi\u1ecf.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "T\u1ef7 l\u1ec7 x\u00e1c nh\u1eadn hi\u1ec7n t\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.6
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.8
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sumIf(n,stage='Checkouts') AS \"Checkout t\u1ea1o\",\n               sumIf(n,stage='Checkouts paid / COD') AS \"\u0110\u00e3 x\u00e1c nh\u1eadn\",\n               sumIf(n,stage='Checkouts paid / COD') / nullIf(sumIf(n,stage='Checkouts'),0) AS \"T\u1ef7 l\u1ec7 x\u00e1c nh\u1eadn hi\u1ec7n t\u1ea1i\"\n        FROM mart.funnel WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "04 / V\u00cd NG\u01af\u1edcI B\u00c1N \u00b7 ti\u1ec1n c\u00f2n l\u1ea1i theo seller ledger, to\u00e0n s\u00e0n",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 20,
+      "title": "Top 10 s\u1ed1 d\u01b0 v\u00ed l\u1edbn nh\u1ea5t",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "description": "S\u1ed1 d\u01b0 ledger; kh\u00f4ng \u0111\u1ed3ng ngh\u0129a kho\u1ea3n \u0111\u00e3 \u0111\u1ebfn h\u1ea1n chi tr\u1ea3. Ch\u01b0a c\u00f3 payout due-date trong mart.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Nh\u00e0 b\u00e1n",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT shop AS \"Nh\u00e0 b\u00e1n\",balance AS \"S\u1ed1 d\u01b0 v\u00ed\" FROM mart.seller_settlement WHERE refresh_id = ${refresh_id:raw}\n        ORDER BY balance DESC LIMIT 10",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "\u0110\u1ed1i chi\u1ebfu doanh s\u1ed1, ph\u00ed v\u00e0 payout",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Theo ledger: s\u1ed1 d\u01b0 = ghi c\u00f3 b\u00e1n h\u00e0ng \u2212 hoa h\u1ed3ng \u2212 ph\u00ed thanh to\u00e1n \u2212 \u0111\u00e3 chi, v\u1edbi c\u00e1c lo\u1ea1i b\u00fat to\u00e1n hi\u1ec7n c\u00f3.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ghi c\u00f3 b\u00e1n h\u00e0ng"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Hoa h\u1ed3ng"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ph\u00ed thanh to\u00e1n"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 chi"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "S\u1ed1 d\u01b0"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT shop AS \"Nh\u00e0 b\u00e1n\",tier AS \"H\u1ea1ng\",sales AS \"Ghi c\u00f3 b\u00e1n h\u00e0ng\",commission AS \"Hoa h\u1ed3ng\",\n               payment_fees AS \"Ph\u00ed thanh to\u00e1n\",paid_out AS \"\u0110\u00e3 chi\",balance AS \"S\u1ed1 d\u01b0\"\n        FROM mart.seller_settlement WHERE refresh_id = ${refresh_id:raw} ORDER BY balance DESC LIMIT 15",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "Quy\u1ebft \u0111\u1ecbnh c\u00f3 th\u1ec3 h\u1ed7 tr\u1ee3",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 24,
+        "h": 3
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**R\u00e0 payment gateway:** t\u1ef7 tr\u1ecdng ho\u00e0n do thanh to\u00e1n tr\u1ec5. **R\u00e0 ng\u00e2n s\u00e1ch:** \u01b0u \u0111\u00e3i theo b\u00ean t\u00e0i tr\u1ee3. **R\u00e0 \u0111\u1ed1i so\u00e1t ng\u01b0\u1eddi b\u00e1n:** s\u1ed1 d\u01b0, ph\u00ed v\u00e0 payout. Ch\u01b0a c\u00f3 chi ph\u00ed v\u1eadn h\u00e0nh, attribution marketing, h\u1ea1n thanh to\u00e1n n\u00ean kh\u00f4ng k\u1ebft lu\u1eadn l\u1ee3i nhu\u1eadn, ROAS ho\u1eb7c n\u1ee3 qu\u00e1 h\u1ea1n."
+      }
+    },
+    {
+      "id": 23,
+      "title": "\u0110\u1ed9 m\u1edbi c\u1ee7a d\u1eef li\u1ec7u",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 3
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT toTimeZone(finished_at, 'Asia/Ho_Chi_Minh') AS \"C\u1eadp nh\u1eadt l\u00fac\",\n                            duration_ms / 1000 AS \"Th\u1eddi gian d\u1ef1ng b\u1ea3n (gi\u00e2y)\",\n                            marts AS \"S\u1ed1 mart \u0111\u1ed3ng b\u1ed9\"\n                     FROM ops.mart_refreshes WHERE refresh_id = ${refresh_id:raw} ORDER BY finished_at DESC LIMIT 1",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "refresh_id",
+        "label": "B\u1ea3n d\u1eef li\u1ec7u",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT toString(refresh_id) FROM ops.mart_refreshes ORDER BY refresh_id DESC LIMIT 1",
+        "refresh": 2,
+        "hide": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      },
+      {
+        "name": "business_day",
+        "label": "Ng\u00e0y nghi\u1ec7p v\u1ee5",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT toString(max(order_date)) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}",
+        "refresh": 2,
+        "hide": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      },
+      {
+        "name": "payment_method",
+        "label": "Ph\u01b0\u01a1ng th\u1ee9c \u00b7 ch\u1ec9 l\u1ecdc thanh to\u00e1n",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT method FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} ORDER BY method",
+        "refresh": 2,
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "01 \u00b7 \u0110i\u1ec1u h\u00e0nh",
+      "type": "link",
+      "url": "/d/cdc-business",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "02 \u00b7 \u0110\u01a1n h\u00e0ng & tr\u1ea3i nghi\u1ec7m",
+      "type": "link",
+      "url": "/d/cdc-operations",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "03 \u00b7 Danh m\u1ee5c & chi\u1ebfn d\u1ecbch",
+      "type": "link",
+      "url": "/d/cdc-growth",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "04 \u00b7 Nh\u00e0 b\u00e1n & t\u1ed3n kho",
+      "type": "link",
+      "url": "/d/cdc-sellers",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "05 \u00b7 Thu ph\u00ed & d\u00f2ng ti\u1ec1n",
+      "type": "link",
+      "url": "/d/cdc-finance",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    }
+  ]
+}

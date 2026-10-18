@@ -4,10 +4,28 @@
 # non-secret settings, from .env.example). Existing values are never replaced: running it again only adds what is
 # missing. Values still in an older .env are moved into secrets/ (and removed from .env), so a running stack keeps
 # its passwords.
+#
+#   ./setup-env.sh            create what is missing
+#   ./setup-env.sh --rotate   new random values for every secret (the TLS CA and certificate are kept). Databases
+#                             set their passwords on first start only, so rotate with the stack down and its
+#                             volumes removed (a data reset); the new PII salt also changes every hashed value.
 set -euo pipefail
 cd "$(dirname "$0")"
 umask 077
 rand() { head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n'; }
+
+[[ "${1:-}" == "" || "${1:-}" == "--rotate" ]] || { echo "usage: $0 [--rotate]" >&2; exit 2; }
+if [[ "${1:-}" == "--rotate" ]]; then
+  if [[ -n "$(docker ps -q --filter label=com.docker.compose.project=realtime-cdc 2>/dev/null)" ]]; then
+    echo "stop the stack and remove its volumes first: docker compose --profile tools down -v" >&2; exit 1
+  fi
+  if [[ -d source/postgres/data || -n "$(docker volume ls -q --filter label=com.docker.compose.project=realtime-cdc)" ]]; then
+    echo "rotation requires a data reset: remove project volumes and source/postgres/data first; existing database credentials must not be overwritten" >&2; exit 1
+  fi
+  find secrets -type f ! -path 'secrets/tls/*' -delete 2>/dev/null || true
+  [[ -f .env ]] && sed -i -E '/^[A-Z_]*(PASSWORD|SALT|KEY)=/d' .env
+  echo "Removed the old secrets; writing new ones"
+fi
 
 SECRETS=(POSTGRES_PASSWORD CDC_DB_PASSWORD SOURCE_API_DB_PASSWORD APP_READER_PASSWORD IDENTITY_DB_PASSWORD
          MONITOR_PASSWORD CLICKHOUSE_PASSWORD GRAFANA_READER_PASSWORD GRAFANA_ADMIN_PASSWORD PII_SALT

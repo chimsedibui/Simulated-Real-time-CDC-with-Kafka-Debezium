@@ -183,18 +183,7 @@ def state():
         SELECT ca.id, ca.status, count(co.id) n FROM ecommerce.carts ca
         LEFT JOIN ecommerce.checkouts co ON co.cart_id = ca.id AND co.customer_id = ca.customer_id
         GROUP BY ca.id, ca.status HAVING (ca.status = 'CHECKED_OUT') <> (count(co.id) = 1)""")
-    sql_check("state", "time rules applied on schedule (payment, SLA, auto-complete, returns)", f"""
-        WITH t AS (SELECT ecommerce.business_now() - make_interval(secs => {grace}) AS due)
-        SELECT 'unpaid past deadline' AS rule, id::text FROM ecommerce.checkouts, t
-            WHERE status = 'PENDING_PAYMENT' AND pay_by < t.due
-        UNION ALL SELECT 'to_ship past SLA', order_number FROM ecommerce.orders, t
-            WHERE status = 'TO_SHIP' AND confirm_by < t.due
-        UNION ALL SELECT 'delivered not auto-completed', order_number FROM ecommerce.orders, t
-            WHERE status = 'DELIVERED' AND delivered_at < t.due - make_interval(secs => {AUTO_COMPLETE_S})
-        UNION ALL SELECT 'return unanswered past deadline', id::text FROM ecommerce.returns, t
-            WHERE status = 'REQUESTED' AND respond_by < t.due
-        UNION ALL SELECT 'rejection not closed', id::text FROM ecommerce.returns, t
-            WHERE status = 'REJECTED' AND updated_at < t.due - make_interval(secs => {DISPUTE_WINDOW_S})""")
+    sql_check("state", "time rules applied on schedule (payment, SLA, auto-complete, returns)", time_rules_sql(grace))
 
 
 # ---------------------------------------------------------------------------- stock
@@ -754,7 +743,43 @@ def ops():
            [f"{c}: {n} rows in clear" for c, n in leaks if n])
 
 
+def time_rules_sql(grace):
+    return f"""
+        WITH t AS (SELECT ecommerce.business_now() - make_interval(secs => {grace}) AS due)
+        SELECT 'unpaid past deadline' AS rule, id::text FROM ecommerce.checkouts, t
+            WHERE status = 'PENDING_PAYMENT' AND pay_by < t.due
+        UNION ALL SELECT 'to_ship past SLA', order_number FROM ecommerce.orders, t
+            WHERE status = 'TO_SHIP' AND confirm_by < t.due
+        UNION ALL SELECT 'delivered not auto-completed', order_number FROM ecommerce.orders, t
+            WHERE status = 'DELIVERED' AND delivered_at < t.due - make_interval(secs => {AUTO_COMPLETE_S})
+        UNION ALL SELECT 'return unanswered past deadline', id::text FROM ecommerce.returns, t
+            WHERE status = 'REQUESTED' AND respond_by < t.due
+        UNION ALL SELECT 'rejection not closed', id::text FROM ecommerce.returns, t
+            WHERE status = 'REJECTED' AND updated_at < t.due - make_interval(secs => {DISPUTE_WINDOW_S})"""
+
+
+def wait_for_scheduled_rules():
+    """A fast business clock can leave a backlog when the simulator switches back to ×1.
+
+    Poll live state before taking the validation snapshot; a stuck job still fails after a bounded wait.
+    """
+    deadline = time.monotonic() + SETTLE_TIMEOUT_S
+    while True:
+        with pg_live.cursor() as cur:
+            cur.execute("SELECT speed FROM ecommerce.sim_clock")
+            speed = cur.fetchone()["speed"]
+            cur.execute(time_rules_sql(JOB_GRACE_REAL_S * float(speed)))
+            pending = cur.fetchall()
+        if not pending:
+            return
+        if time.monotonic() >= deadline:
+            print(f"Scheduled rules still have {len(pending)} overdue rows after {SETTLE_TIMEOUT_S}s; checks will report them")
+            return
+        time.sleep(2)
+
+
 def main():
+    wait_for_scheduled_rules()
     for group in (money, state, stock, logistics, promo, returns, settlement, no_deadlocks, pipeline, write_path,
                   metrics, ops):
         group()

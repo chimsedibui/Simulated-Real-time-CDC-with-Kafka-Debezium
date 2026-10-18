@@ -1,0 +1,11 @@
+PASS cdc-business: 17 panel queries at snapshot 128382
+PASS cdc-business: 14-day matched-period window
+PASS cdc-business: 30-day matched-period window
+PASS cdc-operations: 15 panel queries at snapshot 128382
+PASS cdc-growth: 17 panel queries at snapshot 128382
+PASS cdc-growth: single-selection filters
+PASS cdc-sellers: 9 panel queries at snapshot 128382
+PASS cdc-sellers: single-selection filters
+PASS cdc-finance: 17 panel queries at snapshot 128382
+PASS cdc-finance: single-selection filters
+PASS: 160 read-only Grafana queries; no source/warehouse mutations

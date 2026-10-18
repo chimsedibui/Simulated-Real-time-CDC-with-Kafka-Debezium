@@ -9,3 +9,6 @@ observability/secrets
 secrets
 .env
 .env.*
+
+# Host backups belong to ClickHouse and must never enter application build contexts.
+warehouse/backups

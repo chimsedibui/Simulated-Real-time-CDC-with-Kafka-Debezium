@@ -1,6 +1,9 @@
 # PostgreSQL data
 source/postgres/data/
 
+# ClickHouse backups (warehouse/backup.sh)
+warehouse/backups/
+
 # Environment files
 .env
 .env.*

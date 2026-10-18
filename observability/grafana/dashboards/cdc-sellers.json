@@ -1,0 +1,1572 @@
+{
+  "uid": "cdc-sellers",
+  "title": "04 \u00b7 Nh\u00e0 b\u00e1n & t\u1ed3n kho",
+  "description": "Shop n\u00e0o c\u1ea7n h\u1ed7 tr\u1ee3 tr\u01b0\u1edbc \u2014 v\u00e0 SKU n\u00e0o c\u1ea7n b\u1ed5 sung \u0111\u1ec3 tr\u00e1nh b\u1ecf l\u1ee1 \u0111\u01a1n?",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "cdc",
+    "marketplace",
+    "business"
+  ],
+  "timezone": "Asia/Ho_Chi_Minh",
+  "refresh": "1m",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "MARKETPLACE / 04 \u00b7 Nh\u00e0 b\u00e1n & t\u1ed3n kho",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Shop n\u00e0o c\u1ea7n h\u1ed7 tr\u1ee3 tr\u01b0\u1edbc \u2014 v\u00e0 SKU n\u00e0o c\u1ea7n b\u1ed5 sung \u0111\u1ec3 tr\u00e1nh b\u1ecf l\u1ee1 \u0111\u01a1n?\nNg\u00e0y nghi\u1ec7p v\u1ee5 **${business_day}** \u00b7 Ch\u1ecdn g\u00f3c nh\u00ecn qua c\u00e1c li\u00ean k\u1ebft ph\u00eda tr\u00ean. S\u1ed1 li\u1ec7u ph\u1ea3n \u00e1nh tr\u1ea1ng th\u00e1i hi\u1ec7n t\u1ea1i, c\u00f3 th\u1ec3 \u0111\u1ed5i khi \u0111\u01a1n b\u1ecb h\u1ee7y ho\u1eb7c ho\u00e0n tr\u1ea3."
+      }
+    },
+    {
+      "id": 2,
+      "title": "01 / DANH M\u1ee4C NH\u00c0 B\u00c1N \u0110\u01af\u1ee2C CH\u1eccN \u00b7 s\u1ed1 t\u00edch l\u0169y",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 3,
+      "title": "Shop c\u00f3 \u0111\u01a1n",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Ch\u1ec9 c\u00e1c shop xu\u1ea5t hi\u1ec7n trong shop_performance, t\u1ee9c c\u00f3 \u0111\u01a1n. Shop ch\u01b0a b\u00e1n h\u00e0ng kh\u00f4ng n\u1eb1m trong danh s\u00e1ch n\u00e0y.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT count() FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "NMV c\u1ee7a nh\u00f3m shop",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "L\u0169y k\u1ebf t\u1ea1i b\u1ea3n d\u1eef li\u1ec7u \u0111ang ch\u1ecdn; kh\u00f4ng l\u1ecdc theo ng\u00e0y.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(nmv) FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "L\u1ea7n vi ph\u1ea1m SLA \u0111\u00f3ng g\u00f3i",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "\u0110\u01a1n b\u1ecb h\u1ee7y v\u00ec seller_sla_breach. \u0110\u00e2y l\u00e0 vi ph\u1ea1m \u0111\u00e3 x\u1ea3y ra, kh\u00f4ng ph\u1ea3i backlog s\u1eafp qu\u00e1 h\u1ea1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#F2495C"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(sla_breaches) FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "SKU ch\u1ea1m ng\u01b0\u1ee1ng b\u1ed5 sung",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "T\u1ed3n available <= reorder_point, trong nh\u00f3m shop c\u00f3 \u0111\u01a1n \u0111\u01b0\u1ee3c ch\u1ecdn.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#FFB357"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT countIf(needs_reorder) FROM mart.inventory_risk WHERE refresh_id = ${refresh_id:raw} AND shop IN (SELECT shop FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring}))",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Nh\u00e0 b\u00e1n \u0111\u00f3ng g\u00f3p l\u1edbn \u00b7 GMV v\u00e0 ph\u1ea7n gi\u1eef l\u1ea1i",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 14,
+        "h": 8
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Shop",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT shop AS \"Shop\",gmv AS \"GMV\",nmv AS \"NMV\" FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring}) ORDER BY nmv DESC LIMIT 10",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "\u0110\u00f3ng g\u00f3i ch\u1eadm \u00b7 ch\u1ec9 shop \u0111\u1ee7 s\u1ed1 m\u1eabu \u0111\u01a1n",
+      "type": "barchart",
+      "gridPos": {
+        "x": 14,
+        "y": 9,
+        "w": 10,
+        "h": 8
+      },
+      "description": "Trung b\u00ecnh ch\u1ec9 tr\u00ean \u0111\u01a1n \u0111\u00e3 \u0111\u00f3ng g\u00f3i. S\u1ed1 \u0111\u01a1n t\u1ed1i thi\u1ec3u l\u1ecdc theo t\u1ed5ng \u0111\u01a1n shop; mart ch\u01b0a c\u00f3 s\u1ed1 m\u1eabu packed \u0111\u1ec3 l\u1ecdc ri\u00eang.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:gi\u1edd",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Shop",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT shop AS \"Shop\",avg_hours_to_pack AS \"Gi\u1edd \u0111\u00f3ng g\u00f3i TB\" FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring})\n        AND orders>=${min_orders:raw} AND avg_hours_to_pack IS NOT NULL ORDER BY avg_hours_to_pack DESC LIMIT 10",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "02 / H\u00c0NG CH\u1edc CAN THI\u1ec6P \u00b7 h\u1ed7 tr\u1ee3 c\u00f3 c\u0103n c\u1ee9, kh\u00f4ng t\u1ef1 \u0111\u1ed9ng ph\u1ea1t",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 10,
+      "title": "Shop c\u1ea7n r\u00e0 so\u00e1t SLA / h\u1ee7y \u00b7 t\u1ed1i thi\u1ec3u ${min_orders} \u0111\u01a1n",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 9
+      },
+      "description": "20% h\u1ee7y v\u00e0 24h \u0111\u00f3ng g\u00f3i l\u00e0 ng\u01b0\u1ee1ng kh\u00e1m ph\u00e1, kh\u00f4ng ph\u1ea3i quy \u0111\u1ecbnh x\u1eed ph\u1ea1t. Cancel rate c\u00f2n bao g\u1ed3m h\u1ee7y do ng\u01b0\u1eddi mua / ch\u01b0a thanh to\u00e1n; \u0111\u1ecdc c\u00f9ng s\u1ed1 m\u1eabu v\u00e0 SLA th\u1ef1c.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Nh\u00e0 b\u00e1n"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "B\u01b0\u1edbc ti\u1ebfp theo"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 240
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Vi ph\u1ea1m SLA"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "T\u1ef7 l\u1ec7 h\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.1
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.2
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:gi\u1edd"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Sao"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT shop AS \"Nh\u00e0 b\u00e1n\",tier AS \"H\u1ea1ng\",province AS \"T\u1ec9nh\",orders AS \"\u0110\u01a1n\",\n               sla_breaches AS \"Vi ph\u1ea1m SLA\",cancel_rate AS \"T\u1ef7 l\u1ec7 h\u1ee7y\",avg_hours_to_pack AS \"Gi\u1edd \u0111\u00f3ng g\u00f3i TB\",\n               rating AS \"Sao\",reviews AS \"L\u01b0\u1ee3t \u0111\u00e1nh gi\u00e1\",\n               multiIf(sla_breaches>0,'R\u00e0 nguy\u00ean nh\u00e2n vi ph\u1ea1m SLA',avg_hours_to_pack>=24,'Ki\u1ec3m tra n\u0103ng l\u1ef1c \u0111\u00f3ng g\u00f3i','Ph\u00e2n t\u00edch h\u1ee7y / h\u1ebft h\u1ea1n thanh to\u00e1n') AS \"B\u01b0\u1edbc ti\u1ebfp theo\"\n        FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring}) AND orders>=${min_orders:raw} AND (sla_breaches>0 OR cancel_rate>=0.2 OR avg_hours_to_pack>=24)\n        ORDER BY sla_breaches DESC,cancel_rate DESC LIMIT 20",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "03 / B\u1ed4 SUNG T\u1ed2N KHO \u00b7 ch\u00eanh l\u1ec7ch t\u1edbi ng\u01b0\u1ee1ng, ch\u01b0a ph\u1ea3i d\u1ef1 b\u00e1o nhu c\u1ea7u",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 12,
+      "title": "SKU c\u1ea7n l\u00e0m vi\u1ec7c v\u1edbi shop",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 9
+      },
+      "description": "\u01afu ti\u00ean theo kho\u1ea3ng thi\u1ebfu t\u1edbi ng\u01b0\u1ee1ng. Kh\u00f4ng g\u1ecdi \u0111\u00e2y l\u00e0 days-of-cover, d\u1ef1 b\u00e1o b\u00e1n ho\u1eb7c l\u01b0\u1ee3ng mua t\u1ed1i \u01b0u: mart ch\u01b0a c\u00f3 demand theo SKU / lead time.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "S\u1ea3n ph\u1ea9m"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Nh\u00e0 b\u00e1n"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "B\u1ed5 sung t\u1ed1i thi\u1ec3u \u0111\u1ec3 v\u01b0\u1ee3t ng\u01b0\u1ee1ng"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 240
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "B\u1ed5 sung t\u1ed1i thi\u1ec3u \u0111\u1ec3 v\u01b0\u1ee3t ng\u01b0\u1ee1ng"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "C\u00f3 th\u1ec3 b\u00e1n"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang gi\u1eef"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT sku AS \"SKU\",product_name AS \"S\u1ea3n ph\u1ea9m\",shop AS \"Nh\u00e0 b\u00e1n\",variant AS \"Bi\u1ebfn th\u1ec3\",\n               available AS \"C\u00f3 th\u1ec3 b\u00e1n\",reserved AS \"\u0110ang gi\u1eef\",reorder_point AS \"Ng\u01b0\u1ee1ng\",\n               greatest(reorder_point+1-available,0) AS \"B\u1ed5 sung t\u1ed1i thi\u1ec3u \u0111\u1ec3 v\u01b0\u1ee3t ng\u01b0\u1ee1ng\"\n        FROM mart.inventory_risk WHERE refresh_id = ${refresh_id:raw} AND shop IN (SELECT shop FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) AND shop IN (${shop:sqlstring})) AND needs_reorder\n        ORDER BY \"B\u1ed5 sung t\u1ed1i thi\u1ec3u \u0111\u1ec3 v\u01b0\u1ee3t ng\u01b0\u1ee1ng\" DESC,available ASC LIMIT 30",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Gi\u1edbi h\u1ea1n b\u1ed9 l\u1ecdc",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 24,
+        "h": 3
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "B\u1ed9 l\u1ecdc nh\u00e0 b\u00e1n ch\u1ec9 g\u1ed3m shop \u0111\u00e3 c\u00f3 \u0111\u01a1n. Shop ch\u01b0a ph\u00e1t sinh \u0111\u01a1n v\u1eabn c\u00f3 th\u1ec3 c\u00f3 t\u1ed3n kho nh\u01b0ng kh\u00f4ng n\u1eb1m trong g\u00f3c nh\u00ecn n\u00e0y. T\u00ean shop l\u00e0 grain hi\u1ec7n c\u00f3 c\u1ee7a mart; drill-down t\u1edbi order_id / SKU demand c\u1ea7n mart chi ti\u1ebft h\u01a1n."
+      }
+    },
+    {
+      "id": 14,
+      "title": "\u0110\u1ed9 m\u1edbi c\u1ee7a d\u1eef li\u1ec7u",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 3
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT toTimeZone(finished_at, 'Asia/Ho_Chi_Minh') AS \"C\u1eadp nh\u1eadt l\u00fac\",\n                            duration_ms / 1000 AS \"Th\u1eddi gian d\u1ef1ng b\u1ea3n (gi\u00e2y)\",\n                            marts AS \"S\u1ed1 mart \u0111\u1ed3ng b\u1ed9\"\n                     FROM ops.mart_refreshes WHERE refresh_id = ${refresh_id:raw} ORDER BY finished_at DESC LIMIT 1",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "refresh_id",
+        "label": "B\u1ea3n d\u1eef li\u1ec7u",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT toString(refresh_id) FROM ops.mart_refreshes ORDER BY refresh_id DESC LIMIT 1",
+        "refresh": 2,
+        "hide": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      },
+      {
+        "name": "business_day",
+        "label": "Ng\u00e0y nghi\u1ec7p v\u1ee5",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT toString(max(order_date)) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}",
+        "refresh": 2,
+        "hide": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      },
+      {
+        "name": "tier",
+        "label": "H\u1ea1ng shop",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT tier FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} ORDER BY tier",
+        "refresh": 2,
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "skipUrlSync": false
+      },
+      {
+        "name": "province",
+        "label": "T\u1ec9nh / th\u00e0nh",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT province FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) ORDER BY province",
+        "refresh": 2,
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "skipUrlSync": false
+      },
+      {
+        "name": "shop",
+        "label": "Nh\u00e0 b\u00e1n",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT DISTINCT shop FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} AND tier IN (${tier:sqlstring}) AND province IN (${province:sqlstring}) ORDER BY shop",
+        "refresh": 2,
+        "hide": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "skipUrlSync": false
+      },
+      {
+        "name": "min_orders",
+        "label": "S\u1ed1 \u0111\u01a1n t\u1ed1i thi\u1ec3u khi x\u1ebfp r\u1ee7i ro",
+        "type": "custom",
+        "query": "10,30,100,300",
+        "current": {
+          "text": "30",
+          "value": "30"
+        },
+        "options": [
+          {
+            "text": "10",
+            "value": "10",
+            "selected": false
+          },
+          {
+            "text": "30",
+            "value": "30",
+            "selected": true
+          },
+          {
+            "text": "100",
+            "value": "100",
+            "selected": false
+          },
+          {
+            "text": "300",
+            "value": "300",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "01 \u00b7 \u0110i\u1ec1u h\u00e0nh",
+      "type": "link",
+      "url": "/d/cdc-business",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "02 \u00b7 \u0110\u01a1n h\u00e0ng & tr\u1ea3i nghi\u1ec7m",
+      "type": "link",
+      "url": "/d/cdc-operations",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "03 \u00b7 Danh m\u1ee5c & chi\u1ebfn d\u1ecbch",
+      "type": "link",
+      "url": "/d/cdc-growth",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "04 \u00b7 Nh\u00e0 b\u00e1n & t\u1ed3n kho",
+      "type": "link",
+      "url": "/d/cdc-sellers",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "05 \u00b7 Thu ph\u00ed & d\u00f2ng ti\u1ec1n",
+      "type": "link",
+      "url": "/d/cdc-finance",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    }
+  ]
+}

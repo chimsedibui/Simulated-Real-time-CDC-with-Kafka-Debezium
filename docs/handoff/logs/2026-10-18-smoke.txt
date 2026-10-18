@@ -1,0 +1,7 @@
+
+== reset
+
+== core services
+connector RUNNING ['RUNNING']
+
+== simulator + seed

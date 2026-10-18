@@ -26,6 +26,13 @@ api() { curl -s -m "${3:-10}" -X "$1" "localhost:8000/api/$2" -H 'Content-Type: 
 step() { echo; echo "== $*"; }
 deadlocks() { pg "SELECT deadlocks FROM pg_stat_database WHERE datname = 'enterprise_db'"; }
 
+compose_up() {
+  if ! $DC up -d --build "$@" >> "$OUT/compose-up.out" 2>&1; then
+    tail -60 "$OUT/compose-up.out" >&2
+    return 1
+  fi
+}
+
 show_deadlocks() {
   $DC exec -T postgres bash -c 'grep -h -B1 -A12 "deadlock detected" /var/lib/postgresql/data/logs/*.log | tail -40' || true
 }
@@ -38,7 +45,7 @@ reset_stack() {
 
 core_up() {
   step "core services"
-  $DC up -d --build postgres kafka debezium clickhouse source-api warehouse-jobs >/dev/null 2>&1
+  compose_up postgres kafka debezium clickhouse source-api warehouse-jobs
   for _ in $(seq 1 60); do curl -sf localhost:8083/ >/dev/null && break; sleep 3; done
   if ! curl -sf localhost:8083/connectors/postgres-connector >/dev/null; then
     debezium/register.sh >/dev/null
@@ -50,7 +57,7 @@ core_up() {
 
 seed() {
   step "simulator + seed"
-  SIM_SPEED=240 $DC up -d --build simulator control-center >/dev/null 2>&1
+  SIM_SPEED=240 compose_up simulator control-center
   local r=""
   for _ in $(seq 1 150); do
     r=$(curl -s localhost:8200/status?log_since=999999 | python3 -c \
@@ -63,7 +70,7 @@ seed() {
 tests() {
   step "API and stress tests"
   $DC build validator >/dev/null 2>&1
-  if ! $DC run --rm validator pytest -q -x -p no:cacheprovider test_source_api.py test_stress.py > "$OUT/tests.out" 2>&1; then
+  if ! $DC run --rm validator pytest -q -x -p no:cacheprovider test_source_api.py test_stress.py test_validation_wait.py > "$OUT/tests.out" 2>&1; then
     grep -v Container "$OUT/tests.out" | tail -30; show_deadlocks; exit 1
   fi
   grep -v Container "$OUT/tests.out" | tail -2
@@ -125,7 +132,7 @@ case "$MODE" in
     else
       step "rebuild code (data kept)"
       api POST generator/stop 30 >/dev/null || true
-      $DC up -d --build source-api simulator warehouse-jobs control-center >/dev/null 2>&1
+      compose_up source-api simulator warehouse-jobs control-center
       for _ in $(seq 1 30); do curl -sf localhost:8100/health >/dev/null && break; sleep 2; done
     fi
     pg "SELECT pg_stat_reset()" >/dev/null          # deadlock counter starts from zero for this run

@@ -1,0 +1,4 @@
+PASS: 38 tables and all 319 column names/types match PostgreSQL catalog
+PASS: 57 FK edges and nullable/unique cardinality match PostgreSQL catalog
+PASS: 31 modeled tables, outbox, signals and five excluded tables match connector/silver contract
+PASS: relative links and Markdown heading anchors in data-arch

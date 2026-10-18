@@ -1,0 +1,65 @@
+Creating full backup before new traffic
+backup ch-20261018-164153 done in 20s (107M)
+
+Additional traffic: {"ticks": 247, "errors": 0, "api": {"requests": 59831, "retries": 0, "replays": 659, "rejected": 3241, "failed": 0}}
+ Container cdc-source-api Stopping
+ Container cdc-source-api Stopped
+
+Baseline captured: 31 silver tables; {'cdc_events': '279289\t17586126596657124766', 'cdc_transactions': '64171\t16724368140885408344', 'domain_events': '122170\t14092514796005387503', 'ingest_errors': '0\t0'}
+stopping warehouse-jobs and dropping bronze consistent gold gold_snap mart ops silver snap
+ Container cdc-warehouse-jobs Stopping
+ Container cdc-warehouse-jobs Stopped
+restoring ch-20261018-164153
+  clickhouse-cdc: 31 partitions moved to saved replay positions
+  clickhouse-cdc-transactions: 1 partitions moved to saved replay positions
+  clickhouse-events: 13 partitions moved to saved replay positions
+ Container kafka Waiting
+ Container cdc-seaweedfs Waiting
+ Container cdc-seaweedfs Healthy
+ Container kafka Healthy
+ Container realtime-cdc-postgres-1 Waiting
+ Container cdc-clickhouse Waiting
+ Container cdc-clickhouse Healthy
+ Container realtime-cdc-postgres-1 Healthy
+ Container cdc-warehouse-jobs Starting
+ Container cdc-warehouse-jobs Started
+restored ch-20261018-164153; ClickHouse is now reading the events after the backup from Kafka (watch the lag in Grafana)
+
+ Container realtime-cdc-postgres-1 Waiting
+ Container realtime-cdc-postgres-1 Healthy
+ Container cdc-identity Waiting
+ Container realtime-cdc-postgres-1 Waiting
+ Container cdc-identity Healthy
+ Container realtime-cdc-postgres-1 Healthy
+ Container cdc-source-api Starting
+ Container cdc-source-api Started
+
+Source API resumed; connector resume requested; simulator remains stopped
+Traceback (most recent call last):
+  File "/tmp/cdc-restore-drill.py", line 67, in <module>
+    after=snapshot()
+  File "/tmp/cdc-restore-drill.py", line 30, in snapshot
+    bronze[table]=ch(f'SELECT count(),sum(cityHash64({cols})) FROM bronze.{table}')
+                  ~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/cdc-restore-drill.py", line 12, in ch
+    return dc('exec','-T','clickhouse','bash','-c',
+           ~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+              'clickhouse-client --user admin --password "$(cat /run/secrets/clickhouse_password)" --query "$0"',query).strip()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/cdc-restore-drill.py", line 10, in dc
+    def dc(*args): return run(['docker','compose',*args])
+                          ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/cdc-restore-drill.py", line 8, in run
+    return subprocess.check_output(args,cwd=ROOT,text=True,stderr=subprocess.STDOUT)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/khanhxoe/miniconda3/lib/python3.14/subprocess.py", line 473, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+               **kwargs).stdout
+               ^^^^^^^^^
+  File "/home/khanhxoe/miniconda3/lib/python3.14/subprocess.py", line 557, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/khanhxoe/miniconda3/lib/python3.14/subprocess.py", line 1208, in communicate
+    stdout = self.stdout.read()
+KeyboardInterrupt

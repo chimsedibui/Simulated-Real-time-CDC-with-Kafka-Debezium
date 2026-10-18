@@ -1,0 +1,26 @@
+Removed the old secrets; writing new ones
+Wrote secrets/postgres_password
+Wrote secrets/cdc_db_password
+Wrote secrets/source_api_db_password
+Wrote secrets/app_reader_password
+Wrote secrets/identity_db_password
+Wrote secrets/monitor_password
+Wrote secrets/clickhouse_password
+Wrote secrets/grafana_reader_password
+Wrote secrets/grafana_admin_password
+Wrote secrets/pii_salt
+Wrote secrets/cold_storage_access_key
+Wrote secrets/cold_storage_secret_key
+Wrote secrets/password_pepper
+Wrote secrets/admin_password
+Wrote secrets/clients/sim-orchestrator
+Wrote secrets/clients/quality
+Wrote secrets/clients/identity
+Wrote secrets/webhooks/MOMO
+Wrote secrets/webhooks/VNPAY
+Wrote secrets/webhooks/NAPAS
+Wrote secrets/webhooks/GHN
+Wrote secrets/webhooks/GHTK
+Wrote secrets/webhooks/SPX
+Wrote secrets/webhooks/JT
+Wrote secrets/webhooks/VTP

@@ -1,0 +1,78 @@
+import json, subprocess, time, urllib.request
+from pathlib import Path
+
+ROOT=Path('/home/khanhxoe/work/12.Real-time-CDC-with-Kafka-Debezium')
+LOG=ROOT/'docs/handoff/logs'
+
+def run(args):
+    return subprocess.check_output(args,cwd=ROOT,text=True,stderr=subprocess.STDOUT)
+
+def dc(*args): return run(['docker','compose',*args])
+def ch(query):
+    return dc('exec','-T','clickhouse','bash','-c',
+              'clickhouse-client --user admin --password "$(cat /run/secrets/clickhouse_password)" --query "$0"',query).strip()
+def api(path,method='GET',body=None):
+    req=urllib.request.Request('http://localhost:'+path,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={'Content-Type':'application/json'},method=method)
+    with urllib.request.urlopen(req,timeout=90) as response:
+        raw=response.read()
+    return json.loads(raw) if raw else {}
+
+def snapshot():
+    columns=json.loads(ch("SELECT table, arrayStringConcat(groupArray(name), ',') AS cols FROM (SELECT table,name FROM system.columns WHERE database='silver' AND name != '_synced_at' ORDER BY table,position) GROUP BY table ORDER BY table FORMAT JSON"))['data']
+    tables=[(x['table'],x['cols']) for x in columns if not x['table'].startswith('mv_')]
+    sql=' UNION ALL '.join(f"SELECT '{name}' AS table_name, count() AS rows, sum(cityHash64({cols})) AS checksum FROM silver.{name} FINAL" for name,cols in tables)
+    silver=sorted(json.loads(ch(sql+' FORMAT JSON'))['data'], key=lambda row: row['table_name'])
+    bronze={}
+    for table in ['cdc_events','cdc_transactions','domain_events','ingest_errors']:
+        cols=ch(f"SELECT arrayStringConcat(groupArray(name),',') FROM (SELECT name FROM system.columns WHERE database='bronze' AND table='{table}' AND name != 'ingested_at' ORDER BY position)")
+        bronze[table]=ch(f'SELECT count(),sum(cityHash64({cols})) FROM bronze.{table}')
+    return {'silver':silver,'bronze':bronze,'watermark':ch('SELECT v FROM consistent.watermark')}
+
+# Services must be resumed even when an assertion or restore fails. Keep generator stopped.
+try:
+    print('Creating full backup before new traffic',flush=True)
+    result=run(['warehouse/backup.sh','backup']); print(result,flush=True)
+    name=result.split('backup ',1)[1].split(' ',1)[0]
+    api('8000/api/clock','PUT',{'speed':240})
+    api('8000/api/generator/start','POST',{'interval':1,'orders_per_tick':40,'new_customers_per_tick':6})
+    time.sleep(35)
+    status=api('8000/api/generator/stop','POST')
+    api('8000/api/clock','PUT',{'speed':1})
+    print('Additional traffic:',json.dumps({k:status.get(k) for k in ['ticks','errors','api']}),flush=True)
+    # Freeze all source writers; let Connect flush their final WAL before pausing it.
+    print(dc('stop','source-api'),flush=True)
+    previous=None
+    for _ in range(30):
+        current=ch('SELECT count(),max(kafka_offset) FROM bronze.cdc_events')
+        if current==previous:
+            break
+        previous=current; time.sleep(3)
+    time.sleep(8)
+    api('8083/connectors/postgres-connector/pause','PUT')
+    for _ in range(30):
+        state=api('8083/connectors/postgres-connector/status')
+        if state['connector']['state']=='PAUSED' and all(t['state']=='PAUSED' for t in state['tasks']):
+            break
+        time.sleep(2)
+    else: raise RuntimeError('Connector did not pause')
+    time.sleep(8)
+    before=snapshot()
+    (LOG/'2026-10-18-restore-before.json').write_text(json.dumps(before,indent=2)+'\n')
+    print('Baseline captured:',len(before['silver']),'silver tables;',before['bronze'],flush=True)
+    print(run(['warehouse/backup.sh','restore',name]),flush=True)
+    deadline=time.monotonic()+180
+    while True:
+        after=snapshot()
+        if after==before: break
+        if time.monotonic()>deadline:
+            (LOG/'2026-10-18-restore-after.json').write_text(json.dumps(after,indent=2)+'\n')
+            raise AssertionError('Restored state did not catch up to baseline within 180s')
+        time.sleep(3)
+    (LOG/'2026-10-18-restore-after.json').write_text(json.dumps(after,indent=2)+'\n')
+    print('PASS: exact counts/checksums for all silver tables, all four bronze tables, and watermark match after replay',flush=True)
+finally:
+    print(dc('start','source-api'),flush=True)
+    api('8083/connectors/postgres-connector/resume','PUT')
+    print('Source API resumed; connector resume requested; simulator remains stopped',flush=True)

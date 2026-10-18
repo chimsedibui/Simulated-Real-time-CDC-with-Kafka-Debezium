@@ -19,7 +19,7 @@ services:
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     # config.d/storage.xml takes the S3 keys from the environment: exported from the secret files here, so they
     # exist only inside the process, never in the container's configuration
-    entrypoint: ["/bin/bash", "-c", "export COLD_STORAGE_ACCESS_KEY=$$(cat /run/secrets/cold_storage_access_key) COLD_STORAGE_SECRET_KEY=$$(cat /run/secrets/cold_storage_secret_key); exec /entrypoint.sh"]
+    entrypoint: ["/bin/bash", "-c", "export COLD_STORAGE_ACCESS_KEY=$$(cat /run/secrets/cold_storage_access_key) COLD_STORAGE_SECRET_KEY=$$(cat /run/secrets/cold_storage_secret_key); mkdir -p /backups && chown clickhouse:clickhouse /backups; exec /entrypoint.sh"]
     volumes:
       - ../secrets/clickhouse_password:/run/secrets/clickhouse_password:ro
       - ../secrets/grafana_reader_password:/run/secrets/grafana_reader_password:ro
@@ -30,6 +30,7 @@ services:
       - ./clickhouse/config.d/kafka.xml:/etc/clickhouse-server/config.d/kafka.xml
       - ./clickhouse/config.d/storage.xml:/etc/clickhouse-server/config.d/storage.xml
       - clickhouse_data:/var/lib/clickhouse
+      - ./backups:/backups               # warehouse/backup.sh
     ulimits:
       nofile:
         soft: 262144

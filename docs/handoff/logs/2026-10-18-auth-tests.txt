@@ -1,0 +1,4 @@
+ Container realtime-cdc-validator-run-1b10a6e7a1a2 Creating
+ Container realtime-cdc-validator-run-1b10a6e7a1a2 Created
+...........                                                              [100%]
+11 passed in 0.85s

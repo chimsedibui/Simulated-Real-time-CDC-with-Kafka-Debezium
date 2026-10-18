@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 
+from business_dashboards import build_dashboards
+
 ROOT = Path(__file__).parent / 'dashboards'
 
 def dashboard(uid, title, description):
@@ -17,44 +19,11 @@ def panel(d, title, datasource, target, kind='timeseries', unit='short', descrip
            datasource={'type':datasource[0],'uid':datasource[1]},
            targets=[dict(refId='A',**target)],
            fieldConfig={'defaults':{'unit':unit},'overrides':[]},options={})
-    if d['uid']=='cdc-business':
-        p['gridPos'] = dict(x=(n%4)*6,y=0,w=6,h=4) if n<4 else dict(x=((n-4)%2)*12,y=4+((n-4)//2)*8,w=12,h=8)
     if kind=='table': p['options']={'showHeader':True,'cellHeight':'sm'}
     if kind=='stat':
         p['fieldConfig']['defaults']['color']={'mode':'fixed','fixedColor':'blue'}
         p['options']={'reduceOptions':{'calcs':['lastNotNull'],'fields':'','values':False},'colorMode':'value'}
     d['panels'].append(p)
-
-business=dashboard('cdc-business','Marketplace · Business Analytics',
- 'Metrics use business time. All panels share the completed mart refresh selected below. Dates are not filtered by the wall-clock picker. NMV changes with returns; these are live metrics, not closed-day snapshots.')
-business['templating']['list']=[dict(name='refresh_id',label='Completed refresh',type='query',
- datasource={'type':'grafana-clickhouse-datasource','uid':'clickhouse'},
- query='SELECT toString(refresh_id) FROM ops.mart_refreshes ORDER BY refresh_id DESC LIMIT 1',
- refresh=2,hide=0,multi=False,includeAll=False,options=[],current={})]
-ch=('grafana-clickhouse-datasource','clickhouse')
-def sql(q): return dict(editorType='sql',rawSql=q,format=1,pluginVersion='4.11.2',queryType='table')
-for title,field,unit in [('Confirmed GMV','gmv','currencyVND'),('Net merchandise value','nmv','currencyVND'),('Orders','orders','short'),('Buyers','buyers','short')]:
- panel(business,title,ch,sql(f'SELECT {field} FROM mart.overview_kpis WHERE refresh_id = ${{refresh_id:raw}}'),'stat',unit)
-for name,title in [('daily_sales','Daily sales · business dates'),('traffic_by_hour','Orders by business hour'),
- ('order_status_summary','Order pipeline'),('funnel','Purchase funnel · counts have different grains'),
- ('payment_summary','Payment attempts and refunds'),('category_sales','Category sales'),
- ('product_sales','Product sales'),('shop_performance','Shop scorecard'),('inventory_risk','Inventory risk'),
- ('customer_tiers','Customer loyalty'),('platform_pnl','Platform economics'),('delivery_performance','Carrier performance'),
- ('returns_summary','Returns by reason'),('return_rate_by_cohort','Return rate by delivery cohort'),
- ('voucher_performance','Voucher performance'),('flash_sale_performance','Flash-sale performance'),
- ('seller_settlement','Seller settlement')]:
- if name in ('daily_sales', 'traffic_by_hour', 'order_status_summary', 'funnel'):
-  dimensions = {'daily_sales':('toString(order_date) AS day, placed_gmv, gmv, nmv','day','currencyVND'),
-                'traffic_by_hour':('toString(hour) AS business_hour, orders','business_hour','short'),
-                'order_status_summary':('status, orders','status','short'),
-                'funnel':('stage, n','stage','short')}
-  columns, axis, unit = dimensions[name]
-  order = 'order_date' if name == 'daily_sales' else '_row'
-  panel(business,title,ch,sql(f'SELECT {columns} FROM mart.{name} WHERE refresh_id = ${{refresh_id:raw}} ORDER BY {order} LIMIT 200'),'barchart',unit)
-  business['panels'][-1]['options']={'xField':axis,'orientation':'auto','xTickLabelRotation':-45,'xTickLabelSpacing':100,'showValue':'never','stacking':'none','legend':{'displayMode':'list','placement':'bottom'}}
- else:
-  panel(business,title,ch,sql(f'SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.{name} WHERE refresh_id = ${{refresh_id:raw}} ORDER BY _row LIMIT 200'),'table')
-panel(business,'Snapshot publication',ch,sql('SELECT refresh_id, finished_at, duration_ms, marts FROM ops.mart_refreshes WHERE refresh_id = ${refresh_id:raw}'),'table')
 
 platform=dashboard('cdc-platform','CDC · Platform Health',
  'Wall-clock performance. Capacity alerts are investigation signals, not automatic scaling. Exporters expose dependency health separately from scrape health.')
@@ -103,5 +72,5 @@ queries=[
  ('Active alerts','ALERTS{alertstate="firing"}','short')]
 for title,expr,unit in queries:
  panel(platform,title,prom,dict(expr=expr,legendFormat='{{job}} {{service}} {{dependency}} {{handler}} {{topic}} {{consumergroup}} {{component}} {{result}} {{slot}} {{user}} {{database}}.{{table}} {{mode}} {{outcome}} {{grant}}'),unit=unit)
-for d in [business,platform]:
+for d in [*build_dashboards(), platform]:
  (ROOT/(d['uid']+'.json')).write_text(json.dumps(d,indent=2)+'\n')

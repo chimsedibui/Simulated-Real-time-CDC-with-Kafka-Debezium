@@ -2,7 +2,7 @@
 
 Control Center (`http://localhost:8000`) runs the simulator and live CDC feed. Its analytics links open Grafana:
 
-- Business Analytics: http://localhost:3000/d/cdc-business
+- Business entry point: http://localhost:3000/d/cdc-business. Five role-based business pages are described in [the Grafana guide](grafana/README.md).
 - Platform Health: http://localhost:3000/d/cdc-platform
 - Grafana local login: `admin` / `secrets/grafana_admin_password`. Grafana, Prometheus and Alertmanager listen on localhost only; change the port binding and the password before exposing Grafana to other devices.
 - Prometheus: http://localhost:9090
@@ -27,9 +27,9 @@ All long-running services use `restart: unless-stopped`; the on-demand validator
 
 ## Data and time
 
-Business panels pin one completed `refresh_id` using a dashboard variable. All 18 marts are covered; queries use the read-only ClickHouse datasource. Business dates follow the accelerated simulation clock, not Grafana's wall-clock time picker. Business analytics currently covers all available business history; table panels show at most 200 rows. Refresh the dashboard to select the latest completed snapshot.
+Business panels pin one completed `refresh_id` per page and use the read-only ClickHouse datasource. Business dates follow the accelerated simulation clock, so the wall-clock picker is hidden. The overview compares matched 7/14/30-day periods excluding the latest business day; other panels state their cumulative/current-snapshot scope explicitly. Filters do not implicitly apply outside their labeled scope. Different pages opened at different times may resolve different completed snapshots. See [metric safeguards and operating routines](grafana/README.md).
 
-Platform panels use Prometheus wall-clock time. Metrics include host CPU/memory/disk, API throughput/5xx/p95, PostgreSQL sessions/locks/deadlocks/retained WAL, Kafka offsets and consumer lag, Debezium connector/task state, ClickHouse activity, transaction watermark, mart age/duration and reconciliation. Source API metrics aggregate both Uvicorn workers through a shared per-container multiprocess directory, reset on startup.
+Platform panels use Prometheus wall-clock time. Metrics include host CPU/memory/disk, API throughput/5xx/p95, PostgreSQL sessions/locks/deadlocks/retained WAL, Kafka offsets and consumer lag, Debezium connector/task state, ClickHouse activity, transaction watermark, mart age/duration and reconciliation. Source API metrics aggregate the configured Uvicorn workers through a shared per-container multiprocess directory, reset on startup.
 
 `platform-exporter` polls SQL and Connect every 15 seconds in the background; Prometheus scrape success is separate from `cdc_dependency_up`. Kafka metrics come from kafka-exporter. Node exporter reads host `/proc`, `/sys`, and root filesystem without Docker socket access. In Docker Desktop or a VM these metrics describe the Docker host/VM, not necessarily your physical computer. Debezium streaming metrics (behind-source time, change queue, connection) come from JMX through Jolokia on port 8778, reachable only on the compose network. ClickHouse parts per partition and SELECT p95 per user come from `system.parts` and `system.query_log`. Per-container metrics and distributed request tracing are not included.
 

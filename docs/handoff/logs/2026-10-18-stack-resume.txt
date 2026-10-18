@@ -1,0 +1,156 @@
+ Image realtime-cdc-platform-exporter Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 662B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 192B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.11-slim
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context:
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 131B done
+#5 DONE 0.0s
+
+#6 [1/5] FROM docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+#6 resolve docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce 0.0s done
+#6 DONE 0.0s
+
+#7 [3/5] COPY requirements.txt .
+#7 CACHED
+
+#8 [2/5] WORKDIR /app
+#8 CACHED
+
+#9 [4/5] RUN pip install --no-cache-dir -r requirements.txt
+#9 CACHED
+
+#10 [5/5] COPY *.py ./
+#10 CACHED
+
+#11 exporting to image
+#11 exporting layers done
+#11 exporting manifest sha256:fbeb147e2b8dbf75e45dd452136010d9273b06d85b695e82a52aeae48626f0f9 done
+#11 exporting config sha256:b5eff1311213683c9d00be5b499783be5a12cbc773fa18743765bf0a18758254 done
+#11 exporting attestation manifest sha256:d2afd94cf91dd70aa96b8d79d2514760469b08cd273b57fe23028bbdd76b27a3 0.0s done
+#11 exporting manifest list sha256:5d18fccf55824583017bf9044ab0332cfdac0a08194f122a295f61e180566db8
+#11 exporting manifest list sha256:5d18fccf55824583017bf9044ab0332cfdac0a08194f122a295f61e180566db8 0.0s done
+#11 naming to docker.io/library/realtime-cdc-platform-exporter:latest done
+#11 unpacking to docker.io/library/realtime-cdc-platform-exporter:latest 0.0s done
+#11 DONE 0.1s
+
+#12 resolving provenance for metadata file
+#12 DONE 0.0s
+ Image realtime-cdc-platform-exporter Built
+ Container kafka Running
+ Volume realtime-cdc_grafana_data Creating
+ Volume realtime-cdc_grafana_data Creating
+ Container cdc-adminer Creating
+ Container realtime-cdc-kafka-exporter-1 Creating
+ Container realtime-cdc-node-exporter-1 Creating
+ Volume realtime-cdc_prometheus_data Creating
+ Container cdc-kafka-ui Creating
+ Volume realtime-cdc_prometheus_data Creating
+ Container realtime-cdc-platform-exporter-1 Creating
+ Container cdc-gateway Creating
+ Volume realtime-cdc_grafana_data Created
+ Volume realtime-cdc_grafana_data Created
+ Container realtime-cdc-grafana-1 Creating
+ Volume realtime-cdc_prometheus_data Created
+ Volume realtime-cdc_prometheus_data Created
+ Container realtime-cdc-prometheus-1 Creating
+ Container realtime-cdc-node-exporter-1 Created
+ Container cdc-kafka-ui Created
+ Container realtime-cdc-platform-exporter-1 Created
+ Container realtime-cdc-grafana-1 Created
+ Container realtime-cdc-kafka-exporter-1 Created
+ Container cdc-gateway Created
+ Container realtime-cdc-prometheus-1 Created
+ Container cdc-adminer Created
+ Container realtime-cdc-kafka-exporter-1 Starting
+ Container realtime-cdc-platform-exporter-1 Starting
+ Container cdc-adminer Starting
+ Container realtime-cdc-prometheus-1 Starting
+ Container cdc-gateway Starting
+ Container kafka Waiting
+ Container realtime-cdc-node-exporter-1 Starting
+ Container realtime-cdc-grafana-1 Starting
+ Container kafka Healthy
+ Container cdc-kafka-ui Starting
+ Container realtime-cdc-kafka-exporter-1 Started
+ Container realtime-cdc-platform-exporter-1 Started
+ Container cdc-adminer Started
+ Container realtime-cdc-prometheus-1 Started
+ Container cdc-gateway Started
+ Container realtime-cdc-node-exporter-1 Started
+ Container realtime-cdc-grafana-1 Started
+ Container cdc-kafka-ui Started
+ Image realtime-cdc-chat-webhook Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 642B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 192B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.11-slim
+#3 DONE 0.0s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 131B done
+#5 DONE 0.0s
+
+#6 [1/5] FROM docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce
+#6 resolve docker.io/library/python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce 0.0s done
+#6 DONE 0.0s
+
+#7 [3/5] COPY requirements.txt .
+#7 CACHED
+
+#8 [4/5] RUN pip install --no-cache-dir -r requirements.txt
+#8 CACHED
+
+#9 [2/5] WORKDIR /app
+#9 CACHED
+
+#10 [5/5] COPY *.py ./
+#10 CACHED
+
+#11 exporting to image
+#11 exporting layers done
+#11 exporting manifest sha256:50ea1d45d509c4511a131b4a33d661d00fcf8d44c03be65a02e189a0240533cb 0.0s done
+#11 exporting config sha256:b5cdefc86b76dc9b59650a7a615105a6494a338582041c88888ad763e6e22a38
+#11 exporting config sha256:b5cdefc86b76dc9b59650a7a615105a6494a338582041c88888ad763e6e22a38 0.0s done
+#11 exporting attestation manifest sha256:c8b159145c11b3c4f9985661fba22479248ca8d35de963b75dd8c1ff0847a4a2 0.0s done
+#11 exporting manifest list sha256:164de226d0cd77366d97adaf9c5a0dc4791901337ddf76c5dcbbb866361ec0b5 0.0s done
+#11 naming to docker.io/library/realtime-cdc-chat-webhook:latest done
+#11 unpacking to docker.io/library/realtime-cdc-chat-webhook:latest 0.0s done
+#11 DONE 0.2s
+
+#12 resolving provenance for metadata file
+#12 DONE 0.0s
+ Image realtime-cdc-chat-webhook Built
+ Container realtime-cdc-chat-webhook-1 Creating
+ Volume realtime-cdc_alertmanager_data Creating
+ Volume realtime-cdc_alertmanager_data Creating
+ Volume realtime-cdc_alertmanager_data Created
+ Volume realtime-cdc_alertmanager_data Created
+ Container realtime-cdc-alertmanager-1 Creating
+ Container realtime-cdc-chat-webhook-1 Created
+ Container realtime-cdc-alertmanager-1 Created
+ Container realtime-cdc-chat-webhook-1 Starting
+ Container realtime-cdc-alertmanager-1 Starting
+ Container realtime-cdc-chat-webhook-1 Started
+ Container realtime-cdc-alertmanager-1 Started

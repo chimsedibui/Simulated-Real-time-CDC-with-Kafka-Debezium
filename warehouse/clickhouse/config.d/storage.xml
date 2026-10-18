@@ -10,6 +10,11 @@
                 <secret_access_key from_env="COLD_STORAGE_SECRET_KEY"/>
                 <metadata_path>/var/lib/clickhouse/disks/cold/</metadata_path>
             </cold>
+            <!-- BACKUP/RESTORE target (warehouse/backup.sh): a host directory, so backups survive `down -v` -->
+            <backups>
+                <type>local</type>
+                <path>/backups/</path>
+            </backups>
         </disks>
         <policies>
             <tiered>
@@ -20,4 +25,7 @@
             </tiered>
         </policies>
     </storage_configuration>
+    <backups>
+        <allowed_disk>backups</allowed_disk>
+    </backups>
 </clickhouse>

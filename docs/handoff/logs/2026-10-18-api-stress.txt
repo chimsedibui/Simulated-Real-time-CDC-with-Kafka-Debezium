@@ -1,0 +1,4 @@
+ Container realtime-cdc-validator-run-68962c3062bf Creating
+ Container realtime-cdc-validator-run-68962c3062bf Created
+................................                                         [100%]
+32 passed in 24.78s

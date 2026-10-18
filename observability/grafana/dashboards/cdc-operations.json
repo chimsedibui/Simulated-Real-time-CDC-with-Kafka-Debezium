@@ -1,0 +1,2058 @@
+{
+  "uid": "cdc-operations",
+  "title": "02 \u00b7 \u0110\u01a1n h\u00e0ng & tr\u1ea3i nghi\u1ec7m",
+  "description": "\u0110i\u1ec3m ngh\u1ebdn n\u1eb1m \u1edf shop, h\u00e3ng v\u1eadn chuy\u1ec3n hay quy tr\u00ecnh tr\u1ea3 h\u00e0ng?",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": [
+    "cdc",
+    "marketplace",
+    "business"
+  ],
+  "timezone": "Asia/Ho_Chi_Minh",
+  "refresh": "1m",
+  "editable": true,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "MARKETPLACE / 02 \u00b7 \u0110\u01a1n h\u00e0ng & tr\u1ea3i nghi\u1ec7m",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### \u0110i\u1ec3m ngh\u1ebdn n\u1eb1m \u1edf shop, h\u00e3ng v\u1eadn chuy\u1ec3n hay quy tr\u00ecnh tr\u1ea3 h\u00e0ng?\nNg\u00e0y nghi\u1ec7p v\u1ee5 **${business_day}** \u00b7 Ch\u1ecdn g\u00f3c nh\u00ecn qua c\u00e1c li\u00ean k\u1ebft ph\u00eda tr\u00ean. S\u1ed1 li\u1ec7u ph\u1ea3n \u00e1nh tr\u1ea1ng th\u00e1i hi\u1ec7n t\u1ea1i, c\u00f3 th\u1ec3 \u0111\u1ed5i khi \u0111\u01a1n b\u1ecb h\u1ee7y ho\u1eb7c ho\u00e0n tr\u1ea3."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Ph\u1ea1m vi",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 2
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**To\u00e0n b\u1ed9 \u0111\u01a1n / ki\u1ec7n t\u1ea1i snapshot** \u00b7 S\u1ed1 \u0111ang ch\u1edd l\u00e0 backlog hi\u1ec7n t\u1ea1i; t\u1ef7 l\u1ec7 giao ch\u1ec9 t\u00ednh ki\u1ec7n \u0111\u00e3 k\u1ebft th\u00fac. Cohort tr\u1ea3 h\u00e0ng ch\u01b0a h\u1ebft c\u1eeda s\u1ed5 \u0111\u01b0\u1ee3c t\u00e1ch ri\u00eang."
+      }
+    },
+    {
+      "id": 3,
+      "title": "01 / KH\u1ed0I L\u01af\u1ee2NG C\u1ea6N THEO D\u00d5I",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 4,
+      "title": "Ch\u1edd thanh to\u00e1n",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "description": "L\u0169y k\u1ebf t\u1ea1i b\u1ea3n d\u1eef li\u1ec7u \u0111ang ch\u1ecdn; kh\u00f4ng l\u1ecdc theo ng\u00e0y.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#FFB357"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sumIf(orders,status='UNPAID') FROM mart.order_status_summary WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Ch\u1edd shop / b\u00e0n giao",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Kh\u00f4ng c\u00f3 tu\u1ed5i \u0111\u01a1n trong mart n\u00ean kh\u00f4ng \u0111\u1ed3ng ngh\u0129a qu\u00e1 SLA.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sumIf(orders,status IN ('TO_SHIP','READY_TO_SHIP')) FROM mart.order_status_summary WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "\u0110ang v\u1eadn chuy\u1ec3n",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "description": "L\u0169y k\u1ebf t\u1ea1i b\u1ea3n d\u1eef li\u1ec7u \u0111ang ch\u1ecdn; kh\u00f4ng l\u1ecdc theo ng\u00e0y.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#B877D9"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sumIf(orders,status IN ('SHIPPED','DELIVERY_FAILED')) FROM mart.order_status_summary WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Tr\u1ea3 h\u00e0ng \u0111ang m\u1edf",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 7,
+        "w": 6,
+        "h": 4
+      },
+      "description": "T\u1ed5ng y\u00eau c\u1ea7u ch\u01b0a REFUNDED / CLOSED; kh\u00f4ng ph\u1ea3i s\u1ed1 y\u00eau c\u1ea7u qu\u00e1 h\u1ea1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#F2495C"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(open) FROM mart.returns_summary WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "H\u00e0ng ch\u1edd \u1edf kh\u00e2u n\u00e0o? \u00b7 lo\u1ea1i \u0111\u01a1n \u0111\u00e3 k\u1ebft th\u00fac",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Lo\u1ea1i CANCELLED, COMPLETED v\u00e0 RETURN_REFUND; nh\u00f3m tr\u1ea3 h\u00e0ng \u0111\u01b0\u1ee3c theo d\u00f5i ri\u00eang b\u1eb1ng open requests. Kh\u00f4ng suy ra qu\u00e1 h\u1ea1n khi thi\u1ebfu tu\u1ed5i \u0111\u01a1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Tr\u1ea1ng th\u00e1i",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT transform(status,\n        ['UNPAID','TO_SHIP','READY_TO_SHIP','SHIPPED','DELIVERY_FAILED','DELIVERED'],\n        ['Ch\u1edd thanh to\u00e1n','Ch\u1edd \u0111\u00f3ng g\u00f3i','Ch\u1edd b\u00e0n giao','\u0110ang giao','Giao th\u1ea5t b\u1ea1i, ch\u1edd x\u1eed l\u00fd','\u0110\u00e3 giao, ch\u1edd ho\u00e0n t\u1ea5t'],status) AS \"Tr\u1ea1ng th\u00e1i\", orders AS \"\u0110\u01a1n\"\n        FROM mart.order_status_summary WHERE refresh_id = ${refresh_id:raw} AND status IN ('UNPAID','TO_SHIP','READY_TO_SHIP','SHIPPED','DELIVERY_FAILED','DELIVERED') ORDER BY orders DESC",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "K\u1ebft qu\u1ea3 giao h\u00e0ng \u00b7 ch\u1ec9 ki\u1ec7n k\u1ebft th\u00fac",
+      "type": "piechart",
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Ch\u1ec9 ki\u1ec7n chi\u1ec1u \u0111i. Ki\u1ec7n ch\u01b0a k\u1ebft th\u00fac kh\u00f4ng n\u1eb1m trong m\u1eabu s\u1ed1.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": [
+          "percent"
+        ],
+        "reduceOptions": {
+          "values": true,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ]
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT 'Giao th\u00e0nh c\u00f4ng' AS \"K\u1ebft qu\u1ea3\",sum(delivered) AS \"Ki\u1ec7n\" FROM mart.delivery_performance WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'Tr\u1ea3 v\u1ec1 ng\u01b0\u1eddi g\u1eedi',sum(returned_to_sender) FROM mart.delivery_performance WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "02 / H\u00c3NG V\u1eacN CHUY\u1ec2N \u00b7 t\u1ed1c \u0111\u1ed9, ch\u1ea5t l\u01b0\u1ee3ng v\u00e0 quy m\u00f4 ph\u1ea3i \u0111\u1ecdc c\u00f9ng nhau",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 11,
+      "title": "Th\u1eddi gian v\u1eadn chuy\u1ec3n trung b\u00ecnh \u00b7 gi\u1edd nghi\u1ec7p v\u1ee5",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Ch\u1ec9 c\u00e1c ki\u1ec7n \u0111\u00e3 giao v\u00e0 c\u00f3 m\u1ed1c th\u1eddi gian; kh\u00f4ng ph\u1ea3i SLA cam k\u1ebft hay p95.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:gi\u1edd",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "H\u00e3ng",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT carrier AS \"H\u00e3ng\",avg_hours_in_transit AS \"Gi\u1edd v\u1eadn chuy\u1ec3n\"\n        FROM mart.delivery_performance WHERE refresh_id = ${refresh_id:raw} AND delivered>0 ORDER BY avg_hours_in_transit DESC",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Scorecard h\u00e3ng v\u1eadn chuy\u1ec3n",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "description": "T\u1ef7 l\u1ec7 giao = delivered / (delivered + returned_to_sender). L\u01b0\u1ee3t giao th\u1ea5t b\u1ea1i c\u00f3 th\u1ec3 l\u1eb7p tr\u00ean m\u1ed9t ki\u1ec7n; kh\u00f4ng chia tr\u1ef1c ti\u1ebfp th\u00e0nh % s\u1ed1 \u0111\u01a1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "T\u1ed5ng ki\u1ec7n"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "T\u1ef7 l\u1ec7 giao"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.9
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.97
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd TB"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix:gi\u1edd"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT carrier AS \"H\u00e3ng\",parcels AS \"T\u1ed5ng ki\u1ec7n\",delivered AS \"\u0110\u00e3 giao\",\n               returned_to_sender AS \"Tr\u1ea3 v\u1ec1\",failed_attempts AS \"L\u01b0\u1ee3t giao th\u1ea5t b\u1ea1i\",\n               success_rate AS \"T\u1ef7 l\u1ec7 giao\",avg_hours_in_transit AS \"Gi\u1edd TB\"\n        FROM mart.delivery_performance WHERE refresh_id = ${refresh_id:raw} ORDER BY returned_to_sender DESC,parcels DESC",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "03 / TR\u1ea2 H\u00c0NG \u00b7 ph\u00e2n bi\u1ec7t cohort m\u1edbi v\u00e0 cohort \u0111\u00e3 h\u1ebft c\u1eeda s\u1ed5",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 14,
+      "title": "T\u1ef7 l\u1ec7 y\u00eau c\u1ea7u tr\u1ea3 \u00b7 cohort ch\u00edn",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 6,
+        "h": 4
+      },
+      "description": "T\u1ed5ng \u0111\u01a1n c\u00f3 y\u00eau c\u1ea7u tr\u1ea3 / t\u1ed5ng \u0111\u00e3 giao, ch\u1ec9 cohort matured. G\u1ed3m y\u00eau c\u1ea7u b\u1ecb t\u1eeb ch\u1ed1i, \u0111ang m\u1edf v\u00e0 \u0111\u00e3 ho\u00e0n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#FFB357"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sumIf(returned,matured)/nullIf(sumIf(delivered,matured),0) FROM mart.return_rate_by_cohort WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "\u0110\u00e3 ho\u00e0n theo y\u00eau c\u1ea7u tr\u1ea3",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 29,
+        "w": 6,
+        "h": 4
+      },
+      "description": "L\u0169y k\u1ebf t\u1ea1i b\u1ea3n d\u1eef li\u1ec7u \u0111ang ch\u1ecdn; kh\u00f4ng l\u1ecdc theo ng\u00e0y.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#B877D9"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(refunded) FROM mart.returns_summary WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "\u0110\u00e3 \u0111\u00f3ng / t\u1eeb ch\u1ed1i",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 6,
+        "h": 4
+      },
+      "description": "L\u0169y k\u1ebf t\u1ea1i b\u1ea3n d\u1eef li\u1ec7u \u0111ang ch\u1ecdn; kh\u00f4ng l\u1ecdc theo ng\u00e0y.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#56D2CB"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(rejected) FROM mart.returns_summary WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Cohort ch\u01b0a h\u1ebft c\u1eeda s\u1ed5",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 29,
+        "w": 6,
+        "h": 4
+      },
+      "description": "C\u00e1c ng\u00e0y giao h\u00e0ng c\u00f2n c\u1eeda s\u1ed5 tr\u1ea3. Kh\u00f4ng d\u00f9ng t\u1ef7 l\u1ec7 th\u1ea5p c\u1ee7a nh\u00f3m n\u00e0y \u0111\u1ec3 k\u1ebft lu\u1eadn ch\u1ea5t l\u01b0\u1ee3ng t\u1ed1t.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT countIf(NOT matured) FROM mart.return_rate_by_cohort WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "V\u00ec sao kh\u00e1ch y\u00eau c\u1ea7u tr\u1ea3 h\u00e0ng?",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "L\u00fd do",
+        "orientation": "horizontal",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 70,
+        "showValue": "auto",
+        "stacking": "normal",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT reason AS \"L\u00fd do\",open AS \"\u0110ang m\u1edf\",refunded AS \"\u0110\u00e3 ho\u00e0n\",rejected AS \"\u0110\u00e3 \u0111\u00f3ng\"\n        FROM mart.returns_summary WHERE refresh_id = ${refresh_id:raw} ORDER BY returns DESC",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Cohort giao h\u00e0ng \u00b7 theo d\u00f5i 21 ng\u00e0y g\u1ea7n nh\u1ea5t",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Ng\u01b0\u1ee1ng 5% / 10% l\u00e0 t\u00edn hi\u1ec7u kh\u00e1m ph\u00e1. \u0110\u1ecdc c\u1ed9t \u0111\u1ed9 ch\u00edn v\u00e0 s\u1ed1 m\u1eabu tr\u01b0\u1edbc khi so s\u00e1nh.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "T\u1ef7 l\u1ec7 y\u00eau c\u1ea7u tr\u1ea3"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.05
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 giao"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT delivery_date AS \"Ng\u00e0y giao\",delivered AS \"\u0110\u00e3 giao\",returned AS \"Y\u00eau c\u1ea7u tr\u1ea3\",\n               return_rate AS \"T\u1ef7 l\u1ec7 y\u00eau c\u1ea7u tr\u1ea3\",if(matured,'\u0110\u00e3 h\u1ebft c\u1eeda s\u1ed5','C\u00f2n c\u1eeda s\u1ed5 tr\u1ea3') AS \"\u0110\u1ed9 ch\u00edn\"\n        FROM mart.return_rate_by_cohort WHERE refresh_id = ${refresh_id:raw} ORDER BY delivery_date DESC LIMIT 21",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "H\u00e0nh \u0111\u1ed9ng & ph\u1ea7n c\u1ea7n b\u1ed5 sung",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 3
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**H\u00e0nh \u0111\u1ed9ng:** li\u00ean h\u1ec7 h\u00e3ng c\u00f3 t\u1ef7 l\u1ec7 tr\u1ea3 v\u1ec1 t\u0103ng; r\u00e0 shop \u0111\u00f3ng g\u00f3i ch\u1eadm; ph\u00e2n c\u00f4ng CS theo l\u00fd do tr\u1ea3 h\u00e0ng. **Ch\u01b0a c\u00f3 trong mart:** tu\u1ed5i t\u1eebng \u0111\u01a1n, deadline giao/return, m\u00e3 tracking v\u00e0 h\u00e0ng ch\u1edd t\u1eebng case. Dashboard kh\u00f4ng g\u1eafn nh\u00e3n \u201cqu\u00e1 h\u1ea1n\u201d khi ch\u01b0a c\u00f3 d\u1eef li\u1ec7u \u0111\u00f3."
+      }
+    },
+    {
+      "id": 21,
+      "title": "\u0110\u1ed9 m\u1edbi c\u1ee7a d\u1eef li\u1ec7u",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 3
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT toTimeZone(finished_at, 'Asia/Ho_Chi_Minh') AS \"C\u1eadp nh\u1eadt l\u00fac\",\n                            duration_ms / 1000 AS \"Th\u1eddi gian d\u1ef1ng b\u1ea3n (gi\u00e2y)\",\n                            marts AS \"S\u1ed1 mart \u0111\u1ed3ng b\u1ed9\"\n                     FROM ops.mart_refreshes WHERE refresh_id = ${refresh_id:raw} ORDER BY finished_at DESC LIMIT 1",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "refresh_id",
+        "label": "B\u1ea3n d\u1eef li\u1ec7u",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT toString(refresh_id) FROM ops.mart_refreshes ORDER BY refresh_id DESC LIMIT 1",
+        "refresh": 2,
+        "hide": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      },
+      {
+        "name": "business_day",
+        "label": "Ng\u00e0y nghi\u1ec7p v\u1ee5",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT toString(max(order_date)) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}",
+        "refresh": 2,
+        "hide": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "01 \u00b7 \u0110i\u1ec1u h\u00e0nh",
+      "type": "link",
+      "url": "/d/cdc-business",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "02 \u00b7 \u0110\u01a1n h\u00e0ng & tr\u1ea3i nghi\u1ec7m",
+      "type": "link",
+      "url": "/d/cdc-operations",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "03 \u00b7 Danh m\u1ee5c & chi\u1ebfn d\u1ecbch",
+      "type": "link",
+      "url": "/d/cdc-growth",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "04 \u00b7 Nh\u00e0 b\u00e1n & t\u1ed3n kho",
+      "type": "link",
+      "url": "/d/cdc-sellers",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "05 \u00b7 Thu ph\u00ed & d\u00f2ng ti\u1ec1n",
+      "type": "link",
+      "url": "/d/cdc-finance",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    }
+  ]
+}

@@ -1,98 +1,94 @@
 {
   "uid": "cdc-business",
-  "title": "Marketplace \u00b7 Business Analytics",
-  "description": "Metrics use business time. All panels share the completed mart refresh selected below. Dates are not filtered by the wall-clock picker. NMV changes with returns; these are live metrics, not closed-day snapshots.",
+  "title": "01 \u00b7 \u0110i\u1ec1u h\u00e0nh s\u00e0n",
+  "description": "S\u00e0n t\u0103ng tr\u01b0\u1edfng \u1edf \u0111\u00e2u \u2014 v\u00e0 gi\u00e1 tr\u1ecb \u0111ang th\u1ea5t tho\u00e1t \u1edf kh\u00e2u n\u00e0o?",
   "schemaVersion": 39,
   "version": 1,
   "tags": [
-    "cdc"
+    "cdc",
+    "marketplace",
+    "business"
   ],
   "timezone": "Asia/Ho_Chi_Minh",
-  "refresh": "30s",
+  "refresh": "1m",
   "editable": true,
   "time": {
     "from": "now-1h",
     "to": "now"
   },
+  "timepicker": {
+    "hidden": true
+  },
   "panels": [
     {
       "id": 1,
-      "title": "Confirmed GMV",
-      "type": "stat",
-      "description": "",
+      "title": "MARKETPLACE / 01 \u00b7 \u0110i\u1ec1u h\u00e0nh s\u00e0n",
+      "type": "text",
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 6,
+        "w": 24,
         "h": 4
       },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT gmv FROM mart.overview_kpis WHERE refresh_id = ${refresh_id:raw}",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
+      "description": "",
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyVND",
+          "unit": "short",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
-          }
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value"
+        "mode": "markdown",
+        "content": "### S\u00e0n t\u0103ng tr\u01b0\u1edfng \u1edf \u0111\u00e2u \u2014 v\u00e0 gi\u00e1 tr\u1ecb \u0111ang th\u1ea5t tho\u00e1t \u1edf kh\u00e2u n\u00e0o?\nNg\u00e0y nghi\u1ec7p v\u1ee5 **${business_day}** \u00b7 Ch\u1ecdn g\u00f3c nh\u00ecn qua c\u00e1c li\u00ean k\u1ebft ph\u00eda tr\u00ean. S\u1ed1 li\u1ec7u ph\u1ea3n \u00e1nh tr\u1ea1ng th\u00e1i hi\u1ec7n t\u1ea1i, c\u00f3 th\u1ec3 \u0111\u1ed5i khi \u0111\u01a1n b\u1ecb h\u1ee7y ho\u1eb7c ho\u00e0n tr\u1ea3."
       }
     },
     {
       "id": 2,
-      "title": "Net merchandise value",
-      "type": "stat",
-      "description": "",
+      "title": "01 / HI\u1ec6U QU\u1ea2 B\u00c1N H\u00c0NG \u00b7 ${period_days} ng\u00e0y tr\u01b0\u1edbc ${business_day}",
+      "type": "row",
       "gridPos": {
-        "x": 6,
-        "y": 0,
-        "w": 6,
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 3,
+      "title": "GMV x\u00e1c nh\u1eadn",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 4,
         "h": 4
       },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT nmv FROM mart.overview_kpis WHERE refresh_id = ${refresh_id:raw}",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
+      "description": "Theo ng\u00e0y \u0111\u1eb7t \u0111\u01a1n, b\u1ecf ng\u00e0y \u0111ang ch\u1ea1y \u0111\u1ec3 kh\u00f4ng so ng\u00e0y d\u1edf dang v\u1edbi ng\u00e0y \u0111\u1ea7y \u0111\u1ee7. \u0110\u00e2y l\u00e0 s\u1ed1 live, kh\u00f4ng ph\u1ea3i b\u00e1o c\u00e1o \u0111\u00e3 ch\u1ed1t.",
       "fieldConfig": {
         "defaults": {
           "unit": "currencyVND",
           "color": {
             "mode": "fixed",
-            "fixedColor": "blue"
-          }
+            "fixedColor": "#5794F2"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
         },
         "overrides": []
       },
@@ -104,19 +100,12 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value"
-      }
-    },
-    {
-      "id": 3,
-      "title": "Orders",
-      "type": "stat",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 6,
-        "h": 4
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
       },
       "datasource": {
         "type": "grafana-clickhouse-datasource",
@@ -126,19 +115,84 @@
         {
           "refId": "A",
           "editorType": "sql",
-          "rawSql": "SELECT orders FROM mart.overview_kpis WHERE refresh_id = ${refresh_id:raw}",
+          "rawSql": "SELECT sum(gmv) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
           "format": 1,
           "pluginVersion": "4.11.2",
           "queryType": "table"
         }
-      ],
+      ]
+    },
+    {
+      "id": 4,
+      "title": "NMV gi\u1eef l\u1ea1i",
+      "type": "stat",
+      "gridPos": {
+        "x": 4,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "description": "Theo ng\u00e0y \u0111\u1eb7t \u0111\u01a1n, b\u1ecf ng\u00e0y \u0111ang ch\u1ea1y \u0111\u1ec3 kh\u00f4ng so ng\u00e0y d\u1edf dang v\u1edbi ng\u00e0y \u0111\u1ea7y \u0111\u1ee7. \u0110\u00e2y l\u00e0 s\u1ed1 live, kh\u00f4ng ph\u1ea3i b\u00e1o c\u00e1o \u0111\u00e3 ch\u1ed1t.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(nmv) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "\u0110\u01a1n \u0111\u00e3 \u0111\u1eb7t",
+      "type": "stat",
+      "gridPos": {
+        "x": 8,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "description": "Theo ng\u00e0y \u0111\u1eb7t \u0111\u01a1n, b\u1ecf ng\u00e0y \u0111ang ch\u1ea1y \u0111\u1ec3 kh\u00f4ng so ng\u00e0y d\u1edf dang v\u1edbi ng\u00e0y \u0111\u1ea7y \u0111\u1ee7. \u0110\u00e2y l\u00e0 s\u1ed1 live, kh\u00f4ng ph\u1ea3i b\u00e1o c\u00e1o \u0111\u00e3 ch\u1ed1t.",
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "color": {
             "mode": "fixed",
-            "fixedColor": "blue"
-          }
+            "fixedColor": "#B877D9"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
         },
         "overrides": []
       },
@@ -150,19 +204,1565 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value"
-      }
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(orders) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
     },
     {
-      "id": 4,
-      "title": "Buyers",
+      "id": 6,
+      "title": "AOV",
       "type": "stat",
-      "description": "",
       "gridPos": {
-        "x": 18,
-        "y": 0,
+        "x": 12,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "description": "GMV / s\u1ed1 \u0111\u01a1n \u0111\u00e3 x\u00e1c nh\u1eadn. Theo ng\u00e0y \u0111\u1eb7t \u0111\u01a1n, b\u1ecf ng\u00e0y \u0111ang ch\u1ea1y \u0111\u1ec3 kh\u00f4ng so ng\u00e0y d\u1edf dang v\u1edbi ng\u00e0y \u0111\u1ea7y \u0111\u1ee7. \u0110\u00e2y l\u00e0 s\u1ed1 live, kh\u00f4ng ph\u1ea3i b\u00e1o c\u00e1o \u0111\u00e3 ch\u1ed1t.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#56D2CB"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(gmv)/nullIf(sum(confirmed_orders),0) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "NMV / GMV",
+      "type": "stat",
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "description": "NMV / GMV. Bao g\u1ed3m \u1ea3nh h\u01b0\u1edfng h\u1ee7y sau x\u00e1c nh\u1eadn, tr\u1ea3 v\u1ec1 ng\u01b0\u1eddi b\u00e1n v\u00e0 ho\u00e0n h\u00e0ng.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(nmv)/nullIf(sum(gmv),0) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "\u0110\u01a1n b\u1ecb h\u1ee7y",
+      "type": "stat",
+      "gridPos": {
+        "x": 20,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "description": "G\u1ed3m c\u1ea3 \u0111\u01a1n h\u1ebft h\u1ea1n ch\u01b0a thanh to\u00e1n; kh\u00f4ng ph\u1ea3i to\u00e0n b\u1ed9 l\u1ed7i c\u1ee7a nh\u00e0 b\u00e1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#FFB357"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(cancelled_orders)/nullIf(sum(orders),0) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Gi\u00e1 tr\u1ecb qua c\u00e1c ng\u00e0y \u00b7 GMV vs NMV",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 14,
+        "h": 8
+      },
+      "description": "Theo ng\u00e0y \u0111\u1eb7t \u0111\u01a1n, b\u1ecf ng\u00e0y \u0111ang ch\u1ea1y \u0111\u1ec3 kh\u00f4ng so ng\u00e0y d\u1edf dang v\u1edbi ng\u00e0y \u0111\u1ea7y \u0111\u1ee7. \u0110\u00e2y l\u00e0 s\u1ed1 live, kh\u00f4ng ph\u1ea3i b\u00e1o c\u00e1o \u0111\u00e3 ch\u1ed1t.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Ng\u00e0y",
+        "orientation": "vertical",
+        "xTickLabelRotation": -35,
+        "xTickLabelSpacing": 70,
+        "showValue": "never",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT toString(order_date) AS \"Ng\u00e0y\", gmv AS \"GMV\", nmv AS \"NMV\" FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) ORDER BY order_date",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "So v\u1edbi ${period_days} ng\u00e0y li\u1ec1n tr\u01b0\u1edbc",
+      "type": "table",
+      "gridPos": {
+        "x": 14,
+        "y": 9,
+        "w": 10,
+        "h": 8
+      },
+      "description": "Hai c\u1eeda s\u1ed5 c\u00f9ng s\u1ed1 ng\u00e0y. NMV k\u1ef3 m\u1edbi c\u00f2n cohort ch\u01b0a h\u1ebft c\u1eeda s\u1ed5 tr\u1ea3 h\u00e0ng, ch\u01b0a ph\u1ea3i k\u1ebft qu\u1ea3 cu\u1ed1i c\u00f9ng. Thay \u0111\u1ed5i \u0111\u1ec3 tr\u1ed1ng n\u1ebfu ch\u01b0a \u0111\u1ee7 l\u1ecbch s\u1eed ho\u1eb7c m\u1eabu s\u1ed1 b\u1eb1ng 0.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u1ec9 ti\u00eau"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "K\u1ef3 ch\u1ecdn"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "K\u1ef3 tr\u01b0\u1edbc"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyVND"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Thay \u0111\u1ed5i"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT 'GMV' AS \"Ch\u1ec9 ti\u00eau\", sumIf(gmv, order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})) AS \"K\u1ef3 ch\u1ecdn\", sumIf(gmv, order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw} * 2) DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY) AS \"K\u1ef3 tr\u01b0\u1edbc\",\n               if(min(order_date) <= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw}*2) DAY,\n                  (sumIf(gmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}))-sumIf(gmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw} * 2) DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY))/nullIf(sumIf(gmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw} * 2) DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY),0),NULL) AS \"Thay \u0111\u1ed5i\"\n        FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'NMV',sumIf(nmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})),sumIf(nmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw} * 2) DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY),\n               if(min(order_date) <= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw}*2) DAY,\n                  (sumIf(nmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}))-sumIf(nmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw} * 2) DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY))/nullIf(sumIf(nmv,order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL (${period_days:raw} * 2) DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY),0),NULL)\n        FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "C\u01a1 h\u1ed9i ch\u01b0a x\u00e1c nh\u1eadn & gi\u00e1 tr\u1ecb ch\u01b0a gi\u1eef l\u1ea1i",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Hai ph\u1ea7n ch\u00eanh l\u1ec7ch t\u1ea1i th\u1eddi \u0111i\u1ec3m b\u00e1o c\u00e1o; kh\u00f4ng g\u1ecdi l\u00e0 l\u1ed7 hay l\u1ee3i nhu\u1eadn. \u0110\u01a1n m\u1edbi c\u00f2n c\u00f3 th\u1ec3 \u0111\u01b0\u1ee3c x\u00e1c nh\u1eadn.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Ng\u00e0y",
+        "orientation": "vertical",
+        "xTickLabelRotation": -35,
+        "xTickLabelSpacing": 70,
+        "showValue": "never",
+        "stacking": "normal",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT toString(order_date) AS \"Ng\u00e0y\", greatest(placed_gmv-gmv,0) AS \"Ch\u01b0a x\u00e1c nh\u1eadn\",\n               greatest(gmv-nmv,0) AS \"H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn\" FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) ORDER BY order_date",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "T\u1ef7 l\u1ec7 x\u00e1c nh\u1eadn & t\u1ef7 l\u1ec7 gi\u1eef l\u1ea1i theo ng\u00e0y",
+      "type": "barchart",
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Theo ng\u00e0y \u0111\u1eb7t \u0111\u01a1n, b\u1ecf ng\u00e0y \u0111ang ch\u1ea1y \u0111\u1ec3 kh\u00f4ng so ng\u00e0y d\u1edf dang v\u1edbi ng\u00e0y \u0111\u1ea7y \u0111\u1ee7. \u0110\u00e2y l\u00e0 s\u1ed1 live, kh\u00f4ng ph\u1ea3i b\u00e1o c\u00e1o \u0111\u00e3 ch\u1ed1t.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Ng\u00e0y",
+        "orientation": "vertical",
+        "xTickLabelRotation": -35,
+        "xTickLabelSpacing": 70,
+        "showValue": "never",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT toString(order_date) AS \"Ng\u00e0y\", confirmed_orders/nullIf(orders,0) AS \"X\u00e1c nh\u1eadn / \u0111\u1eb7t\",\n               nmv/nullIf(gmv,0) AS \"NMV / GMV\" FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date >= (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) - INTERVAL ${period_days:raw} DAY AND order_date < (SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}) ORDER BY order_date",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "02 / NH\u1ecaP KINH DOANH HI\u1ec6N T\u1ea0I \u00b7 ng\u00e0y ${business_day} \u0111ang di\u1ec5n ra",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 14,
+      "title": "\u0110\u01a1n h\u00f4m nay \u00b7 ch\u01b0a \u0111\u1ee7 ng\u00e0y",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 26,
         "w": 6,
         "h": 4
+      },
+      "description": "Kh\u00f4ng so tr\u1ef1c ti\u1ebfp v\u1edbi t\u1ed5ng c\u1ea3 ng\u00e0y h\u00f4m qua.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#B877D9"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(orders) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date=(SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "GMV h\u00f4m nay \u00b7 \u0111ang c\u1eadp nh\u1eadt",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 26,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Ng\u00e0y \u0111ang di\u1ec5n ra, c\u00f2n \u0111\u01a1n trong c\u1eeda s\u1ed5 thanh to\u00e1n.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(gmv) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date=(SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "NMV h\u00f4m nay \u00b7 \u0111ang c\u1eadp nh\u1eadt",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 26,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Cohort m\u1edbi, ch\u01b0a \u0111\u1ee7 th\u1eddi gian ph\u00e1t sinh tr\u1ea3 h\u00e0ng.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyVND",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#73BF69"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "SELECT sum(nmv) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} AND order_date=(SELECT max(order_date) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw})",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Ng\u01b0\u1eddi mua \u00b7 to\u00e0n l\u1ecbch s\u1eed",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 26,
+        "w": 6,
+        "h": 4
+      },
+      "description": "Distinct ng\u01b0\u1eddi mua c\u00f3 \u0111\u01a1n confirmed, to\u00e0n b\u1ed9 l\u1ecbch s\u1eed. Kh\u00f4ng c\u1ed9ng buyers theo ng\u00e0y v\u00ec s\u1ebd \u0111\u1ebfm tr\u00f9ng.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#56D2CB"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "wideLayout": true
       },
       "datasource": {
         "type": "grafana-clickhouse-datasource",
@@ -177,250 +1777,477 @@
           "pluginVersion": "4.11.2",
           "queryType": "table"
         }
-      ],
+      ]
+    },
+    {
+      "id": 18,
+      "title": "48 gi\u1edd nghi\u1ec7p v\u1ee5 g\u1ea7n nh\u1ea5t \u00b7 chu\u1ea9n b\u1ecb n\u0103ng l\u1ef1c theo nh\u1ecbp \u0111\u01a1n",
+      "type": "barchart",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 8
+      },
+      "description": "Gi\u1edd cu\u1ed1i c\u00f3 th\u1ec3 ch\u01b0a \u0111\u1ea7y \u0111\u1ee7. \u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i l\u00e0 t\u1eadp con c\u1ee7a \u0111\u01a1n \u0111\u1eb7t; hai chu\u1ed7i kh\u00f4ng c\u1ed9ng ch\u1ed3ng.",
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "blue"
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "X\u00e1c nh\u1eadn / \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "NMV / GMV"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ch\u01b0a x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y / tr\u1ea3 sau x\u00e1c nh\u1eadn"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n \u0111\u1eb7t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u01a1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd \u0111\u00f3ng g\u00f3i TB"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Gi\u1edd v\u1eadn chuy\u1ec3n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u00e0nh c\u00f4ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#73BF69"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Th\u1ea5t b\u1ea1i"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ebft h\u1ea1n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "H\u1ee7y"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang ch\u1edd"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110ang m\u1edf"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#FFB357"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 ho\u00e0n"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#B877D9"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "\u0110\u00e3 \u0111\u00f3ng"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#56D2CB"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "Gi\u1edd nghi\u1ec7p v\u1ee5",
+        "orientation": "vertical",
+        "xTickLabelRotation": -35,
+        "xTickLabelSpacing": 70,
+        "showValue": "never",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.85,
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT formatDateTime(hour,'%d/%m %Hh','Asia/Ho_Chi_Minh') AS \"Gi\u1edd nghi\u1ec7p v\u1ee5\",\n               orders AS \"\u0110\u01a1n \u0111\u1eb7t\", orders_with_voucher AS \"\u0110\u01a1n c\u00f3 \u01b0u \u0111\u00e3i\"\n        FROM mart.traffic_by_hour WHERE refresh_id = ${refresh_id:raw} ORDER BY hour",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "03 / \u01afU TI\u00caN \u0110I\u1ec0U H\u00c0NH \u00b7 t\u00edn hi\u1ec7u t\u1ea1i snapshot, to\u00e0n l\u1ecbch s\u1eed",
+      "type": "row",
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 1
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "collapsed": false
+    },
+    {
+      "id": 20,
+      "title": "T\u1eeb s\u1ed1 li\u1ec7u \u0111\u1ebfn ng\u01b0\u1eddi ch\u1ecbu tr\u00e1ch nhi\u1ec7m",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 24,
+        "h": 7
+      },
+      "description": "Ng\u01b0\u1ee1ng shop 30 \u0111\u01a1n v\u00e0 t\u1ef7 l\u1ec7 h\u1ee7y 20% l\u00e0 b\u1ed9 l\u1ecdc kh\u00e1m ph\u00e1, kh\u00f4ng ph\u1ea3i ch\u00ednh s\u00e1ch ph\u1ea1t.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "S\u1ed1 l\u01b0\u1ee3ng"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorType": "sql",
+          "rawSql": "\n        SELECT 'Kho v\u1eadn' AS \"\u0110\u1ed9i ph\u1ee5 tr\u00e1ch\", 'SKU c\u1ea7n b\u1ed5 sung' AS \"T\u00edn hi\u1ec7u\",\n               countIf(needs_reorder) AS \"S\u1ed1 l\u01b0\u1ee3ng\", 'M\u1edf Nh\u00e0 b\u00e1n & t\u1ed3n kho; \u01b0u ti\u00ean SKU c\u00f3 kho\u1ea3ng thi\u1ebfu l\u1edbn.' AS \"H\u00e0nh \u0111\u1ed9ng\"\n        FROM mart.inventory_risk WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'Seller success','Shop c\u1ea7n r\u00e0 SLA / h\u1ee7y',countIf(orders>=30 AND (sla_breaches>0 OR cancel_rate>=0.2)),\n               'Xem h\u00e0ng ch\u1edd can thi\u1ec7p; t\u00e1ch l\u1ed7i SLA v\u00e0 h\u1ee7y ch\u01b0a thanh to\u00e1n tr\u01b0\u1edbc khi x\u1eed l\u00fd shop.'\n        FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'Ch\u0103m s\u00f3c kh\u00e1ch h\u00e0ng','Y\u00eau c\u1ea7u tr\u1ea3 h\u00e0ng \u0111ang m\u1edf',sum(open),\n               'M\u1edf \u0110\u01a1n h\u00e0ng & tr\u1ea3i nghi\u1ec7m; ph\u00e2n b\u1ed5 ng\u01b0\u1eddi x\u1eed l\u00fd theo l\u00fd do tr\u1ea3 h\u00e0ng.'\n        FROM mart.returns_summary WHERE refresh_id = ${refresh_id:raw}\n        UNION ALL SELECT 'Fulfillment','\u0110\u01a1n ch\u1edd shop \u0111\u00f3ng g\u00f3i',sumIf(orders,status IN ('TO_SHIP','READY_TO_SHIP')),\n               'Theo d\u00f5i n\u0103ng l\u1ef1c x\u1eed l\u00fd; mart ch\u01b0a c\u00f3 tu\u1ed5i t\u1eebng \u0111\u01a1n n\u00ean ch\u01b0a k\u1ebft lu\u1eadn qu\u00e1 h\u1ea1n.'\n        FROM mart.order_status_summary WHERE refresh_id = ${refresh_id:raw}",
+          "format": 1,
+          "pluginVersion": "4.11.2",
+          "queryType": "table"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "\u0110\u1ed9 m\u1edbi c\u1ee7a d\u1eef li\u1ec7u",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 24,
+        "h": 3
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "noValue": "Ch\u01b0a c\u00f3 d\u1eef li\u1ec7u",
+          "custom": {
+            "minWidth": 65,
+            "wrapText": true
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value"
-      }
-    },
-    {
-      "id": 5,
-      "title": "Daily sales \u00b7 business dates",
-      "type": "barchart",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT toString(order_date) AS day, placed_gmv, gmv, nmv FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw} ORDER BY order_date LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyVND"
-        },
-        "overrides": []
-      },
-      "options": {
-        "xField": "day",
-        "orientation": "auto",
-        "xTickLabelRotation": -45,
-        "xTickLabelSpacing": 100,
-        "showValue": "never",
-        "stacking": "none",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      }
-    },
-    {
-      "id": 6,
-      "title": "Orders by business hour",
-      "type": "barchart",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 4,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT toString(hour) AS business_hour, orders FROM mart.traffic_by_hour WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "xField": "business_hour",
-        "orientation": "auto",
-        "xTickLabelRotation": -45,
-        "xTickLabelSpacing": 100,
-        "showValue": "never",
-        "stacking": "none",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      }
-    },
-    {
-      "id": 7,
-      "title": "Order pipeline",
-      "type": "barchart",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 12,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT status, orders FROM mart.order_status_summary WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "xField": "status",
-        "orientation": "auto",
-        "xTickLabelRotation": -45,
-        "xTickLabelSpacing": 100,
-        "showValue": "never",
-        "stacking": "none",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      }
-    },
-    {
-      "id": 8,
-      "title": "Purchase funnel \u00b7 counts have different grains",
-      "type": "barchart",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 12,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT stage, n FROM mart.funnel WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "xField": "stage",
-        "orientation": "auto",
-        "xTickLabelRotation": -45,
-        "xTickLabelSpacing": 100,
-        "showValue": "never",
-        "stacking": "none",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      }
-    },
-    {
-      "id": 9,
-      "title": "Payment attempts and refunds",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 20,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.payment_summary WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
         "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 10,
-      "title": "Category sales",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 20,
-        "w": 12,
-        "h": 8
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
       },
       "datasource": {
         "type": "grafana-clickhouse-datasource",
@@ -430,461 +2257,19 @@
         {
           "refId": "A",
           "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.category_sales WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
+          "rawSql": "SELECT toTimeZone(finished_at, 'Asia/Ho_Chi_Minh') AS \"C\u1eadp nh\u1eadt l\u00fac\",\n                            duration_ms / 1000 AS \"Th\u1eddi gian d\u1ef1ng b\u1ea3n (gi\u00e2y)\",\n                            marts AS \"S\u1ed1 mart \u0111\u1ed3ng b\u1ed9\"\n                     FROM ops.mart_refreshes WHERE refresh_id = ${refresh_id:raw} ORDER BY finished_at DESC LIMIT 1",
           "format": 1,
           "pluginVersion": "4.11.2",
           "queryType": "table"
         }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 11,
-      "title": "Product sales",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 28,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.product_sales WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 12,
-      "title": "Shop scorecard",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 28,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.shop_performance WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 13,
-      "title": "Inventory risk",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 36,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.inventory_risk WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 14,
-      "title": "Customer loyalty",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 36,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.customer_tiers WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 15,
-      "title": "Platform economics",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 44,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.platform_pnl WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 16,
-      "title": "Carrier performance",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 44,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.delivery_performance WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 17,
-      "title": "Returns by reason",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 52,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.returns_summary WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 18,
-      "title": "Return rate by delivery cohort",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 52,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.return_rate_by_cohort WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 19,
-      "title": "Voucher performance",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 60,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.voucher_performance WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 20,
-      "title": "Flash-sale performance",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 60,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.flash_sale_performance WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 21,
-      "title": "Seller settlement",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 0,
-        "y": 68,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT * EXCEPT (refresh_id, refreshed_at, _row) FROM mart.seller_settlement WHERE refresh_id = ${refresh_id:raw} ORDER BY _row LIMIT 200",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
-    },
-    {
-      "id": 22,
-      "title": "Snapshot publication",
-      "type": "table",
-      "description": "",
-      "gridPos": {
-        "x": 12,
-        "y": 68,
-        "w": 12,
-        "h": 8
-      },
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "editorType": "sql",
-          "rawSql": "SELECT refresh_id, finished_at, duration_ms, marts FROM ops.mart_refreshes WHERE refresh_id = ${refresh_id:raw}",
-          "format": 1,
-          "pluginVersion": "4.11.2",
-          "queryType": "table"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      }
+      ]
     }
   ],
   "templating": {
     "list": [
       {
         "name": "refresh_id",
-        "label": "Completed refresh",
+        "label": "B\u1ea3n d\u1eef li\u1ec7u",
         "type": "query",
         "datasource": {
           "type": "grafana-clickhouse-datasource",
@@ -892,12 +2277,104 @@
         },
         "query": "SELECT toString(refresh_id) FROM ops.mart_refreshes ORDER BY refresh_id DESC LIMIT 1",
         "refresh": 2,
-        "hide": 0,
+        "hide": 2,
         "multi": false,
         "includeAll": false,
         "options": [],
-        "current": {}
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      },
+      {
+        "name": "business_day",
+        "label": "Ng\u00e0y nghi\u1ec7p v\u1ee5",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "clickhouse"
+        },
+        "query": "SELECT toString(max(order_date)) FROM mart.daily_sales WHERE refresh_id = ${refresh_id:raw}",
+        "refresh": 2,
+        "hide": 2,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {},
+        "sort": 0,
+        "skipUrlSync": true
+      },
+      {
+        "name": "period_days",
+        "label": "C\u1eeda s\u1ed5 ng\u00e0y \u0111\u00e3 qua",
+        "type": "custom",
+        "query": "7,14,30",
+        "current": {
+          "text": "7",
+          "value": "7"
+        },
+        "options": [
+          {
+            "text": "7",
+            "value": "7",
+            "selected": true
+          },
+          {
+            "text": "14",
+            "value": "14",
+            "selected": false
+          },
+          {
+            "text": "30",
+            "value": "30",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0
       }
     ]
-  }
+  },
+  "links": [
+    {
+      "title": "01 \u00b7 \u0110i\u1ec1u h\u00e0nh",
+      "type": "link",
+      "url": "/d/cdc-business",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "02 \u00b7 \u0110\u01a1n h\u00e0ng & tr\u1ea3i nghi\u1ec7m",
+      "type": "link",
+      "url": "/d/cdc-operations",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "03 \u00b7 Danh m\u1ee5c & chi\u1ebfn d\u1ecbch",
+      "type": "link",
+      "url": "/d/cdc-growth",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "04 \u00b7 Nh\u00e0 b\u00e1n & t\u1ed3n kho",
+      "type": "link",
+      "url": "/d/cdc-sellers",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    },
+    {
+      "title": "05 \u00b7 Thu ph\u00ed & d\u00f2ng ti\u1ec1n",
+      "type": "link",
+      "url": "/d/cdc-finance",
+      "targetBlank": false,
+      "includeVars": true,
+      "keepTime": false
+    }
+  ]
 }
