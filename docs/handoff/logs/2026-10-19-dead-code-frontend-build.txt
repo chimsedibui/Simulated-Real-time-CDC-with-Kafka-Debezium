@@ -1,0 +1,18 @@
+
+> cdc-control-center@0.1.0 build
+> tsc -b && vite build
+
+vite v5.4.11 building for production...
+transforming...
+✓ 2385 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.64 kB │ gzip:   0.39 kB
+dist/assets/index-Z1j6wA9u.css   18.45 kB │ gzip:   4.53 kB
+dist/assets/index-sR0E8-gu.js   558.50 kB │ gzip: 161.55 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 3.43s

@@ -166,12 +166,6 @@ def shop(shop_id, entity: str = "shop") -> None:
     deny(404, f"{entity}_not_found", f"{entity} does not exist")
 
 
-def read_shop(shop_id, entity: str = "shop") -> None:
-    if current().can_read_all():
-        return _allow()
-    shop(shop_id, entity)
-
-
 def own_customer_id(given) -> str:
     """customer_id of a buyer command: the token's, or the body's when it matches (kept for older clients)."""
     p = current()

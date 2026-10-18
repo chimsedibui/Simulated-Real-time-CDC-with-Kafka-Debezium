@@ -8,7 +8,7 @@ export const OP_META: Record<Op, { label: string; color: string; badge: string }
   r: { label: "SNAPSHOT", color: "#a78bfa", badge: "bg-violet-400/10 text-violet-300 ring-violet-400/30" },
 };
 
-export const CHART_PALETTE = ["#60a5fa", "#34d399", "#fbbf24", "#f472b6", "#a78bfa", "#22d3ee", "#fb923c", "#94a3b8", "#4ade80"];
+const CHART_PALETTE = ["#60a5fa", "#34d399", "#fbbf24", "#f472b6", "#a78bfa", "#22d3ee", "#fb923c", "#94a3b8", "#4ade80"];
 
 const KNOWN_TABLE_COLORS: Record<string, string> = {
   customers: "#f472b6",
@@ -22,30 +22,17 @@ const KNOWN_TABLE_COLORS: Record<string, string> = {
 };
 
 /** Stable colour per table; tables beyond the known ones get a palette colour from their name. */
-export function tableColor(table: string): string {
+function tableColor(table: string): string {
   if (KNOWN_TABLE_COLORS[table]) return KNOWN_TABLE_COLORS[table];
   let h = 0;
   for (const ch of table) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return CHART_PALETTE[h % CHART_PALETTE.length];
 }
 
-const vnd = new Intl.NumberFormat("vi-VN");
 const num = new Intl.NumberFormat("en-US");
 
-function compactVnd(v: number): string {
-  const abs = Math.abs(v);
-  const fixed = (x: number) => x.toFixed(x >= 100 ? 0 : 1).replace(".", ",").replace(/,0$/, "");
-  if (abs >= 1e9) return `${fixed(v / 1e9)} tỷ`;
-  if (abs >= 1e6) return `${fixed(v / 1e6)} tr`;
-  if (abs >= 1e3) return `${fixed(v / 1e3)}k`;
-  return `${v}`;
-}
-
 export const fmt = {
-  money: (v: unknown) => `${vnd.format(Math.round(Number(v ?? 0)))} ₫`,
-  moneyCents: (v: unknown) => `${vnd.format(Math.round(Number(v ?? 0)))} ₫`,
   num: (v: unknown) => num.format(Number(v ?? 0)),
-  compactMoney: (v: unknown) => `${compactVnd(Number(v ?? 0))} ₫`,
   ago: (ms: number, now: number) => {
     const s = Math.max(0, Math.round((now - ms) / 1000));
     if (s < 60) return `${s}s ago`;

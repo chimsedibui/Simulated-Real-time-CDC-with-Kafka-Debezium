@@ -1,0 +1,39 @@
+Static metric-name consumers in tracked runtime/config/test files; docs excluded.
+A consumer outside the defining file is evidence of a reference, not runtime reachability.
+chat_webhook_deliveries_total | observability/service/bridge.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_dependency_up | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_dependency_last_success_timestamp_seconds | observability/service/exporter.py | observability/prometheus/alerts.yml
+cdc_clickhouse_metric | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+cdc_clickhouse_events_total | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+cdc_events_total | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_ingest_lag_p95_seconds | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_ingest_errors_total | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_transactions_held_back | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+cdc_oldest_held_transaction_age_seconds | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_mart_last_success_timestamp_seconds | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_mart_refresh_duration_seconds | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+cdc_reconciliation_failing_tables | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_reconciliation_last_success_timestamp_seconds | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_postgres_connections | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_postgres_max_connections | observability/service/exporter.py | observability/prometheus/alerts.yml
+cdc_postgres_deadlocks_total | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_postgres_lock_waiters | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+cdc_postgres_slot_retained_wal_bytes | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_postgres_slot_safe_wal_bytes | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_postgres_slot_wal_reserved | observability/service/exporter.py | observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_clickhouse_max_parts_per_partition | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_clickhouse_bytes_on_disk | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+cdc_clickhouse_select_p95_seconds | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_debezium_behind_source_seconds | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml, quality/load_test.sh
+cdc_debezium_since_last_event_seconds | observability/service/exporter.py | NO STATIC CONSUMER OUTSIDE DEFINING FILE
+cdc_debezium_queue_remaining_ratio | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+cdc_debezium_connected | observability/service/exporter.py | NO STATIC CONSUMER OUTSIDE DEFINING FILE
+cdc_debezium_events_seen_total | observability/service/exporter.py | NO STATIC CONSUMER OUTSIDE DEFINING FILE
+cdc_connect_running | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.test.yml, observability/prometheus/alerts.yml
+cdc_service_up | observability/service/exporter.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+identity_logins_total | source/identity/app/main.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, observability/prometheus/alerts.yml
+identity_tokens_total | source/identity/app/main.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+auth_decisions_total | source/source-api/app/auth.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py
+warehouse_job_errors_total | warehouse/jobs/jobs.py | observability/prometheus/alerts.yml
+warehouse_snapshot_duration_seconds | warehouse/jobs/jobs.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py, quality/load_test.sh
+warehouse_snapshot_keys | warehouse/jobs/jobs.py | observability/grafana/dashboards/cdc-platform.json, observability/grafana/generate_dashboards.py

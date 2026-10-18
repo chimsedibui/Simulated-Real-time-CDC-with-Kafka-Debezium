@@ -1,0 +1,10 @@
+ Container realtime-cdc-source-api-run-f938a32aa6d6 Creating
+ Container realtime-cdc-source-api-run-f938a32aa6d6 Created
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/srv/app/main.py", line 45, in <module>
+    instrumentator = Instrumentator(excluded_handlers=["/health", "/metrics"], should_ignore_untemplated=True)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/prometheus_fastapi_instrumentator/instrumentation.py", line 153, in __init__
+    raise ValueError(
+ValueError: Env var PROMETHEUS_MULTIPROC_DIR='/tmp/prometheus' not a directory.

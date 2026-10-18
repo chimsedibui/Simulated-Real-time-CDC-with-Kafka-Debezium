@@ -6,7 +6,7 @@
 
 Giảm những chỗ phải sửa đồng thời khi thay đổi pipeline, loại bỏ đường chạy đã bỏ, và giữ generator cùng artifact nhất quán. Mỗi đợt phải có bằng chứng người dùng của code đó đã chuyển sang đường mới. Không xóa một hàm chỉ vì không tìm thấy lời gọi trực tiếp: FastAPI đăng ký handler qua decorator, ClickHouse materialized view qua DDL, Docker qua entrypoint, Prometheus qua tên metric.
 
-Trong lượt bàn giao này, kế hoạch dưới đây chưa đồng nghĩa với đã xóa toàn bộ các ứng viên. Các thay đổi Grafana đang có thuộc công việc khác, cần review cùng người đang sửa chúng.
+Đã thực hiện một lượt rà soát và cleanup có bằng chứng ngày 19/10/2026; xem [kết quả chi tiết](dead-code-audit-2026-10-19.md). Các đợt dưới đây là khung bảo trì, không đồng nghĩa mọi ứng viên đều là dead code hoặc đã được xóa.
 
 ## Những gì đã dọn trong lịch sử
 
@@ -56,4 +56,4 @@ Kiểm tra Python requirements, frontend package và Docker build context. Dùng
 
 Một commit cho một đợt hoặc một hành vi. Ghi rõ file bỏ, caller đã chuyển đi đâu và bằng chứng kiểm thử. Tách đổi hành vi khỏi đổi định dạng. Với cleanup ứng dụng, revert commit là đủ; với schema và dữ liệu, cần migration hoặc restore đã thử trước. `down -v` là reset môi trường mô phỏng, không phải cách rollback trên server có dữ liệu thật.
 
-Ưu tiên hiện tại: hoàn tất xác minh backup và CI, nối docs, sau đó mới loại bỏ các nhánh tương thích có bằng chứng không còn dùng. Chưa có cơ sở xóa đồng loạt phần HA được mô tả trong tài liệu vì đó là kế hoạch, không phải code chạy thừa.
+Ưu tiên sau lượt rà soát: xử lý các nhánh tương thích theo quyết định hỗ trợ và bằng chứng caller; các kết quả backup/restore, smoke và tài liệu đã thực hiện được ghi trong nhật ký bàn giao. Chưa có cơ sở xóa đồng loạt phần HA được mô tả trong tài liệu vì đó là kế hoạch, không phải code chạy thừa.

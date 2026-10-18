@@ -1,0 +1,3 @@
+ Container realtime-cdc-source-api-run-d37c39c8879b Creating
+ Container realtime-cdc-source-api-run-d37c39c8879b Created
+Source API import OK: 58 unique paths; health and /v1 routes registered

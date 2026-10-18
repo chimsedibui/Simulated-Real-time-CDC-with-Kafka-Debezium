@@ -1,0 +1,5 @@
+Unused exports (2)
+CHART_PALETTE            src/ui.tsx:11:14
+tableColor     function  src/ui.tsx:25:17
+Unused exported types (1)
+Seeding  interface  src/api.ts:12:18

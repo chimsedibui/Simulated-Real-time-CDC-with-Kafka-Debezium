@@ -9,7 +9,7 @@ export interface Health {
   source_api: { up: boolean };
 }
 
-export interface Seeding {
+interface Seeding {
   running: boolean;
   phase: string | null;
   done: number;
