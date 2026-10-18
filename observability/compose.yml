@@ -20,6 +20,7 @@ services:
     command: ["python", "bridge.py"]
     environment:
       GRAFANA_PUBLIC_URL: ${GRAFANA_PUBLIC_URL:-http://localhost:3000}
+      ALERT_ENVIRONMENT: ${ALERT_ENVIRONMENT:-local}
     volumes:
       - ./secrets/google-chat-webhook:/run/secrets/google-chat-webhook:ro
     restart: unless-stopped

@@ -1,0 +1,18 @@
+[CDC] RESOLVED
+Môi trường: local | Dự án: realtime-cdc
+Thời điểm tạo thông báo: 19/10/2026 00:07:00 (UTC+7)
+Nhóm nhận được: 0 FIRING | 1 RESOLVED
+
+[RESOLVED] critical — TargetDown
+Dịch vụ: warehouse-jobs
+Target: warehouse-jobs:9109
+Bắt đầu cảnh báo: 19/10/2026 00:00:00 (UTC+7)
+Kết thúc cảnh báo: 19/10/2026 00:06:30 (UTC+7)
+Thời lượng cảnh báo: 00:06:30
+Tóm tắt khi cảnh báo: Prometheus cannot scrape warehouse-jobs (warehouse-jobs:9109)
+Diễn giải: Alertmanager đã đánh dấu RESOLVED. Cần xác nhận target scrape lại thành công và đối chiếu job, dữ liệu nghiệp vụ trước khi kết luận phục hồi toàn bộ.
+Ảnh hưởng khi cảnh báo: Mart, snapshot và đối soát có thể chậm cập nhật; cần kiểm tra job thực tế.
+Kiểm tra: docker compose logs --tail=100 warehouse-jobs; kiểm tra endpoint warehouse-jobs:9109/metrics, tuổi mart và reconciliation.
+Điều kiện: up == 0 for 2m
+Giá trị rule khi cảnh báo (payload): 0
+Grafana (khoảng thời gian cảnh báo): http://localhost:3000/d/cdc-platform?from=1792342500000&to=1792343490000

@@ -14,8 +14,10 @@ tests:
         exp_alerts:
           - exp_labels: {job: kafka, instance: 'kafka-exporter:9308', severity: critical}
             exp_annotations:
-              summary: 'Metrics target kafka is unreachable'
-              description: 'Check the service and exporter connectivity. Inspect Platform Health before restarting.'
+              summary: 'Prometheus cannot scrape kafka (kafka-exporter:9308)'
+              description: 'Metrics scraping failed for at least 2 minutes. Check the target endpoint, exporter logs and network; scrape failure alone does not prove the application stopped.'
+              condition: 'up == 0 for 2m'
+              observed_value: '0'
   - interval: 1m
     input_series:
       - series: 'cdc_mart_last_success_timestamp_seconds'

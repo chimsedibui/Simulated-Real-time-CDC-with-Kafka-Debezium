@@ -472,7 +472,7 @@ docker compose run --rm --no-deps --entrypoint promtool -w /etc/prometheus prome
 ### 3.4. Thông báo Google Chat
 
 1. **Alertmanager** gom alert theo `alertname`, `job`, `service`; chờ 30 s trước khi gửi nhóm mới, 5 phút giữa hai lần cập nhật một nhóm, nhắc lại sau 4 giờ nếu vẫn kêu, và gửi cả thông báo resolved. Mỗi tin tối đa 15 alert. Rule ức chế: khi `TargetDown` kêu, mọi alert khác có cùng `job` và `instance` bị ẩn.
-2. **chat-webhook** (`bridge.py`) nhận POST `/alerts` từ Alertmanager trong mạng nội bộ (không publish cổng), kiểm tra payload (giới hạn 256 KB, phải có danh sách alert), dựng tin nhắn văn bản: trạng thái, severity, tên, summary, description, service, runbook nếu có, kèm link dashboard Platform Health (`GRAFANA_PUBLIC_URL`).
+2. **chat-webhook** (`bridge.py`) nhận POST `/alerts` từ Alertmanager trong mạng nội bộ (không publish cổng), kiểm tra payload (giới hạn 256 KB, phải có danh sách alert), dựng tin nhắn có environment/project, target, ngày giờ UTC+7, startsAt/endsAt, duration, summary/description và link Grafana ghim thời gian. TargetDown có hướng kiểm tra theo job; RESOLVED không được coi là bằng chứng pipeline đã đúng. Xem [mẫu thông báo](alert-notifications.md).
 3. URL webhook chỉ được chấp nhận nếu bắt đầu bằng `https://chat.googleapis.com/`. Gửi lỗi thì bridge trả **503** để Alertmanager tự thử lại, và không bao giờ ghi URL hay nội dung trả về vào log (URL chứa khóa).
 4. `chat_webhook_deliveries_total{result}` đếm thành công và thất bại; `ChatDeliveryFailed` dựa vào nó. `test_bridge.py` kiểm tra định dạng tin và hợp đồng thử lại mà không gửi thật.
 

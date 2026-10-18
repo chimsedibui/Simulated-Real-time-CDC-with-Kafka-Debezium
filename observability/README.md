@@ -68,3 +68,7 @@ python3 observability/grafana/generate_dashboards.py
 ```
 
 Datasource and dashboards reload on Grafana restart (dashboard files also get periodic reload). Reload Prometheus rule changes with `docker compose restart prometheus`. To validate notifications end to end, POST a clearly labeled synthetic alert with a short expiry to Alertmanager `/api/v2/alerts`; check `chat_webhook_deliveries_total{result="success"}` and `alertmanager_notifications_failed_total`.
+
+## Alert message details
+
+Chat notifications include Vietnam wall-clock timestamps (UTC+7), alert start/end and duration, environment/project, target labels and incident-time Grafana links. `ALERT_ENVIRONMENT` defaults to `local`. TargetDown adds job-specific checks and does not treat a scrape outage as proof that the application or broker stopped. Resolved summaries and rule values are labeled as incident context. See [message examples and timestamp semantics](../docs/operations/alert-notifications.md).

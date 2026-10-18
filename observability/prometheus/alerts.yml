@@ -6,8 +6,10 @@ groups:
         for: 2m
         labels: {severity: critical}
         annotations:
-          summary: 'Metrics target {{ $labels.job }} is unreachable'
-          description: 'Check the service and exporter connectivity. Inspect Platform Health before restarting.'
+          summary: 'Prometheus cannot scrape {{ $labels.job }} ({{ $labels.instance }})'
+          description: 'Metrics scraping failed for at least 2 minutes. Check the target endpoint, exporter logs and network; scrape failure alone does not prove the application stopped.'
+          condition: 'up == 0 for 2m'
+          observed_value: '{{ $value }}'
       - alert: DependencyDown
         expr: cdc_dependency_up == 0 or cdc_service_up == 0
         for: 2m
