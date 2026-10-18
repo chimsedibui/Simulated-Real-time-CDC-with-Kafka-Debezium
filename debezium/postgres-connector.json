@@ -19,10 +19,12 @@
 
     "_comment_identity": "REPLICA IDENTITY is set in postgres/init.sql by the table owner: FULL for state tables, DEFAULT for append-only ones",
 
+    "_comment_converters": "R9: values are registered in the Schema Registry (subject <topic>-value, BACKWARD compatibility); an incompatible change fails the task (errors.tolerance none) and ConnectorNotRunning fires. Keys stay plain JSON",
     "key.converter": "org.apache.kafka.connect.json.JsonConverter",
-    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "key.converter.schemas.enable": "false",
-    "value.converter.schemas.enable": "false",
+    "value.converter": "io.confluent.connect.json.JsonSchemaConverter",
+    "value.converter.schema.registry.url": "http://schema-registry:8081",
+    "value.converter.auto.register.schemas": "true",
 
     "_comment_pii": "Personal data is hashed (salted SHA-256) before it leaves PostgreSQL: Kafka and the warehouse can still join and count buyers but never see names, emails, phones or street addresses. The salt is PII_SALT from .env, filled in by debezium/register.sh or the Control Center on register",
     "column.mask.hash.v2.SHA-256.with.salt.${PII_SALT}": "ecommerce.customers.full_name,ecommerce.customers.email,ecommerce.customers.phone,ecommerce.customer_addresses.recipient_name,ecommerce.customer_addresses.phone,ecommerce.customer_addresses.street,ecommerce.orders.ship_to_name,ecommerce.orders.ship_to_address,ecommerce.sellers.email",
@@ -38,7 +40,8 @@
     "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
     "transforms.outbox.predicate": "isOutbox",
     "transforms.outbox.route.topic.replacement": "events.${routedByValue}",
-    "transforms.outbox.table.expand.json.payload": "true",
+    "_comment_outbox_payload": "Payload kept as a JSON string: event types differ in shape, and one schema per events.* topic must stay compatible",
+    "transforms.outbox.table.expand.json.payload": "false",
     "transforms.outbox.table.fields.additional.placement": "id:envelope:eventId,type:envelope:eventType,aggregatetype:envelope:aggregateType,aggregateid:envelope:aggregateId,created_at:envelope:occurredAt",
     "predicates": "isOutbox",
     "predicates.isOutbox.type": "org.apache.kafka.connect.transforms.predicates.TopicNameMatches",

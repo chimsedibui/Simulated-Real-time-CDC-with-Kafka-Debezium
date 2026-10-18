@@ -7,14 +7,14 @@ CREATE DATABASE IF NOT EXISTS gold;
 -- Kafka consumer: each message is kept as one raw JSON string
 CREATE TABLE IF NOT EXISTS bronze.kafka_cdc_events
 (
-    raw String
+    msg String                                 -- registry header (0x00 + 4-byte schema id) + JSON
 )
 ENGINE = Kafka
 SETTINGS
     kafka_broker_list = 'kafka:9092',
     kafka_topic_list = '^cdc\\.ecommerce\\..*',   -- regex: every table topic, including ones added later
     kafka_group_name = 'clickhouse-cdc',
-    kafka_format = 'JSONAsString',
+    kafka_format = 'RawBLOB',
     kafka_num_consumers = 1,
     kafka_handle_error_mode = 'stream',            -- unparsable messages go to bronze.ingest_errors, never dropped
     kafka_flush_interval_ms = 1000;
@@ -40,6 +40,7 @@ PARTITION BY toYYYYMMDD(event_ts)
 ORDER BY (source_table, event_ts, kafka_partition, kafka_offset);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS bronze.mv_cdc_events TO bronze.cdc_events AS
+WITH if(startsWith(msg, char(0)), substring(msg, 6), msg) AS raw
 SELECT
     JSONExtractString(raw, 'source', 'table')                     AS source_table,
     JSONExtractString(raw, 'op')                                  AS op,
@@ -70,24 +71,25 @@ ENGINE = MergeTree
 ORDER BY (kafka_topic, kafka_partition, kafka_offset);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS bronze.mv_cdc_events_errors TO bronze.ingest_errors AS
-SELECT _topic AS kafka_topic, _partition AS kafka_partition, _offset AS kafka_offset, _error AS error,
-       _raw_message AS raw_message, now64(3) AS ingested_at
+WITH if(startsWith(msg, char(0)), substring(msg, 6), msg) AS raw
+SELECT _topic AS kafka_topic, _partition AS kafka_partition, _offset AS kafka_offset, if(_error != '', _error, 'not valid JSON') AS error,
+       msg AS raw_message, now64(3) AS ingested_at
 FROM bronze.kafka_cdc_events
-WHERE _error != '';
+WHERE _error != '' OR NOT isValidJSON(raw);
 
 -- Debezium transaction metadata (provide.transaction.metadata): one END record per committed transaction with
 -- its event count per table, in commit order on a single-partition topic. Lets ClickHouse tell when every change
 -- of a transaction has landed, so readers never see half of one (see consistent.open_transactions).
 CREATE TABLE IF NOT EXISTS bronze.kafka_cdc_transactions
 (
-    raw String
+    msg String                                 -- registry header (0x00 + 4-byte schema id) + JSON
 )
 ENGINE = Kafka
 SETTINGS
     kafka_broker_list = 'kafka:9092',
     kafka_topic_list = 'cdc.transaction',
     kafka_group_name = 'clickhouse-cdc-transactions',
-    kafka_format = 'JSONAsString',
+    kafka_format = 'RawBLOB',
     kafka_num_consumers = 1,
     kafka_handle_error_mode = 'stream',
     kafka_flush_interval_ms = 1000;
@@ -107,6 +109,7 @@ PARTITION BY toYYYYMMDD(ingested_at)
 ORDER BY (ingested_at, tx_id);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS bronze.mv_cdc_transactions TO bronze.cdc_transactions AS
+WITH if(startsWith(msg, char(0)), substring(msg, 6), msg) AS raw
 SELECT
     toUInt64OrZero(splitByChar(':', JSONExtractString(raw, 'id'))[1])     AS tx_id,
     JSONExtractUInt(raw, 'event_count')                                    AS event_count,
@@ -121,7 +124,8 @@ FROM bronze.kafka_cdc_transactions
 WHERE _error = '' AND JSONExtractString(raw, 'status') = 'END';
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS bronze.mv_cdc_transactions_errors TO bronze.ingest_errors AS
-SELECT _topic AS kafka_topic, _partition AS kafka_partition, _offset AS kafka_offset, _error AS error,
-       _raw_message AS raw_message, now64(3) AS ingested_at
+WITH if(startsWith(msg, char(0)), substring(msg, 6), msg) AS raw
+SELECT _topic AS kafka_topic, _partition AS kafka_partition, _offset AS kafka_offset, if(_error != '', _error, 'not valid JSON') AS error,
+       msg AS raw_message, now64(3) AS ingested_at
 FROM bronze.kafka_cdc_transactions
-WHERE _error != '';
+WHERE _error != '' OR NOT isValidJSON(raw);

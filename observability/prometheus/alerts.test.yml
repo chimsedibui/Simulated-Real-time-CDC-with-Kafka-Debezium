@@ -41,7 +41,7 @@ tests:
           - exp_labels: {connector: postgres-connector, component: task-0, severity: critical, service: debezium}
             exp_annotations:
               summary: 'Debezium connector/task is not RUNNING'
-              description: 'Inspect Connect task errors and replication slot health. Increasing consumers will not fix a stopped connector.'
+              description: 'Inspect Connect task errors and replication slot health; "Schema being registered is incompatible" means the Schema Registry blocked a breaking source change (runbook in the README). Increasing consumers will not fix a stopped connector.'
   - interval: 1m
     input_series:
       - series: 'cdc_ingest_errors_total'

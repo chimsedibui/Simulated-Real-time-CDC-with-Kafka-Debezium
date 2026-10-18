@@ -2,14 +2,14 @@
 
 CREATE TABLE IF NOT EXISTS bronze.kafka_domain_events
 (
-    raw String
+    msg String                                 -- registry header (0x00 + 4-byte schema id) + JSON
 )
 ENGINE = Kafka
 SETTINGS
     kafka_broker_list = 'kafka:9092',
     kafka_topic_list = '^events\\..*',      -- regex subscription: every events.* topic, present and future
     kafka_group_name = 'clickhouse-events',
-    kafka_format = 'JSONAsString',
+    kafka_format = 'RawBLOB',
     kafka_num_consumers = 1,
     kafka_handle_error_mode = 'stream',
     kafka_flush_interval_ms = 1000;
@@ -32,12 +32,14 @@ PARTITION BY toYYYYMMDD(occurred_at)
 ORDER BY (aggregate_type, aggregate_id, occurred_at, event_id);
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS bronze.mv_domain_events TO bronze.domain_events AS
+WITH if(startsWith(msg, char(0)), substring(msg, 6), msg) AS raw
 SELECT
     toUUID(JSONExtractString(raw, 'eventId'))                                AS event_id,
     JSONExtractString(raw, 'eventType')                                      AS event_type,
     JSONExtractString(raw, 'aggregateType')                                  AS aggregate_type,
     JSONExtractString(raw, 'aggregateId')                                    AS aggregate_id,
-    JSONExtractRaw(raw, 'payload')                                           AS payload,
+    -- the outbox router sends the payload as a JSON string (older messages: an object)
+    if(JSONType(raw, 'payload') = 'String', JSONExtractString(raw, 'payload'), JSONExtractRaw(raw, 'payload')) AS payload,
     parseDateTime64BestEffort(JSONExtractString(raw, 'occurredAt'), 6, 'UTC') AS occurred_at,
     _topic                                                                   AS kafka_topic,
     _partition                                                               AS kafka_partition,
@@ -47,7 +49,8 @@ FROM bronze.kafka_domain_events
 WHERE _error = '' AND JSONHas(raw, 'eventId');
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS bronze.mv_domain_events_errors TO bronze.ingest_errors AS
-SELECT _topic AS kafka_topic, _partition AS kafka_partition, _offset AS kafka_offset, _error AS error,
-       _raw_message AS raw_message, now64(3) AS ingested_at
+WITH if(startsWith(msg, char(0)), substring(msg, 6), msg) AS raw
+SELECT _topic AS kafka_topic, _partition AS kafka_partition, _offset AS kafka_offset, if(_error != '', _error, 'not valid JSON') AS error,
+       msg AS raw_message, now64(3) AS ingested_at
 FROM bronze.kafka_domain_events
-WHERE _error != '';
+WHERE _error != '' OR NOT isValidJSON(raw);

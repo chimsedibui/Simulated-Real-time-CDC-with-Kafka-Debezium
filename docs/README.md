@@ -49,7 +49,8 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 |---------|-------------|------|------|
 | PostgreSQL 15 | `postgres:15` | `5432` | Source database — logical replication enabled |
 | Kafka | `confluentinc/cp-kafka:8.3.2` | `9092` / `29092` | Message broker — KRaft mode (no Zookeeper) |
-| Debezium | `debezium/connect:2.7.3.Final` | `8083` | CDC engine — bridges Postgres WAL to Kafka |
+| Schema Registry | `confluentinc/cp-schema-registry:8.3.2` | `127.0.0.1:8085` | JSON Schema of every topic's values, BACKWARD compatibility (R9) |
+| Debezium | `debezium/connect:2.7.3.Final` + JSON Schema converter (`debezium/Dockerfile`) | `8083` | CDC engine — bridges Postgres WAL to Kafka |
 | Kafka UI | `provectuslabs/kafka-ui:v0.7.2` | `8080` | Web UI to inspect topics and messages |
 | Adminer | `adminer:6.1.2` | `8081` | Lightweight PostgreSQL web UI |
 | ClickHouse | `clickhouse/clickhouse-server:25.8` | `8123` / `9000` | Data warehouse — Kafka engine ingestion, bronze/silver/gold |
@@ -478,6 +479,18 @@ SELECT refresh_id, finished_at, duration_ms FROM ops.mart_refreshes ORDER BY ref
 SELECT * FROM mart.daily_sales WHERE refresh_id = (SELECT max(refresh_id) FROM ops.mart_refreshes) ORDER BY _row;
 ```
 
+**Schema Registry (R9).** Debezium serialises values with Confluent's JSON Schema converter: each topic's schema is registered as `<topic>-value` under BACKWARD compatibility, and a message is the registry's 5-byte header (0x00 + schema id) followed by the same JSON as before. ClickHouse reads it as `RawBLOB` and drops the header (`bronze.kafka_*`), so silver and everything above it is unchanged; a message that is not JSON goes to `bronze.ingest_errors`. A breaking change at the source (a column's type changes, a required column appears) is refused by the registry, the task fails instead of publishing it, and `ConnectorNotRunning` fires. Verified with a probe table whose `INT` column became `TEXT`.
+
+When the registry blocks a change: fix the source if it was a mistake; if the change is intended, make consumers ready (silver spec, `gen_silver.py`), then accept it for that subject only and restart the task:
+
+```bash
+curl -X PUT localhost:8085/config/cdc.ecommerce.<table>-value -H 'Content-Type: application/vnd.schemaregistry.v1+json' -d '{"compatibility":"NONE"}'
+curl -X POST 'localhost:8083/connectors/postgres-connector/restart?includeTasks=true&onlyFailed=true'
+curl -X DELETE localhost:8085/config/cdc.ecommerce.<table>-value          # back to BACKWARD
+```
+
+Never delete rows from bronze to tidy up: the watermark counts each transaction's events there, and a transaction missing its events holds every later one back for an hour. Outbox payloads travel as a JSON string (event types differ in shape, one topic's schema must stay compatible); `bronze.domain_events` reads both forms. Warehouses created before R9 switch their Kafka tables with `warehouse/clickhouse/rawblob-migration.sh`, which must run before Debezium uses the new converter.
+
 **Data contract.** `warehouse/clickhouse/check_contract.py` fails when a source change would reach the warehouse silently wrong: a streamed table without a silver spec, a new source column the spec does not list, a type or nullability mismatch, a hashed PII column not declared as a string, a state table without `REPLICA IDENTITY FULL`, or a stale `02-silver.sql`. The GitHub workflow `.github/workflows/data-contract.yml` runs it on every change to `source/postgres/`, `warehouse/clickhouse/` or `debezium/`, against a database built from `init.sql`.
 
 ```bash
@@ -648,5 +661,5 @@ The platform review (requirements R1–R27, SLOs and the phased plan) lives in t
 - **Security:** TLS/SASL for Kafka and the databases; SOPS + age to share `secrets/` with a team or CI. The old development passwords and PII salt remain in git history: rotate them (edit the file, run `./observability/start.sh`) for any shared environment.
 - **Marts at scale:** snapshots are incremental (R20), but each mart is still aggregated over the whole snapshot; at T1 volumes the heaviest marts (shop, product, category sales) would need per-day partial aggregates.
 - **Cold storage:** bronze moves to S3 after 30 days (R13/R19); Kafka itself still keeps the broker default retention, and silver is not rebuilt from the lake (R21).
-- **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9, needs bronze and silver rewritten from JSON to Avro); the T1 peak of 5,400 events/s (measured locally: ~1,800, limited by the write path: split the stock of best-selling SKUs into slots like voucher quota).
+- **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); the T1 peak of 5,400 events/s (measured locally: ~1,800, limited by the write path: split the stock of best-selling SKUs into slots like voucher quota).
 

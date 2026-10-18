@@ -21,7 +21,7 @@ groups:
         labels: {severity: critical, service: debezium}
         annotations:
           summary: 'Debezium connector/task is not RUNNING'
-          description: 'Inspect Connect task errors and replication slot health. Increasing consumers will not fix a stopped connector.'
+          description: 'Inspect Connect task errors and replication slot health; "Schema being registered is incompatible" means the Schema Registry blocked a breaking source change (runbook in the README). Increasing consumers will not fix a stopped connector.'
       - alert: CDCLagHigh
         expr: cdc_ingest_lag_p95_seconds > 5 and on() cdc_dependency_up{dependency="clickhouse"} == 1
         for: 10m

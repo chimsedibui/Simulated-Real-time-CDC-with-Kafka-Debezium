@@ -2,11 +2,14 @@
 services:
   debezium:
     restart: unless-stopped
-    image: debezium/connect:2.7.3.Final
+    build: .                                   # debezium/connect:2.7.3.Final + JSON Schema converter
+    image: realtime-cdc/debezium:2.7.3-jsonschema
     container_name: cdc-debezium
     hostname: debezium
     depends_on:
       kafka:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
       postgres:
         condition: service_healthy

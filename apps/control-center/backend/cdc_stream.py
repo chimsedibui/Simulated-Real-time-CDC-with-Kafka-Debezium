@@ -62,7 +62,10 @@ class CdcStream:
 
     def _ingest(self, msg):
         try:
-            value = json.loads(msg.value())
+            raw = msg.value()
+            if raw[:1] == b"\x00":          # Schema Registry header: magic byte + 4-byte schema id, then JSON
+                raw = raw[5:]
+            value = json.loads(raw)
         except ValueError:
             return
         op = value.get("op")

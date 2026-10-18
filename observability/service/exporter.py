@@ -149,7 +149,7 @@ def main():
             except Exception as error:
                 UP.labels(name).set(0)
                 logging.warning('%s collection failed (%s)', name, type(error).__name__)
-        for service, url in {'source-api':'http://source-api:8100/health', 'control-center':'http://control-center:8000/api/health', 'simulator':'http://simulator:8200/status'}.items():
+        for service, url in {'source-api':'http://source-api:8100/health', 'control-center':'http://control-center:8000/api/health', 'simulator':'http://simulator:8200/status', 'schema-registry':'http://schema-registry:8081/config', 'identity':'http://identity:8300/health'}.items():
             try:
                 with urlopen(url, timeout=3) as response:
                     SERVICE.labels(service).set(response.status==200)

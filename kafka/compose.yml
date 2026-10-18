@@ -31,6 +31,32 @@ services:
       retries: 5
       start_period: 30s
 
+  # Schema Registry (R9): BACKWARD compatibility for every topic's value schema; schemas live in the _schemas topic
+  schema-registry:
+    restart: unless-stopped
+    image: confluentinc/cp-schema-registry:8.3.2
+    container_name: cdc-schema-registry
+    hostname: schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:8085:8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 1
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+      SCHEMA_REGISTRY_HEAP_OPTS: "-Xms128m -Xmx256m"
+    healthcheck:
+      # the image has no curl: plain HTTP over bash's /dev/tcp
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8081 && printf 'GET /config HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
   kafka-ui:
     restart: unless-stopped
     image: provectuslabs/kafka-ui:v0.7.2
@@ -46,6 +72,7 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
       KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://debezium:8083
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
       DYNAMIC_CONFIG_ENABLED: true
 
 volumes:
