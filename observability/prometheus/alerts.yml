@@ -111,6 +111,13 @@ groups:
         annotations:
           summary: 'Replication slot {{ $labels.slot }} has lost or unreserved WAL'
           description: 'Changes may be missing from the warehouse. Re-snapshot through the signal table and run reconciliation.'
+      - alert: PostgresSlotMissing
+        expr: absent(cdc_postgres_slot_wal_reserved{slot="debezium_slot"}) and on() cdc_dependency_up{dependency="postgres"} == 1
+        for: 2m
+        labels: {severity: critical, service: postgres, slot: debezium_slot}
+        annotations:
+          summary: 'Replication slot debezium_slot does not exist'
+          description: 'After a failover or a dropped slot Debezium may create a new one at the current LSN and skip changes silently. Re-snapshot through the signal table and run reconciliation.'
       - alert: PostgresConnectionsHigh
         expr: cdc_postgres_connections / cdc_postgres_max_connections > 0.8
         for: 5m

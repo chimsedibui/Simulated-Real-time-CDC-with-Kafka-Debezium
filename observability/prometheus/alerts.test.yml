@@ -101,3 +101,20 @@ tests:
             exp_annotations:
               summary: 'Dashboard queries p95 is above the 500 ms SLO'
               description: 'Check mart sizes, ClickHouse memory and merges, and concurrent refresh load.'
+  - interval: 1m
+    input_series:
+      - series: 'cdc_dependency_up{dependency="postgres"}'
+        values: '1x6'
+      - series: 'cdc_postgres_slot_wal_reserved{slot="debezium_slot"}'
+        values: '1 1 stale'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PostgresSlotMissing
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: PostgresSlotMissing
+        exp_alerts:
+          - exp_labels: {severity: critical, service: postgres, slot: debezium_slot}
+            exp_annotations:
+              summary: 'Replication slot debezium_slot does not exist'
+              description: 'After a failover or a dropped slot Debezium may create a new one at the current LSN and skip changes silently. Re-snapshot through the signal table and run reconciliation.'

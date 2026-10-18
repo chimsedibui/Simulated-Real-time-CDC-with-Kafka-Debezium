@@ -67,8 +67,15 @@
 
     "provide.transaction.metadata": "true",
 
-    "producer.override.compression.type": "gzip",
+    "_comment_throughput": "R10: larger batches and queue for 11.11 bursts (the queue is capped in bytes so it cannot eat the heap), shorter poll for lag; lz4 costs far less CPU than gzip and ClickHouse reads it",
+    "max.batch.size": "4096",
+    "max.queue.size": "16384",
+    "max.queue.size.in.bytes": "67108864",
+    "poll.interval.ms": "200",
+    "producer.override.acks": "all",
+    "producer.override.enable.idempotence": "true",
+    "producer.override.compression.type": "lz4",
     "producer.override.linger.ms": "10",
-    "producer.override.batch.size": "32000"
+    "producer.override.batch.size": "131072"
   }
 }
