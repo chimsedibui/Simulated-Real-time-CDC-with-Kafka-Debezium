@@ -83,6 +83,7 @@ class Simulator(Actors):
         self.campaign_windows = []  # (start, end, kind) business datetimes of campaigns this simulator created
         self.ops_day = None
         self.business_now = None
+        self.remeasure = False
         self.clock_speed = cfg["clock"]["speed"]
         self.logs = LogBuffer()
         log.addHandler(self.logs)
@@ -135,7 +136,8 @@ class Simulator(Actors):
         r = self.api.http.put("/admin/clock", json={"speed": speed})
         r.raise_for_status()
         self.clock_speed = speed
-        self.business_now = None          # re-measure Δt from the next tick
+        self.remeasure = True             # next tick takes Δt from the interval; business_now stays set, a
+                                          # tick running in the simulation thread may still read it
         log.info(f"[clock] business time now runs at ×{speed:g}")
         return r.json()
 
@@ -321,8 +323,9 @@ class Simulator(Actors):
         clk = self.api.query("/clock")
         now = datetime.fromisoformat(clk["now"])
         self.clock_speed = clk["speed"]
-        dt_h = cfg["interval"] * self.clock_speed / 3600 if self.business_now is None \
+        dt_h = cfg["interval"] * self.clock_speed / 3600 if self.business_now is None or self.remeasure \
             else (now - self.business_now).total_seconds() / 3600
+        self.remeasure = False
         dt_h = max(0.0, min(dt_h, 6.0))      # a long pause must not unleash a burst of actions
         self.business_now = now
 

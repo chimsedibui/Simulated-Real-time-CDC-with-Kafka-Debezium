@@ -75,12 +75,13 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
             raise not_found("address", body.address_id or "default")
 
         # Lock order everywhere: voucher quota slots → inventory (by SKU) → flash-sale items (releases go the same way).
-        # Stock and flash quota are only read here; they are taken at the very end with conditional updates, so a
-        # hot SKU in a flash sale is locked for milliseconds, not for the whole checkout.
+        # Voucher quota, stock and flash quota are only read here; they are all taken at the very end, so a popular
+        # voucher or a hot flash SKU is locked for milliseconds, not for the whole checkout.
         if body.voucher_codes:
             pricing.lock_customer_vouchers(cur, body.customer_id)
         vouchers = pricing.load_vouchers(cur, body.voucher_codes)
-        claimed = {v["id"]: pricing.claim_quota(cur, v) for v in vouchers}
+        for v in vouchers:
+            pricing.check_quota(cur, v)
 
         cart = active_cart(cur, body.customer_id, create=False)
         if not cart:
@@ -127,10 +128,8 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
             weight = sum(rows[ln["sku_id"]]["weight_g"] * ln["quantity"] for ln in lines)
             drafts.append({"shop_id": shop_id, "lines": lines, "subtotal": sum(ln["line_total"] for ln in lines),
                            "fee": shipping_fee(rows[lines[0]["sku_id"]]["province"], address["province"], weight)})
-        usages = pricing.apply_vouchers(cur, vouchers, body.customer_id, drafts, t)
-        used = {u["voucher"]["id"] for u in usages}
-        pricing.release_quota(cur, [{"voucher_id": vid, "quota_slot": slot} for vid, slot in claimed.items()
-                                    if vid not in used])                     # valid but worth 0 VND here
+        usages = pricing.apply_vouchers(cur, vouchers, body.customer_id, drafts, t)   # a voucher worth 0 VND here
+                                                                                      # takes no redemption
 
         online = body.payment_method != "COD"
         items_total = sum(d["subtotal"] for d in drafts)
@@ -195,6 +194,8 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
                 _new_payment(cur, co["id"], "COD", total, order_id=order["id"])
             orders.append(order)
 
+        applied = {u["voucher"]["id"]: u["voucher"] for u in usages}          # one redemption per voucher
+        claimed = {vid: pricing.claim_quota(cur, applied[vid]) for vid in sorted(applied, key=str)}
         _take_stock_and_flash_quota(cur, reservations, drafts)
 
         for u in sorted(usages, key=lambda u: str(u["voucher"]["id"])):

@@ -53,6 +53,15 @@ def create_quota(cur, v: dict) -> None:
                     (v["id"], slot, capacity))
 
 
+def check_quota(cur, v: dict) -> None:
+    """Fail early, without locking, when a voucher has no redemption left; the claim itself comes last."""
+    cur.execute("SELECT 1 FROM ecommerce.voucher_quota_slots WHERE voucher_id = %s AND used < capacity LIMIT 1",
+                (v["id"],))
+    if not cur.fetchone():
+        raise conflict("voucher_invalid", f"Voucher {v['code']} has been fully redeemed", voucher=v["code"],
+                       why="exhausted")
+
+
 def claim_quota(cur, v: dict) -> int:
     """Take one redemption from a random slot that still has room. Returns the slot.
 
