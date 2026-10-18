@@ -9,7 +9,7 @@ Groups:
   returns     — return lines, refund amounts, order outcome of each return
   settlement  — seller ledger per completed order, wallet balance, payouts; shop rating aggregates
   write-path  — every row has its creation event; status history replays via allowed moves and actors
-  pipeline    — PostgreSQL vs ClickHouse silver (30 tables), consistent.* vs silver, outbox vs bronze.domain_events
+  pipeline    — PostgreSQL vs ClickHouse silver (31 tables), consistent.* vs silver, outbox vs bronze.domain_events
   metrics     — every gold metric equals the same definition computed in PostgreSQL; closed days stay as reported
   ops         — marts equal gold at their watermark; scheduled reconciliation agrees; PII never reaches the warehouse
 

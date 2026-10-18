@@ -1,6 +1,6 @@
 # Real-time CDC Pipeline
 
-A production-style **Change Data Capture (CDC)** pipeline that streams every INSERT, UPDATE, and DELETE from PostgreSQL through Kafka into a **ClickHouse data warehouse** in about a second, with a web **Control Center** to generate traffic, watch each change as it happens, and explore the warehouse. The roadmap adds a **streaming lakehouse** (Flink → Iceberg → MinIO/S3) and a migration path to AWS.
+A production-style **Change Data Capture (CDC)** pipeline that streams every INSERT, UPDATE, and DELETE from PostgreSQL through Kafka into a **ClickHouse data warehouse** in about a second, with a web **Control Center** to generate traffic and watch each change as it happens. Business analytics and platform health live in **Grafana**, with Prometheus alerts sent to Google Chat.
 
 ---
 
@@ -18,23 +18,24 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 │  React + FastAPI     │◄── live feed ─────────────────────────────┐          └────────┬─────────┘
 │  (localhost:8000)    │                                           │                   │ cdc.ecommerce.<table>
 └───────┬──────────────┘                                  ┌────────┴─────────┐         │ events.<aggregate>
-        │ reads marts                                     │  Kafka (KRaft)   │◄────────┘ cdc.transaction
+        │ health                                          │  Kafka (KRaft)   │◄────────┘ cdc.transaction
         │                                                 └────────┬─────────┘
 ┌───────▼─────────────────────────────────────────────────────────▼──────────────────────────────┐
 │ ClickHouse  bronze ─► silver ─► consistent(v) ─► gold(v) ─► mart          ops (reconciliation)   │
-└──────────────────────────────────────────────────────────────▲──────────────────────────────────┘
-                                                               │ marts, business-day close, reconciliation
-                                                      ┌────────┴─────────┐
-                                                      │  warehouse-jobs  │◄── reads PostgreSQL (read-only)
-                                                      └──────────────────┘
+└───────┬──────────────────────────────────────────────────────▲──────────────────────────────────┘
+        │ reads marts (grafana_reader)                         │ marts, business-day close, reconciliation
+┌───────▼──────────────┐                              ┌────────┴─────────┐
+│  Grafana  :3000      │◄── Prometheus :9090          │  warehouse-jobs  │◄── reads PostgreSQL (read-only)
+│  business, platform  │    exporters → alerts → Chat └──────────────────┘
+└──────────────────────┘
 ```
 
 **How it works:**
 1. The **simulator** plays buyers, sellers, the payment gateway and carriers. It changes data only through the **Source API**, which applies the marketplace rules and writes each command in one PostgreSQL transaction, with a domain event in the outbox.
 2. **Debezium** reads the WAL through a replication slot and publishes every row change to `cdc.ecommerce.<table>`, domain events to `events.<aggregate>`, and one END record per transaction to `cdc.transaction`. Personal data is hashed before it leaves PostgreSQL.
 3. **ClickHouse** consumes Kafka directly: `bronze` keeps every event, `silver` the current state of each table, `consistent.<table>(v)` silver as of a commit watermark, and `gold.<view>(v)` the business marts. See [Data Warehouse](#data-warehouse-clickhouse).
-4. **warehouse-jobs** precomputes gold into `mart` tables at one watermark, freezes finished business days, and reconciles ClickHouse against PostgreSQL every minute.
-5. The **CDC Control Center** drives the simulator and the business clock, tails Kafka for a live feed, and charts the marts.
+4. **warehouse-jobs** precomputes gold into `mart` tables at one watermark, freezes finished business days, and reconciles ClickHouse against PostgreSQL every 30 seconds.
+5. The **CDC Control Center** drives the simulator and the business clock, tails Kafka for a live feed, and links to the Grafana dashboards (`cdc-business`, `cdc-platform`).
 
 > Measured on a 16-minute run at ×720 with an 11.11 sale and restarts of Debezium and ClickHouse: a commit reaches ClickHouse in 1.2 s at p50 and 2.3 s at p95; the busiest minute carried 875 events/s at a p95 of 1.8 s.
 
@@ -50,10 +51,15 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 | Kafka UI | `provectuslabs/kafka-ui:latest` | `8080` | Web UI to inspect topics and messages |
 | Adminer | `adminer:latest` | `8081` | Lightweight PostgreSQL web UI |
 | ClickHouse | `clickhouse/clickhouse-server:25.8` | `8123` / `9000` | Data warehouse — Kafka engine ingestion, bronze/silver/gold |
-| Control Center | `apps/control-center` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, warehouse analytics |
-| Source API | `source/source-api` (FastAPI) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs` |
+| Control Center | `apps/control-center` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, links to Grafana |
+| Source API | `source/source-api` (FastAPI, 2 Uvicorn workers) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs`, Prometheus metrics at `/metrics` |
 | Simulator | `source/simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
-| Warehouse jobs | `warehouse/jobs` (Python) | — | Marts, business-day close, reconciliation at a pinned watermark |
+| Warehouse jobs | `warehouse/jobs` (Python) | `9109` (metrics, internal) | Marts, business-day close, reconciliation at a pinned watermark |
+| Prometheus | `prom/prometheus:v3.2.1` | `127.0.0.1:9090` | Metrics (15 days) and 21 alert rules |
+| Alertmanager | `prom/alertmanager:v0.28.1` | `127.0.0.1:9093` | Groups alerts, sends them to the chat-webhook bridge |
+| Grafana | `grafana/grafana:12.3.0` | `127.0.0.1:3000` | Business Analytics (marts) and Platform Health (Prometheus) dashboards |
+| Exporters | `observability/service`, `kafka-exporter`, `node-exporter` | internal | PostgreSQL / ClickHouse / Debezium metrics, Kafka offsets and lag, host CPU, memory, disk |
+| chat-webhook | `observability/service` (`bridge.py`) | internal | Formats alerts for Google Chat; the webhook URL is a gitignored secret file |
 | Validator | `quality` (profile `tools`) | — | API and stress tests, data checks, torn-read probe, run on demand |
 
 > ClickHouse must be 25.x or newer: `cp-kafka:latest` is now Kafka 4.x, which removed the old protocol versions that the librdkafka bundled in ClickHouse 24.x uses. The symptom is `Required feature not supported by broker`.
@@ -85,7 +91,7 @@ ecommerce
 ├── shop_wallets, wallet_pending            wallet balance, rolled up from the ledger in batches (pending rows not streamed)
 ├── product_reviews                         1–5 star reviews; shop rating is computed from them
 ├── outbox_events                           domain events (Outbox Event Router → events.<aggregate>); always empty after commit
-└── idempotency_keys, sim_clock, cdc_heartbeat, debezium_signals   infrastructure, not streamed; idempotency keys expire after 72 h
+└── idempotency_keys, sim_clock, cdc_heartbeat, debezium_signals   infrastructure, not in the warehouse (`debezium_signals` is captured but not modelled); idempotency keys expire after 72 h
 ```
 
 **Business clock.** `ecommerce.sim_clock` and `ecommerce.business_now()` run business time at `speed` × wall-clock time.
@@ -118,7 +124,8 @@ Folders follow responsibility groups. Each group has its own `compose.yml`; the 
 Real-time CDC/
 ├── docker-compose.yml            # includes the groups below (project name: realtime-cdc)
 ├── source/                       # the system being captured
-│   ├── postgres/                 # init.sql (schema, outbox, publication, cdc_user), postgresql.conf, pg_hba.conf
+│   ├── postgres/                 # init.sql (schema, outbox, publication, cdc_user), postgresql.conf, pg_hba.conf;
+│   │                             #   also runs observability/setup-postgres.sql (monitor_reader)
 │   ├── source-api/               # FastAPI: the only writer to PostgreSQL (commands + outbox + idempotency)
 │   ├── simulator/                # traffic simulator; config.yaml holds scale presets and odds
 │   └── compose.yml               # postgres, source-api, simulator, adminer
@@ -132,19 +139,22 @@ Real-time CDC/
 │   │   ├── gen_silver.py         # silver spec → init/02-silver.sql (silver tables, consistent views, watermark)
 │   │   ├── check_contract.py     # data contract: source schema vs silver spec vs connector
 │   │   ├── config.d/kafka.xml    # librdkafka settings
-│   │   └── init/                 # 01-bronze, 02-silver, 03-gold, 04-domain-events, 05-ops
+│   │   └── init/                 # 01-bronze, 02-silver, 03-gold, 04-domain-events, 05-ops, 06-monitoring (read-only users)
 │   ├── jobs/                     # warehouse-jobs: marts, business-day close, reconciliation
 │   └── compose.yml               # clickhouse, warehouse-jobs
 ├── apps/
-│   ├── control-center/           # React + FastAPI: simulator control, live CDC feed, warehouse analytics
+│   ├── control-center/           # React + FastAPI: simulator control, live CDC feed, Grafana links
 │   └── compose.yml
 ├── quality/                      # API + stress tests, check_data.py, probe_consistency.py, gate.sh
 │   └── compose.yml               # validator (profile "tools")
+├── observability/                # Prometheus (alerts.yml + tests), Alertmanager, Grafana (provisioning, dashboards,
+│   │                             #   generate_dashboards.py), service/ (platform-exporter, chat-webhook), start.sh
+│   └── compose.yml
 ├── docs/
-└── .github/workflows/            # CI: data contract
+└── .github/workflows/            # CI: data contract; observability config, alert tests, dashboards
 ```
 
-Observability (Prometheus, Grafana) will get its own `observability/` group when it is built (see the roadmap).
+Monitoring setup, dashboards and alert runbooks are in [observability/README.md](../observability/README.md).
 
 ---
 
@@ -152,11 +162,14 @@ Observability (Prometheus, Grafana) will get its own `observability/` group when
 
 ### 1. Start the stack
 
+The chat-webhook service mounts the Google Chat webhook URL from `observability/secrets/google-chat-webhook` (gitignored). Put the URL there, or create an empty file to run without Chat notifications:
+
 ```bash
+touch observability/secrets/google-chat-webhook
 docker compose up -d
 ```
 
-Wait ~30 seconds for all services to become healthy:
+On an existing PostgreSQL or ClickHouse volume, `./observability/start.sh` also creates the read-only monitoring users. Wait ~30 seconds for all services to become healthy:
 
 ```bash
 docker compose ps
@@ -180,7 +193,7 @@ curl -s http://localhost:8083/connectors/postgres-connector/status | python3 -m 
 
 ### 3. Generate data
 
-The easiest way is the **Control Center** at http://localhost:8000. Press **Start simulation** and adjust the tick interval and orders per tick with the sliders, or fire single business events (place order, advance orders, cancel, restock…) from **Manual actions**. If the Debezium connector is not registered yet, the pipeline bar at the top offers a one-click **register** link.
+The easiest way is the **Control Center** at http://localhost:8000. Press **Start simulation** and adjust buyer sessions and new customers per business hour and the tick interval with the sliders, or fire single business events (place order, advance orders, cancel, restock…) from **Manual actions**. If the Debezium connector is not registered yet, the pipeline bar at the top offers a one-click **register** link.
 
 Or drive the simulator's API directly:
 
@@ -200,6 +213,9 @@ curl -X POST localhost:8200/stop
 | Kafka UI | http://localhost:8080 | — |
 | Adminer (DB) | http://localhost:8081 | Server: `postgres` · User: `admin` · Password: `admin` · DB: `enterprise_db` |
 | Debezium API | http://localhost:8083 | — |
+| **Grafana** | http://localhost:3000 (`/d/cdc-business`, `/d/cdc-platform`) | User: `admin` · Password: `admin` (`GRAFANA_ADMIN_PASSWORD`) |
+| Prometheus | http://localhost:9090 | — |
+| Alertmanager | http://localhost:9093 | — |
 
 ---
 
@@ -207,8 +223,8 @@ curl -X POST localhost:8200/stop
 
 | Topic | Content |
 |-------|---------|
-| `cdc.ecommerce.<table>` | Row changes of each business table (17 tables) |
-| `events.<aggregate>` | Domain events from the outbox: `events.order`, `events.payment`, `events.checkout`, `events.cart`, `events.customer`, `events.shop`, `events.product`, `events.inventory`, `events.catalog` |
+| `cdc.ecommerce.<table>` | Row changes of each business table (31 tables) |
+| `events.<aggregate>` | Domain events from the outbox: `events.order`, `events.payment`, `events.checkout`, `events.cart`, `events.customer`, `events.shop`, `events.product`, `events.inventory`, `events.catalog`, `events.promotion`, `events.return`, `events.review`, `events.shipment` |
 | `cdc.transaction` | Debezium transaction boundaries (one transaction = one business command) |
 | `debezium-config` / `-offsets` / `-status` | Kafka Connect internals |
 
@@ -241,12 +257,13 @@ Data changes only through the **Source API** (OpenAPI docs at http://localhost:8
 |------|-----------|
 | Master data | `POST /admin/categories`, `POST /admin/brands` |
 | Seller center | `POST /sellers` (seller + shop), `POST /shops/{id}/products` (product + SKUs + stock), `POST /skus/{id}/restock`, `POST /orders/{id}/pack`, `POST /orders/{id}/seller-cancel` |
-| Buyer | `POST /customers`, `POST /customers/{id}/addresses`, `POST/PATCH/DELETE /carts/items`, `POST /checkouts`, `POST /checkouts/{id}/payments` (retry), `POST /orders/{id}/cancel`, `POST /orders/{id}/confirm-received` |
+| Buyer | `POST /customers`, `POST /customers/{id}/addresses`, `POST /customers/{id}/deactivate`, `POST /carts/items`, `PATCH/DELETE /carts/items/{item_id}`, `POST /checkouts`, `POST /checkouts/{id}/payments` (retry), `POST /orders/{id}/cancel`, `POST /orders/{id}/confirm-received` |
 | Promotions | `POST /admin/vouchers`, `POST /shops/{id}/vouchers`, `POST /admin/campaigns` (flash / mega sale with SKU quotas), `PATCH /skus/{id}/price` |
 | Returns & reviews | `POST /orders/{id}/returns`, `POST /returns/{id}/approve\|reject\|inspect\|dispute`, `POST /admin/returns/{id}/resolve`, `POST /orders/{id}/reviews` |
 | Partners | `POST /payments/webhook`, `POST /logistics/webhook` (tracking events by tracking number and carrier event id) |
 | Clock | `GET /clock`, `PUT /admin/clock` |
-| Queries | `GET /skus`, `/orders`, `/orders/{id}` (history, parcels, return), `/checkouts/{id}`, `/carts`, `/customers`, `/shops`, `/shipments`, `/returns`, `/vouchers`, `/campaigns`, `/stats` |
+| Queries | `GET /skus`, `/inventory/low-stock`, `/orders`, `/orders/{id}` (history, parcels, return), `/checkouts/{id}`, `/carts`, `/carts/active`, `/customers`, `/customers/{id}`, `/shops`, `/categories`, `/brands`, `/shipments`, `/shipments/{tracking_number}`, `/returns`, `/returns/{id}`, `/vouchers`, `/campaigns`, `/campaigns/{id}/items`, `/stats` |
+| Ops | `GET /health`, `GET /metrics` (Prometheus) |
 
 Rules enforced by the API:
 
@@ -282,7 +299,7 @@ Rules enforced by the API:
 
   Windows are in business time and set by env, for example `PAYMENT_WINDOW_S`, `SELLER_SLA_S`, `AUTO_COMPLETE_S`.
 
-The **simulator** has no database driver and runs on the business clock. Every behaviour is a rate per business hour. Buyer arrivals follow a Poisson process that changes with the hour of day (lunch and evening peaks), weekends and campaigns. SKU popularity is Zipf-distributed. It plays these actors, configured in `simulator/config.yaml`:
+The **simulator** has no database driver and runs on the business clock. Every behaviour is a rate per business hour. Buyer arrivals follow a Poisson process that changes with the hour of day (lunch and evening peaks), weekends and campaigns. SKU popularity is Zipf-distributed. It plays these actors, configured in `source/simulator/config.yaml`:
 
 - **Buyers:** they fill carts, edit them, check out or leave the cart, retry a failed payment, cancel, and confirm receipt.
 - **Mock payment gateway:** its webhooks can be delayed, fail, arrive twice, or arrive after the payment window.
@@ -304,11 +321,11 @@ Presets are free to edit in the YAML.
 Validation, with the simulator stopped:
 
 ```bash
-docker compose --profile tools run --rm validator pytest -q          # marketplace rules, 15 scenarios
+docker compose --profile tools run --rm validator pytest -q          # marketplace rules (25 tests) + lock-contention stress test
 docker compose --profile tools run --rm validator python check_data.py
 ```
 
-`check_data.py` reads PostgreSQL in one consistent snapshot and exits non-zero on any failure. It runs four groups of checks:
+`check_data.py` reads PostgreSQL in one consistent snapshot and exits non-zero on any failure. It runs these groups of checks:
 
 - **Money:** totals of lines, orders and checkouts; one kept payment per paid checkout; refunds; COD collections; spend and tier.
 - **State:** stock balance and reservations; checkout status against order status; milestone timestamps; time rules applied on schedule.
@@ -316,9 +333,8 @@ docker compose --profile tools run --rm validator python check_data.py
 - **Logistics:** parcel status matches the order or return, and ignored tracking events really were stale.
 - **Promo:** voucher counters, limits, windows and allocation; flash quota and prices; price at order time against `price_history`.
 - **Returns and settlement:** refund amounts and the order outcome of each return; seller ledger entries per completed order, wallet balances, payouts and shop ratings.
-- **Write path:** one creation event per row; status history replays through allowed moves and actors.
-- **Write path:** no deadlocks recorded in PostgreSQL (the API retries them, so clients would never notice).
-- **Pipeline:** PostgreSQL against `silver` FINAL for all 30 tables; once settled, no open transactions and `consistent.*` equal to silver; the outbox against `bronze.domain_events`.
+- **Write path:** one creation event per row; status history replays through allowed moves and actors; no deadlocks recorded in PostgreSQL (the API retries them, so clients would never notice).
+- **Pipeline:** PostgreSQL against `silver` FINAL for all 31 tables; once settled, no open transactions and `consistent.*` equal to silver; the outbox against `bronze.domain_events`.
 - **Metrics:** every gold metric (daily GMV/NMV, P&L, product revenue, pack time per shop, return cohorts) recomputed in PostgreSQL with the same definition and compared; closed business days must keep their placed GMV and GMV.
 - **Ops:** marts at the current watermark equal gold computed live; a scheduled reconciliation run after settling matches every table; no email, phone or address in clear anywhere in ClickHouse.
 
@@ -326,8 +342,8 @@ docker compose --profile tools run --rm validator python check_data.py
 
 | Gate | Stack | What runs | Time |
 |------|-------|-----------|------|
-| `quick` | running stack, data kept, code rebuilt | API tests, lock-contention stress test, 90 s of traffic with the torn-read probe, `check_data` | ~3 min |
-| `smoke` | clean | seed, tests, 4 min at ×1440 with an 11.11 sale, probe, `check_data` | ~10 min |
+| `quick` | running stack, data kept, code rebuilt | API tests, lock-contention stress test, 90 s of traffic with the torn-read probe, `check_data` | ~3–4 min |
+| `smoke` | clean | seed, tests, 4 min at ×1440 with an 11.11 sale, probe, `check_data` | ~8–10 min |
 | `full` | clean | 16 min at ×720 with an 11.11 sale and restarts of Debezium and ClickHouse, probe, lag, `check_data` | ~25 min |
 
 `quality/test_stress.py` sends checkouts, cancellations and payments from 24 buyers at the same few SKUs, flash items and vouchers for 20 s, then requires zero deadlocks and no drift in stock, flash quota or voucher quota. Lock-order bugs that ordinary traffic shows once in 100 000 requests show up there in seconds. Put local port overrides in `docker-compose.override.yml` (gitignored).
@@ -366,10 +382,10 @@ gold.*                       business marts
 |-------|---------|-------|
 | bronze | `cdc_events` | Every Debezium event, partitioned by day. Use it for audit, replay and lag metrics. |
 | bronze | `domain_events` | Outbox events from `events.*` (regex subscription), with their event ids. |
-| silver | One table per source table (17). Generated by `warehouse/clickhouse/gen_silver.py` from a compact spec. | Typed columns (UUID, `Int64` VND, `DateTime64`) plus `_version`, `_is_deleted`, `_synced_at`. Append-only sources such as `order_status_history` are de-duplicated by key. |
+| silver | One table per source table (31). Generated by `warehouse/clickhouse/gen_silver.py` from a compact spec. | Typed columns (UUID, `Int64` VND, `DateTime64`) plus `_version`, `_is_deleted`, `_synced_at`. Append-only sources such as `order_status_history` are de-duplicated by key. |
 | bronze | `cdc_transactions` | One row per committed transaction (Debezium transaction metadata): how many of its events should land in `cdc_events`, in commit order. |
 | consistent | `watermark`, plus one parameterized view per silver table | What gold reads. See [Consistent reads](#consistent-reads-no-torn-transactions). |
-| gold | Parameterized views `(v)`: `order_facts`, `daily_sales`, plus the table `daily_sales_closed`, and `traffic_by_hour`, `order_status_summary`, `funnel`, `product_sales`, `category_sales`, `shop_performance`, `payment_summary`, `voucher_performance`, `flash_sale_performance`, `delivery_performance`, `return_rate_by_cohort`, `returns_summary`, `seller_settlement`, `platform_pnl`, `inventory_risk`, `customer_tiers`, `cdc_freshness` (not parameterized) | Views over `consistent.*(v)`. `daily_sales_closed` is filled by the `warehouse-jobs` service once per finished business day. |
+| gold | Parameterized views `(v)`: `order_facts`, `overview_kpis`, `daily_sales`, plus the table `daily_sales_closed`, and `traffic_by_hour`, `order_status_summary`, `funnel`, `product_sales`, `category_sales`, `shop_performance`, `payment_summary`, `voucher_performance`, `flash_sale_performance`, `delivery_performance`, `return_rate_by_cohort`, `returns_summary`, `seller_settlement`, `platform_pnl`, `inventory_risk`, `customer_tiers`, `cdc_freshness` (not parameterized) | Views over `consistent.*(v)`. `daily_sales_closed` is filled by the `warehouse-jobs` service once per finished business day. |
 
 **How upserts and deletes work.** Each event is inserted into silver as a new row whose `_version` is the event's PostgreSQL WAL LSN. LSNs always increase, so replays and duplicates are harmless: the highest version per primary key wins. A delete event inserts the row taken from `before` (possible because of `REPLICA IDENTITY FULL`) with `_is_deleted = 1`. ClickHouse collapses versions during background merges, so **always query silver with `FINAL`** to get exact current state.
 
@@ -400,7 +416,7 @@ The `warehouse-jobs` service runs three jobs, each at one pinned watermark:
 
 | Job | Every | What it does |
 |-----|-------|--------------|
-| Marts | 15 s | Computes every gold view at the current watermark into `mart.<view>` (tagged with `refresh_id` = that watermark) and records the refresh in `ops.mart_refreshes`. The Control Center reads one refresh, so a page costs milliseconds no matter how many people look at it. |
+| Marts | 15 s | Computes every gold view at the current watermark into `mart.<view>` (tagged with `refresh_id` = that watermark) and records the refresh in `ops.mart_refreshes`. Grafana's Business Analytics dashboard reads one refresh, so a page costs milliseconds no matter how many people look at it. Mart tables have no TTL and survive restarts; a refresh that failed halfway is cleared before it is retried, and an hourly cleanup keeps the latest refresh and drops older ones after 1 h. Run one replica. |
 | Business-day close | 5 s | Freezes finished business days into `gold.daily_sales_closed`. |
 | Reconciliation | 30 s | For 28 tables, compares PostgreSQL and `consistent.<table>(v)`: rows created up to one business hour before the watermark, plus the sum of a column that never changes after insert. Results go to `ops.reconciliation`; `ops.reconciliation_status` flags a table that disagreed two runs in a row (one miss can be a row deleted between the two reads; `cart_items`, hard-deleted all the time, is left to `check_data` at rest), and the job logs it as an error. |
 
@@ -485,6 +501,19 @@ npm install && npm run dev       # http://localhost:5173
 
 ---
 
+## Monitoring (Grafana, Prometheus)
+
+| Piece | What it does |
+|-------|--------------|
+| Grafana **Business Analytics** (`/d/cdc-business`) | Every mart from one completed `refresh_id`, read through the read-only `grafana_reader` ClickHouse user. Business dates follow the simulated clock, not Grafana's time picker. |
+| Grafana **Platform Health** (`/d/cdc-platform`) | Host CPU, memory and disk; Source API throughput, 5xx and p95; PostgreSQL sessions, locks, deadlocks and retained WAL; Kafka offsets and consumer lag; connector and task state; CDC lag, watermark, mart age and reconciliation. |
+| Prometheus alerts | 21 rules (`observability/prometheus/alerts.yml`, tested by `alerts.test.yml`): targets and dependencies down, connector not running, CDC lag, Kafka backlog, watermark stalled, stale marts or reconciliation, data drift, new ingest errors, retained WAL, connections, deadlocks, API errors and latency, host resources, Chat delivery. |
+| Alertmanager → chat-webhook | Groups alerts and posts firing and resolved messages to Google Chat; a failed delivery returns 503 so Alertmanager retries. |
+
+Grafana, Prometheus and Alertmanager listen on localhost only. Setup, verification commands and runbooks: [observability/README.md](../observability/README.md).
+
+---
+
 ## Key Configuration
 
 ### PostgreSQL — logical replication (`postgresql.conf`)
@@ -531,7 +560,7 @@ Two listeners are configured:
 Full reset — wipes all data and volumes:
 
 ```bash
-docker compose down -v           # -v also drops the kafka_data and clickhouse_data volumes
+docker compose down -v           # -v also drops every named volume: Kafka, ClickHouse, Prometheus, Alertmanager, Grafana
 sudo rm -rf source/postgres/data # owned by the container's postgres user
 docker compose up -d
 # Re-register the connector (step 2 above, or the "register" link in the Control Center)
@@ -545,11 +574,9 @@ To rebuild only the warehouse, for example after editing `warehouse/clickhouse/i
 
 The platform review (requirements R1–R27, SLOs and the phased plan) lives in the document *Đánh giá Data Platform & Yêu cầu Scale*. Still open:
 
-- **Operations:** alerts on connector state, replication-slot lag, held-back transactions and failing reconciliation (R26); `max_slot_wal_keep_size` so a stopped connector can't fill the PostgreSQL disk; Debezium connecting as the least-privileged `cdc_user`; secrets and the PII salt out of the repository; pinned image versions.
+- **Operations:** `max_slot_wal_keep_size` so a stopped connector can't fill the PostgreSQL disk (only `wal_keep_size` is set); secrets (database and reader passwords) and the PII salt (`cdc-pii-2026` in `postgres-connector.json`) out of the repository; pin `cp-kafka`, `kafka-ui` and `adminer`, still `:latest`.
+- **Monitoring (R26), still missing:** Debezium JMX (`MilliSecondsBehindSource`, queue size), Kafka under-replicated partitions, ClickHouse part count and query p95, alerts tied to each SLO.
+- **Write path:** measure checkout p99; `flash_sale_items.sold` is still a hot row at peak (R2).
 - **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9); bronze on tiered storage; marts maintained incrementally instead of recomputed; a load test at T1 peak with several simulators.
 - **Repository:** run `quality/gate.sh smoke` in CI on every pull request.
 
-
-## Grafana and monitoring
-
-Business analytics now lives in Grafana; Control Center keeps simulator controls and the live CDC feed. See [monitoring setup, dashboards and runbooks](../observability/README.md).

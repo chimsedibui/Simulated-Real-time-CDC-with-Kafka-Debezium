@@ -1,4 +1,4 @@
-"""CDC Control Center — drives the traffic simulator, tails the CDC stream, reads the ClickHouse warehouse.
+"""CDC Control Center — drives the traffic simulator, tails the CDC stream, checks ClickHouse health.
 
 It never writes to PostgreSQL: generator controls are proxied to the simulator,
 which changes data only through the Source API.

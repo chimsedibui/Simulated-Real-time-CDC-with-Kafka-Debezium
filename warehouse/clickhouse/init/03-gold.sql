@@ -389,7 +389,7 @@ WHERE ingested_at >= now64(3) - INTERVAL 15 MINUTE
 GROUP BY source_table
 ORDER BY source_table;
 
--- Headline numbers for the Control Center (same definitions as above)
+-- Headline numbers for the Grafana Business Analytics dashboard (same definitions as above)
 CREATE OR REPLACE VIEW gold.overview_kpis AS
 SELECT
     count()                                                              AS orders,
