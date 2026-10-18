@@ -1,6 +1,7 @@
-# Applications: the CDC Control Center (simulator control, live CDC feed, warehouse analytics)
+# Applications: the CDC Control Center (simulator control, live CDC feed; analytics live in Grafana)
 services:
   control-center:
+    restart: unless-stopped
     build:
       context: ..                            # needs debezium/postgres-connector.json as well
       dockerfile: apps/control-center/Dockerfile

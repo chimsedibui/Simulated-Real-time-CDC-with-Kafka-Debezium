@@ -1,6 +1,7 @@
 # Event backbone: one KRaft broker and its UI
 services:
   kafka:
+    restart: unless-stopped
     image: confluentinc/cp-kafka:latest
     container_name: kafka
     hostname: kafka
@@ -32,6 +33,7 @@ services:
       start_period: 30s
 
   kafka-ui:
+    restart: unless-stopped
     image: provectuslabs/kafka-ui:latest
     container_name: cdc-kafka-ui
     hostname: kafka-ui

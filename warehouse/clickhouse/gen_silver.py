@@ -17,7 +17,6 @@ a trailing ? makes the column Nullable.
 
 from pathlib import Path
 
-DT = "DT"
 TABLES = {
     "customers": ("state", "id", "id U, full_name S, email S, phone S, segment L, registered_channel L, tier L, "
                   "total_spent I, is_active B, created_at T, updated_at T"),

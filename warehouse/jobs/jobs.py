@@ -17,6 +17,9 @@ from datetime import timedelta
 
 import clickhouse_connect
 import psycopg2
+from prometheus_client import Counter, start_http_server
+
+JOB_ERRORS = Counter("warehouse_job_errors_total", "Failed warehouse loop executions")
 
 LOOP_S = float(os.getenv("JOB_INTERVAL_S", "5"))
 MART_REFRESH_S = float(os.getenv("MART_REFRESH_S", "15"))
@@ -61,21 +64,25 @@ def watermark(ch) -> int:
 
 
 def create_marts(ch):
-    """Mart tables follow the gold views' columns: rebuilt at startup, so a changed view never mismatches."""
+    """Preserve published snapshots across reconnects; schema changes require an explicit migration."""
     for name in MARTS:
-        ch.command(f"DROP TABLE IF EXISTS mart.{name}")
-        ch.command(f"""CREATE TABLE mart.{name} ENGINE = MergeTree ORDER BY (refresh_id, _row)
-                       TTL toDateTime(refreshed_at) + INTERVAL 1 HOUR
+        ch.command(f"""CREATE TABLE IF NOT EXISTS mart.{name} ENGINE = MergeTree ORDER BY (refresh_id, _row)
                        EMPTY AS SELECT toUInt64(0) AS refresh_id, now64(3) AS refreshed_at,
                                        toUInt32(0) AS _row, * FROM gold.{name}(v = 0)""")
+        ddl = ch.query(f"SELECT create_table_query FROM system.tables WHERE database = 'mart' AND name = '{name}'").result_rows[0][0]
+        if "TTL" in ddl:
+            ch.command(f"ALTER TABLE mart.{name} REMOVE TTL")
 
 
 def refresh_marts(ch, v: int) -> bool:
     last = ch.query("SELECT max(refresh_id) FROM ops.mart_refreshes").result_rows[0][0]
-    if last == v:
+    if last == v and ch.query(f"SELECT count() FROM mart.overview_kpis WHERE refresh_id = {v}").result_rows[0][0]:
         return False                            # nothing committed since the last refresh
     started = time.monotonic()
     for name in MARTS:
+        # Clear an incomplete attempt before retrying this watermark; a mutation per refresh would be costly.
+        if ch.query(f"SELECT count() FROM mart.{name} WHERE refresh_id = {v}").result_rows[0][0]:
+            ch.command(f"ALTER TABLE mart.{name} DELETE WHERE refresh_id = {v} SETTINGS mutations_sync = 1")
         ch.command(f"""INSERT INTO mart.{name}
                        SELECT {v}, now64(3), toUInt32(rowNumberInAllBlocks()), * FROM gold.{name}(v = {v})""")
     # recorded last: readers only ever pick a refresh whose marts are all written
@@ -126,7 +133,9 @@ def _now(ch):
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    start_http_server(9109)
     ch = pg = None
+    next_cleanup = 0.0
     next_mart = next_recon = 0.0
     while True:
         try:
@@ -146,7 +155,13 @@ def main():
                 failing = reconcile(ch, pg, v)
                 if failing:
                     log.error("reconciliation failing two runs in a row: %s", ", ".join(failing))
+            if time.monotonic() >= next_cleanup:
+                latest = ch.query("SELECT max(refresh_id) FROM ops.mart_refreshes").result_rows[0][0]
+                for name in MARTS:
+                    ch.command(f"ALTER TABLE mart.{name} DELETE WHERE refresh_id != {latest} AND refreshed_at < now() - INTERVAL 1 HOUR")
+                next_cleanup = time.monotonic() + 3600
         except Exception as e:                  # a dependency not up yet or restarting: try again next round
+            JOB_ERRORS.inc()
             log.warning("run skipped: %s", str(e).splitlines()[0][:200])
             ch = pg = None
         time.sleep(LOOP_S)

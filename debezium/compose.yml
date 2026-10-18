@@ -1,6 +1,7 @@
 # Change data capture: Kafka Connect with the Debezium PostgreSQL connector (config: postgres-connector.json)
 services:
   debezium:
+    restart: unless-stopped
     image: debezium/connect:2.7.3.Final
     container_name: cdc-debezium
     hostname: debezium

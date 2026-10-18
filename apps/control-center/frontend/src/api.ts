@@ -69,45 +69,6 @@ export interface CdcSnapshot {
   last_error: string | null;
 }
 
-export type Row = Record<string, string | number | boolean | null>;
-
-export interface WarehouseOverview {
-  kpis: {
-    orders: number;
-    gmv: number;
-    nmv: number;
-    completed_revenue: number;
-    avg_order_value: number;
-    buyers: number;
-    cancelled: number;
-    active_customers: number;
-    shops: number;
-  };
-  traffic_by_hour: { hour: string; orders: number; placed_gmv: number; orders_with_voucher: number }[];
-  order_status: Row[];
-  funnel: Row[];
-  payments: Row[];
-  shops: Row[];
-  category_sales: Row[];
-  top_products: Row[];
-  inventory_risk: Row[];
-  customer_tiers: Row[];
-  freshness: Row[];
-  layers: Row[];
-  pnl: Row;
-  delivery: Row[];
-  returns: Row[];
-  vouchers: Row[];
-  flash_sales: Row[];
-  settlement: Row[];
-  consistency: {
-    watermark: number;
-    held_back: number;
-    snapshot: { refresh_id: number; finished_at: string; duration_ms: number } | null;
-  };
-  data_quality: { ok: number; failing: number; tables: number; last_run: string | null };
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -131,5 +92,4 @@ export const api = {
   setClock: (speed: number) => request("/api/clock", { method: "PUT", body: JSON.stringify({ speed }) }),
   registerConnector: () => request("/api/connector/register", { method: "POST" }),
   cdc: (since: number) => request<CdcSnapshot>(`/api/cdc?since=${since}`),
-  warehouse: () => request<WarehouseOverview>("/api/warehouse"),
 };

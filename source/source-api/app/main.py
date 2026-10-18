@@ -10,6 +10,7 @@ import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from .db import close_pool, init_pool, transaction
 from .jobs import start_scheduler
@@ -30,6 +31,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Marketplace Source API", version="0.3.0", lifespan=lifespan)
 for module in (admin, sellers, customers, carts, checkouts, orders, logistics, returns):
     app.include_router(module.router)
+
+
+Instrumentator(excluded_handlers=["/health", "/metrics"], should_ignore_untemplated=True).instrument(app).expose(app)
 
 
 @app.get("/health")

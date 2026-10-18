@@ -178,26 +178,13 @@ async def set_clock(request: Request):
     return await _proxy("PUT", "/clock", request)
 
 
-@app.post("/api/generator/seed")
-async def generator_seed(request: Request):
-    return await _proxy("POST", "/seed", request)
-
-
 # ---------------------------------------------------------------------------
-# Live CDC + warehouse
+# Live CDC
 # ---------------------------------------------------------------------------
 
 @app.get("/api/cdc")
 def cdc(since: int = 0):
     return stream.snapshot(since)
-
-
-@app.get("/api/warehouse")
-def warehouse_overview():
-    try:
-        return warehouse.overview()
-    except Exception as exc:
-        raise HTTPException(503, f"ClickHouse unavailable: {exc}")
 
 
 # Built React app (present in the Docker image)

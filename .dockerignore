@@ -4,3 +4,7 @@ source/postgres/data
 **/dist
 **/__pycache__
 docs
+
+observability/secrets
+.env
+.env.*

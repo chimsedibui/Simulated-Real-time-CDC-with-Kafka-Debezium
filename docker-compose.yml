@@ -1,11 +1,3 @@
-# The whole stack, one compose file per responsibility group:
-#   source/     PostgreSQL, Source API, simulator, Adminer
-#   kafka/      broker, Kafka UI
-#   debezium/   Kafka Connect + the PostgreSQL connector
-#   warehouse/  ClickHouse, warehouse jobs
-#   apps/       CDC Control Center
-#   quality/    validator (profile "tools")
-# Local overrides (ports etc.) go in docker-compose.override.yml, which is gitignored and loaded automatically.
 name: realtime-cdc
 
 include:
@@ -15,3 +7,4 @@ include:
   - warehouse/compose.yml
   - apps/compose.yml
   - quality/compose.yml
+  - observability/compose.yml

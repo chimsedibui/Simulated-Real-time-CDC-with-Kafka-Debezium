@@ -1,29 +1,13 @@
-import { useState } from "react";
-import { Radio, Warehouse } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { api } from "./api";
 import { GeneratorPanel } from "./components/GeneratorPanel";
 import { LivePanel } from "./components/LivePanel";
 import { PipelineBar } from "./components/PipelineBar";
-import { WarehousePanel } from "./components/WarehousePanel";
 import { usePoll } from "./hooks";
 
-const TABS = [
-  { id: "live", label: "Live CDC stream", icon: Radio },
-  { id: "warehouse", label: "Warehouse analytics", icon: Warehouse },
-] as const;
-
-type TabId = (typeof TABS)[number]["id"];
-
-const tabFromHash = (): TabId => (window.location.hash === "#warehouse" ? "warehouse" : "live");
-
 export default function App() {
-  const [tab, setTabState] = useState<TabId>(tabFromHash);
   const { data: health } = usePoll(api.health, 3000);
-
-  const setTab = (id: TabId) => {
-    setTabState(id);
-    history.replaceState(null, "", `#${id}`);
-  };
+  const grafana = `${window.location.protocol}//${window.location.hostname}:3000`;
 
   return (
     <div className="min-h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,_rgba(56,189,248,0.08),_transparent_60%)] text-slate-200">
@@ -34,7 +18,7 @@ export default function App() {
               CDC Control Center
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              PostgreSQL → Debezium → Kafka → ClickHouse · generate traffic, watch every change, query the warehouse
+              PostgreSQL → Debezium → Kafka → ClickHouse · generate traffic and watch every change
             </p>
           </div>
         </header>
@@ -47,23 +31,15 @@ export default function App() {
           </aside>
 
           <main className="min-w-0">
-            <nav className="mb-4 inline-flex rounded-xl border border-white/5 bg-slate-900/60 p-1">
-              {TABS.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setTab(id)}
-                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
-                    tab === id ? "bg-slate-700/70 text-white shadow" : "text-slate-400 hover:text-slate-200"
-                  }`}
-                >
-                  <Icon size={15} />
-                  {label}
-                </button>
-              ))}
+            <nav className="mb-4 flex flex-wrap gap-3 text-sm text-sky-400">
+              <a href={`${grafana}/d/cdc-business`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2">
+                Business analytics <ExternalLink size={14} />
+              </a>
+              <a href={`${grafana}/d/cdc-platform`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2">
+                Platform health <ExternalLink size={14} />
+              </a>
             </nav>
-            {/* Keep LivePanel mounted so the feed keeps accumulating while on the warehouse tab */}
-            <div className={tab === "live" ? "" : "hidden"}><LivePanel /></div>
-            {tab === "warehouse" && <WarehousePanel />}
+            <LivePanel />
           </main>
         </div>
       </div>

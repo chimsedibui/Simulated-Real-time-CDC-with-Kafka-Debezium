@@ -74,7 +74,7 @@ class Simulator(Actors):
         self.seq = itertools.count()
         # caches (refreshed periodically)
         self.shops, self.customers, self.customer_weights = {}, [], []
-        self.skus, self.sku_weights, self.sku_by_id = [], [], {}
+        self.skus, self.sku_weights = [], []
         self.vouchers, self.flash_skus = [], set()
         # actor state
         self.payments = []          # heap (due business epoch, seq, job): the mock gateway's pending callbacks
@@ -307,7 +307,6 @@ class Simulator(Actors):
         s = self.cfg["traffic"]["popularity_zipf_s"]
         self.skus = ranked
         self.sku_weights = [1 / (rank + 1) ** s for rank in range(len(ranked))]
-        self.sku_by_id = {r["id"]: r for r in ranked}
 
     def refresh_promotions(self):
         self.vouchers = self.api.query("/vouchers", active=True)

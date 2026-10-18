@@ -4,7 +4,7 @@ which a demo compresses by raising the clock speed rather than by shortening the
 import math
 import os
 
-MINUTE, HOUR, DAY = 60, 3600, 86400
+MINUTE, DAY = 60, 86400
 
 
 def _seconds(name: str, default: float) -> float:

@@ -1,0 +1,62 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=15d"]
+    ports: ["127.0.0.1:9090:9090"]
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    ports: ["127.0.0.1:9093:9093"]
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    restart: unless-stopped
+  chat-webhook:
+    build: ./service
+    command: ["python", "bridge.py"]
+    environment:
+      GRAFANA_PUBLIC_URL: ${GRAFANA_PUBLIC_URL:-http://localhost:3000}
+    volumes:
+      - ./secrets/google-chat-webhook:/run/secrets/google-chat-webhook:ro
+    restart: unless-stopped
+  platform-exporter:
+    build: ./service
+    command: ["python", "exporter.py"]
+    environment:
+      PG_HOST: postgres
+      CLICKHOUSE_HOST: clickhouse
+      DEBEZIUM_URL: http://debezium:8083
+    restart: unless-stopped
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.9.0
+    command: ["--kafka.server=kafka:9092", "--kafka.version=3.0.0", "--offset.show-all"]
+    restart: unless-stopped
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    command: ["--path.procfs=/host/proc", "--path.sysfs=/host/sys", "--path.rootfs=/host/root", "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run)($$|/)"]
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:12.3.0
+    ports: ["127.0.0.1:3000:3000"]
+    environment:
+      GF_INSTALL_PLUGINS: grafana-clickhouse-datasource 4.11.2
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  grafana_data:

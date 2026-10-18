@@ -1,0 +1,27 @@
+name: observability
+on:
+  push:
+    paths: ["observability/**", "**/compose.yml", "docker-compose.yml", ".github/workflows/observability.yml"]
+  pull_request:
+    paths: ["observability/**", "**/compose.yml", "docker-compose.yml", ".github/workflows/observability.yml"]
+jobs:
+  config-and-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose and notification placeholder
+        run: |
+          touch observability/secrets/google-chat-webhook
+          docker compose config --quiet
+      - name: Prometheus config and alert behavior
+        run: |
+          docker compose run --rm --no-deps --entrypoint promtool prometheus check config /etc/prometheus/prometheus.yml
+          docker compose run --rm --no-deps --entrypoint promtool -w /etc/prometheus prometheus test rules alerts.test.yml
+      - name: Alertmanager config
+        run: docker compose run --rm --no-deps --entrypoint amtool alertmanager check-config /etc/alertmanager/alertmanager.yml
+      - name: Webhook formatting and retry contract (no live notifications)
+        run: docker compose run --build --rm --no-deps chat-webhook python -m unittest -v test_bridge.py
+      - name: Generated dashboards match source
+        run: |
+          python3 observability/grafana/generate_dashboards.py
+          git diff --exit-code -- observability/grafana/dashboards

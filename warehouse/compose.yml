@@ -1,6 +1,7 @@
 # Warehouse: ClickHouse (bronze → silver → consistent → gold → marts) and its scheduled jobs
 services:
   clickhouse:
+    restart: unless-stopped
     image: clickhouse/clickhouse-server:25.8
     container_name: cdc-clickhouse
     hostname: clickhouse
@@ -31,6 +32,7 @@ services:
 
   # Scheduled warehouse jobs (marts, business-day close, reconciliation); each run pins one watermark
   warehouse-jobs:
+    restart: unless-stopped
     build: ./jobs
     container_name: cdc-warehouse-jobs
     environment:

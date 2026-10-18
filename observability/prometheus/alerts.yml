@@ -1,0 +1,148 @@
+groups:
+  - name: cdc-platform
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'Metrics target {{ $labels.job }} is unreachable'
+          description: 'Check the service and exporter connectivity. Inspect Platform Health before restarting.'
+      - alert: DependencyDown
+        expr: cdc_dependency_up == 0 or cdc_service_up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: 'CDC dependency is unhealthy'
+          description: 'Dependency {{ $labels.dependency }} / service {{ $labels.service }} failed checks. Inspect logs and database connectivity.'
+      - alert: ConnectorNotRunning
+        expr: cdc_connect_running == 0 and on() cdc_dependency_up{dependency="debezium"} == 1
+        for: 2m
+        labels: {severity: critical, service: debezium}
+        annotations:
+          summary: 'Debezium connector/task is not RUNNING'
+          description: 'Inspect Connect task errors and replication slot health. Increasing consumers will not fix a stopped connector.'
+      - alert: CDCLagHigh
+        expr: cdc_ingest_lag_p95_seconds > 10 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        for: 5m
+        labels: {severity: warning, service: clickhouse}
+        annotations:
+          summary: 'CDC p95 ingestion lag exceeds 10 seconds'
+          description: 'Check Kafka backlog, ClickHouse memory and merges. Consider capacity only if backlog keeps growing.'
+      - alert: KafkaBacklogGrowing
+        expr: sum by(consumergroup) (kafka_consumergroup_lag) > 10000 and sum by(consumergroup) (deriv(kafka_consumergroup_lag[10m])) > 0
+        for: 5m
+        labels: {severity: warning, service: kafka}
+        annotations:
+          summary: 'Consumer backlog is growing: {{ $labels.consumergroup }}'
+          description: 'Backlog exceeds 10k messages and is growing. Compare ingress and processing rates; inspect partitions before adding consumers.'
+      - alert: TransactionWatermarkStalled
+        expr: cdc_oldest_held_transaction_age_seconds > 120 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        for: 2m
+        labels: {severity: critical, service: warehouse}
+        annotations:
+          summary: 'Transaction watermark is held back'
+          description: 'A transaction has not fully landed for over 2 minutes. Inspect individual topic ingestion and ingest errors.'
+      - alert: MartRefreshStale
+        expr: time() - cdc_mart_last_success_timestamp_seconds > 120 and on() increase(cdc_events_total[5m]) > 0 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        for: 2m
+        labels: {severity: warning, service: warehouse-jobs}
+        annotations:
+          summary: 'Mart refresh is stale while CDC is active'
+          description: 'Inspect warehouse-jobs logs, refresh duration and watermark. Business dashboards may show old data.'
+      - alert: ReconciliationStale
+        expr: time() - cdc_reconciliation_last_success_timestamp_seconds > 180 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        for: 3m
+        labels: {severity: warning, service: warehouse-jobs}
+        annotations:
+          summary: 'Scheduled reconciliation has stopped'
+          description: 'No recent reconciliation execution. Inspect warehouse-jobs and source connectivity.'
+      - alert: WarehouseDataDrift
+        expr: cdc_reconciliation_failing_tables > 0 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        for: 2m
+        labels: {severity: critical, service: warehouse}
+        annotations:
+          summary: 'Source and warehouse disagree in consecutive checks'
+          description: 'Inspect ops.reconciliation_status. Resolve ingestion/schema issues before backfilling affected tables.'
+      - alert: IngestErrors
+        expr: increase(cdc_ingest_errors_total[10m]) > 0 and on() cdc_dependency_up{dependency="clickhouse"} == 1
+        labels: {severity: critical, service: clickhouse}
+        annotations:
+          summary: 'ClickHouse quarantined new ingestion errors'
+          description: 'Inspect bronze.ingest_errors and correct the data contract before replay.'
+      - alert: PostgresWALRetained
+        expr: cdc_postgres_slot_retained_wal_bytes > 1073741824
+        for: 5m
+        labels: {severity: warning, service: postgres}
+        annotations:
+          summary: 'Replication slot retains over 1 GiB of WAL'
+          description: 'Check connector progress and free disk space. Do not delete replication slots as a first response.'
+      - alert: PostgresConnectionsHigh
+        expr: cdc_postgres_connections / cdc_postgres_max_connections > 0.8
+        for: 5m
+        labels: {severity: warning, service: postgres}
+        annotations:
+          summary: 'PostgreSQL connections exceed 80% capacity'
+          description: 'Inspect idle sessions, pool configuration and lock waits before adding API replicas.'
+      - alert: PostgresDeadlocks
+        expr: increase(cdc_postgres_deadlocks_total[5m]) > 0
+        labels: {severity: warning, service: postgres}
+        annotations:
+          summary: 'PostgreSQL detected a deadlock'
+          description: 'Inspect PostgreSQL logs and command lock ordering.'
+      - alert: APIErrorRateHigh
+        expr: sum(rate(http_requests_total{job="source-api",status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total{job="source-api"}[5m])),0.001) > 0.05
+        for: 5m
+        labels: {severity: warning, service: source-api}
+        annotations:
+          summary: 'Source API 5xx error rate exceeds 5%'
+          description: 'Inspect database pool saturation, locks and request failures.'
+      - alert: APILatencyHigh
+        expr: histogram_quantile(0.95,sum by(le)(rate(http_request_duration_highr_seconds_bucket{job="source-api"}[5m]))) > 2
+        for: 5m
+        labels: {severity: warning, service: source-api}
+        annotations:
+          summary: 'Source API p95 latency exceeds 2 seconds'
+          description: 'Check DB lock waits and CPU saturation. Scale API only when the application tier is the bottleneck.'
+      - alert: HostCPUHigh
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.85
+        for: 10m
+        labels: {severity: warning, service: host}
+        annotations:
+          summary: 'Host CPU exceeds 85% for 10 minutes'
+          description: 'Correlate with traffic, backlog and latency. Consider more compute if throughput is saturated.'
+      - alert: HostMemoryHigh
+        expr: 1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels: {severity: warning, service: host}
+        annotations:
+          summary: 'Host memory usage exceeds 90%'
+          description: 'Inspect ClickHouse memory and application usage before increasing concurrency.'
+      - alert: DiskSpaceLow
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes < 0.15 and node_filesystem_readonly == 0
+        for: 5m
+        labels: {severity: critical, service: host}
+        annotations:
+          summary: 'Less than 15% disk space remains'
+          description: 'Inspect WAL retention, Kafka retention and warehouse growth.'
+      - alert: ChatDeliveryFailed
+        expr: increase(chat_webhook_deliveries_total{result="error"}[5m]) > 0
+        for: 1m
+        labels: {severity: warning, service: chat-webhook}
+        annotations:
+          summary: 'Google Chat notification delivery failed'
+          description: 'Inspect bridge connectivity and webhook credentials. Alertmanager retries failed deliveries; check its UI if Chat is unavailable.'
+      - alert: CollectorStalled
+        expr: time() - cdc_dependency_last_success_timestamp_seconds > 120
+        for: 2m
+        labels: {severity: critical, service: platform-exporter}
+        annotations:
+          summary: 'Dependency metrics have stopped updating'
+          description: 'Inspect platform-exporter and dependency query timeouts. Successful HTTP scrapes do not guarantee fresh SQL metrics.'
+      - alert: WarehouseJobsFailing
+        expr: increase(warehouse_job_errors_total[5m]) >= 3
+        for: 1m
+        labels: {severity: warning, service: warehouse-jobs}
+        annotations:
+          summary: 'Warehouse jobs are repeatedly failing'
+          description: 'Inspect warehouse-jobs logs and database connectivity; published marts are preserved during reconnect.'

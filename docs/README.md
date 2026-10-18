@@ -466,9 +466,9 @@ SELECT count(), sum(total), countIf(status = 'COMPLETED') FROM silver.orders FIN
 | Pipeline bar | Health of Simulator → Source API → PostgreSQL (orders, replication-slot lag) → Debezium (connector state, one-click register) → Kafka (events/s) → ClickHouse (events stored). |
 | Traffic simulator | Business clock and speed (×60 to ×1440); **Flash sale now** and **Start 11.11** scenarios; tune buyer sessions and new customers per business hour; fire actions ×1/×5/×20; seeding progress and the activity log. |
 | Live CDC stream | Events/s stacked by operation, busiest tables, and a live feed across all tables. Click an UPDATE for the field-level before → after diff. |
-| Warehouse analytics | GMV and NMV, orders, AOV, buyers; placed GMV per business hour; platform take rate, promotion cost, return refunds (cancellation and late-payment refunds shown apart), payouts; carriers; returns by reason; vouchers; flash sales; seller wallets; order pipeline (10 statuses); purchase funnel; payments by method (success rate, refunds); revenue by category; top products; shop scorecard (cancel rate, SLA breaches, time to pack); inventory risk; customer tiers; layer row counts and end-to-end lag. |
+| Analytics links | Open the Grafana **Business Analytics** (all marts from one refresh) and **Platform Health** dashboards; see [observability/README.md](../observability/README.md). |
 
-API (used by the UI): `GET /api/health`, `GET /api/generator`, `POST /api/generator/start|stop|seed`, `PUT /api/generator/config`, `POST /api/actions/{order|cart|advance|customer|cancel|restock|flash_sale|mega_sale}`, `PUT /api/clock`, `GET /api/cdc?since=`, `GET /api/warehouse`, `POST /api/connector/register`.
+API (used by the UI): `GET /api/health`, `GET /api/generator`, `POST /api/generator/start|stop`, `PUT /api/generator/config`, `POST /api/actions/{order|cart|advance|customer|cancel|restock|flash_sale|mega_sale}`, `PUT /api/clock`, `GET /api/cdc?since=`, `POST /api/connector/register`.
 
 Local development with hot reload (with the rest of the stack running in Docker):
 
@@ -548,3 +548,8 @@ The platform review (requirements R1–R27, SLOs and the phased plan) lives in t
 - **Operations:** alerts on connector state, replication-slot lag, held-back transactions and failing reconciliation (R26); `max_slot_wal_keep_size` so a stopped connector can't fill the PostgreSQL disk; Debezium connecting as the least-privileged `cdc_user`; secrets and the PII salt out of the repository; pinned image versions.
 - **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9); bronze on tiered storage; marts maintained incrementally instead of recomputed; a load test at T1 peak with several simulators.
 - **Repository:** run `quality/gate.sh smoke` in CI on every pull request.
+
+
+## Grafana and monitoring
+
+Business analytics now lives in Grafana; Control Center keeps simulator controls and the live CDC feed. See [monitoring setup, dashboards and runbooks](../observability/README.md).
