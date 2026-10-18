@@ -55,7 +55,7 @@ A production-style **Change Data Capture (CDC)** pipeline that streams every INS
 | ClickHouse | `clickhouse/clickhouse-server:25.8` | `8123` / `9000` | Data warehouse — Kafka engine ingestion, bronze/silver/gold |
 | SeaweedFS | `chrislusf/seaweedfs:4.47` | internal | S3-compatible bucket for bronze's cold volume |
 | Control Center | `apps/control-center` (React + FastAPI) | `8000` | Simulator controls, live CDC feed, links to Grafana |
-| Source API | `source/source-api` (FastAPI, 2 Uvicorn workers) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs`, Prometheus metrics at `/metrics` |
+| Source API | `source/source-api` (FastAPI, `API_WORKERS` Uvicorn workers, default 6) | `8100` | **Only writer to PostgreSQL**: business commands, outbox events, idempotency. Docs at `/docs`, Prometheus metrics at `/metrics` |
 | Simulator | `source/simulator` (FastAPI + httpx) | `8200` | Simulated users; changes data only by calling the Source API |
 | Warehouse jobs | `warehouse/jobs` (Python) | `9109` (metrics, internal) | Marts, business-day close, reconciliation at a pinned watermark |
 | Prometheus | `prom/prometheus:v3.2.1` | `127.0.0.1:9090` | Metrics (15 days) and 31 alert rules |
@@ -360,6 +360,8 @@ docker compose --profile tools run --rm validator python check_data.py
 
 `quality/test_stress.py` sends checkouts, cancellations and payments from 24 buyers at the same few SKUs, flash items and vouchers for 20 s, then requires zero deadlocks and no drift in stock, flash quota or voucher quota. Lock-order bugs that ordinary traffic shows once in 100 000 requests show up there in seconds. Put local port overrides in `docker-compose.override.yml` (gitignored).
 
+**Load test.** `quality/load_test.sh [extra_simulators] [seconds] [speed]` runs the main simulator plus extra ones (`simulator-load`, profile `load`) and reports events per minute, commit → ClickHouse lag, API rate and checkout p99, Debezium lag and deadlocks. With 1 + 7 simulators at ×1440 on a 16-core laptop: about 1,800 CDC events/s (peak 1,961) at 620 API requests/s, commit → ClickHouse p95 1.6 s, 0 deadlocks; checkout p99 rises to 3.4 s. The write path is the limit (PostgreSQL ~6 cores, the API ~3), mostly waits on the `inventory` rows of best-selling SKUs; the CDC side keeps its latency. Voucher quota is now claimed at the end of checkout like stock, which took checkout p99 at 6 simulators from 1.96 s to 0.82 s.
+
 Torn reads can only be seen while data is flowing, so they have their own probe. Run it during a simulation:
 
 ```bash
@@ -610,5 +612,5 @@ The platform review (requirements R1–R27, SLOs and the phased plan) lives in t
 - **Security:** API authentication and authorization (logins, scoped tokens, signed partner webhooks), a least-privilege database role for the Source API, file-based secrets instead of environment variables, TLS for Kafka and the databases. Plan in the artifact *Source API auth & secrets plan*. The old development passwords and PII salt remain in git history: rotate them in `.env` for any shared environment.
 - **Marts at scale:** snapshots are incremental (R20), but each mart is still aggregated over the whole snapshot; at T1 volumes the heaviest marts (shop, product, category sales) would need per-day partial aggregates.
 - **Cold storage:** bronze moves to S3 after 30 days (R13/R19); Kafka itself still keeps the broker default retention, and silver is not rebuilt from the lake (R21).
-- **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9, needs bronze and silver rewritten from JSON to Avro); a load test at T1 peak with several simulators.
+- **Scale (T1, 1 million orders a day):** several brokers, partitions keyed by order, Connect workers, PostgreSQL and ClickHouse replicas (R5, R7, R11–R14, R17, R18); Schema Registry (R9, needs bronze and silver rewritten from JSON to Avro); the T1 peak of 5,400 events/s (measured locally: ~1,800, limited by the write path: split the stock of best-selling SKUs into slots like voucher quota).
 
