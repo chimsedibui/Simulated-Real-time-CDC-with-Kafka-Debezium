@@ -583,8 +583,28 @@ CREATE TABLE ecommerce.debezium_signals (
 -- Every table in the schema; Debezium's table.include.list decides what is actually streamed
 CREATE PUBLICATION cdc_publication FOR TABLES IN SCHEMA ecommerce;
 
+-- REPLICA IDENTITY is set here, by the table owner: Debezium connects as cdc_user, which may not ALTER tables.
+-- State tables: FULL, the whole old row in `before` (silver deletes and consistent.* need it).
+-- Append-only tables and the outbox (deleted right after insert): DEFAULT, only the key, less WAL.
+DO $$
+DECLARE t TEXT;
+BEGIN
+    FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'ecommerce'
+             AND tablename NOT IN ('order_status_history', 'inventory_movements', 'shipment_events', 'price_history',
+                                   'seller_ledger_entries', 'outbox_events')
+    LOOP
+        EXECUTE format('ALTER TABLE ecommerce.%I REPLICA IDENTITY FULL', t);
+    END LOOP;
+END
+$$;
+
+-- cdc_user: what Debezium needs and nothing more. REPLICATION (role attribute) for the slot, SELECT for snapshots,
+-- writes only to its own heartbeat and signal tables. The publication is created above by the owner.
 GRANT USAGE ON SCHEMA ecommerce TO cdc_user;
 GRANT SELECT ON ALL TABLES IN SCHEMA ecommerce TO cdc_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA ecommerce GRANT SELECT ON TABLES TO cdc_user;   -- tables added later
+GRANT INSERT, UPDATE ON ecommerce.cdc_heartbeat TO cdc_user;                       -- heartbeat.action.query
+GRANT INSERT ON ecommerce.debezium_signals TO cdc_user;                            -- incremental snapshot windows
 
 CREATE OR REPLACE VIEW ecommerce.cdc_replication_status AS
 SELECT

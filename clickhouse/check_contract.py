@@ -5,7 +5,7 @@ Fails when a source change would otherwise reach the warehouse silently wrong:
   - a source column that is neither in the spec nor listed in NOT_IN_WAREHOUSE (new column forgotten)
   - a spec column missing at the source, or with an incompatible type / nullability
   - a hashed PII column that is not a string in the spec
-  - a state table without REPLICA IDENTITY FULL in the connector (consistent.* needs the before image)
+  - a state table without REPLICA IDENTITY FULL (consistent.* needs the before image)
   - clickhouse/init/02-silver.sql not regenerated after a spec change
 
     PG_HOST=localhost PG_PORT=15432 python3 clickhouse/check_contract.py
@@ -47,14 +47,6 @@ def streamed(table: str) -> bool:
     return re.fullmatch(CONNECTOR["table.include.list"], f"ecommerce.{table}") is not None
 
 
-def identity_of(table: str) -> str:
-    for rule in CONNECTOR["replica.identity.autoset.values"].split(","):
-        pattern, identity = rule.rsplit(":", 1)
-        if re.fullmatch(pattern, f"ecommerce.{table}"):
-            return identity
-    return "DEFAULT"
-
-
 def main():
     pg = psycopg2.connect(host=os.getenv("PG_HOST", "postgres"), port=int(os.getenv("PG_PORT", "5432")),
                           user=os.getenv("PG_USER", "admin"), password=os.getenv("PG_PASSWORD", "admin"),
@@ -68,6 +60,9 @@ def main():
         source = {}
         for table, column, data_type, nullable in cur.fetchall():
             source.setdefault(table, {})[column] = (data_type, nullable)
+        cur.execute("""SELECT c.relname, c.relreplident FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+                       WHERE n.nspname = 'ecommerce' AND c.relkind = 'r'""")
+        identity = dict(cur.fetchall())
 
     problems = []
     masked = {c.split(".", 1)[1] for k, v in CONNECTOR.items() if k.startswith("column.mask.hash") for c in v.split(",")}
@@ -96,8 +91,8 @@ def main():
         for column in source[table]:
             if column not in cols:
                 problems.append(f"{table}.{column}: new source column not in the silver spec (add it, or list why not)")
-        if kind == "state" and identity_of(table) != "FULL":
-            problems.append(f"{table}: state table needs REPLICA IDENTITY FULL in replica.identity.autoset.values")
+        if kind == "state" and identity.get(table) != "f":
+            problems.append(f"{table}: state table needs REPLICA IDENTITY FULL (set in postgres/init.sql)")
 
     generated = (ROOT / "clickhouse" / "init" / "02-silver.sql").read_text()
     if generated != render():

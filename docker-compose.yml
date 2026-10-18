@@ -145,19 +145,6 @@ services:
     networks:
       - real-time-cdc-network
 
-  dashboard:
-    build: ./dashboard
-    container_name: cdc-dashboard
-    ports:
-      - 8501:8501
-    environment:
-      KAFKA_BROKER: kafka:9092
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - real-time-cdc-network
-
   # The only writer to PostgreSQL: business commands, outbox events, idempotency
   source-api:
     build: ./source_api

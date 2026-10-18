@@ -1,3 +1,0 @@
-streamlit==1.41.1
-confluent-kafka==2.6.1
-pandas==2.2.3
