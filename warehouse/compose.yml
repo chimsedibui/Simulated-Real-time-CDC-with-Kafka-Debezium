@@ -11,8 +11,8 @@ services:
       seaweedfs:
         condition: service_healthy
     ports:
-      - 8123:8123   # HTTP interface (Play UI at /play)
-      - 9000:9000   # native protocol (clickhouse-client)
+      - 127.0.0.1:8123:8123   # HTTP interface (Play UI at /play)
+      - 127.0.0.1:9000:9000   # native protocol (clickhouse-client)
     environment:
       CLICKHOUSE_USER: admin
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set it in .env, see .env.example}
@@ -46,7 +46,8 @@ services:
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set it in .env, see .env.example}
       PG_HOST: postgres            # read-only, for reconciliation
-      PG_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
+      PG_USER: app_reader
+      PG_PASSWORD: ${APP_READER_PASSWORD:?set it in .env, see .env.example}
       JOB_INTERVAL_S: 5
       MART_REFRESH_S: 15
       RECONCILE_S: 30

@@ -98,9 +98,13 @@ def checkout(body: CheckoutIn, idempotency_key: str | None = Header(None)):
                JOIN ecommerce.product_skus s ON s.id = i.sku_id
                JOIN ecommerce.products p ON p.id = s.product_id
                JOIN ecommerce.shops sh ON sh.id = p.shop_id
-               WHERE i.sku_id = ANY(%s)""",
+               WHERE i.sku_id = ANY(%s)
+               FOR SHARE OF s""",
             (sorted(wanted, key=str),),
         )
+        # FOR SHARE: a price change in flight (stamped with its business time before it commits) is waited for and
+        # read, and a later one waits for this checkout, so the price read here is the one in force at t below.
+        # It conflicts only with the price update, which locks just that one row: no lock cycle.
         rows = {r["sku_id"]: r for r in cur.fetchall()}
         unavailable = [str(s) for s, r in rows.items()
                        if not (r["sku_active"] and r["product_status"] == "ACTIVE" and r["shop_active"])]

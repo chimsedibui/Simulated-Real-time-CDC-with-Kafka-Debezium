@@ -3,8 +3,11 @@
 # runs it again on an existing one, so a changed .env takes effect.
 set -eu
 psql -v ON_ERROR_STOP=1 -q -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -v admin_pw="$POSTGRES_PASSWORD" -v cdc_pw="$CDC_DB_PASSWORD" -v monitor_pw="$MONITOR_PASSWORD" <<'SQL'
+  -v admin_pw="$POSTGRES_PASSWORD" -v cdc_pw="$CDC_DB_PASSWORD" -v monitor_pw="$MONITOR_PASSWORD" \
+  -v api_pw="$SOURCE_API_DB_PASSWORD" -v reader_pw="$APP_READER_PASSWORD" <<'SQL'
 ALTER ROLE CURRENT_USER PASSWORD :'admin_pw';
 ALTER ROLE cdc_user PASSWORD :'cdc_pw';
 ALTER ROLE monitor_reader PASSWORD :'monitor_pw';
+ALTER ROLE source_api PASSWORD :'api_pw';
+ALTER ROLE app_reader PASSWORD :'reader_pw';
 SQL

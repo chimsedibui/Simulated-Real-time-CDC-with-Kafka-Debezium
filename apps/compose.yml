@@ -7,12 +7,12 @@ services:
       dockerfile: apps/control-center/Dockerfile
     container_name: cdc-control-center
     ports:
-      - 8000:8000
+      - 127.0.0.1:8000:8000
     environment:
       PG_HOST: postgres            # read-only queries for health
       PG_PORT: 5432
-      PG_USER: admin
-      PG_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env, see .env.example}
+      PG_USER: app_reader
+      PG_PASSWORD: ${APP_READER_PASSWORD:?set it in .env, see .env.example}
       PG_DB: enterprise_db
       KAFKA_BROKER: kafka:9092
       DEBEZIUM_URL: http://debezium:8083

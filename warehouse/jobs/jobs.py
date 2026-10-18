@@ -178,7 +178,11 @@ def close_business_days(ch, v: int) -> int:
         SELECT now64(3) AS closed_at, d.*
         FROM gold_snap.daily_sales AS d
         WHERE d.order_date < toDate(latest - INTERVAL 1 HOUR, 'Asia/Ho_Chi_Minh')
-          AND d.order_date NOT IN (SELECT order_date FROM gold.daily_sales_closed)""")
+          AND d.order_date NOT IN (SELECT order_date FROM gold.daily_sales_closed)
+          -- a payment can commit later than an order placed after it (a long transaction at a fast clock):
+          -- the day closes only once none of its orders still awaits payment
+          AND d.order_date NOT IN (SELECT DISTINCT toDate(created_at, 'Asia/Ho_Chi_Minh') FROM snap.orders FINAL
+                                   WHERE status = 'UNPAID')""")
     return ch.query("SELECT count() FROM gold.daily_sales_closed").result_rows[0][0] - before
 
 
